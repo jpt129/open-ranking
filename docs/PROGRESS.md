@@ -68,7 +68,7 @@ Next: once the key works — `scripts/cfbd_fixture_calls.py`, then `cfp ingest c
 
 - spec-guardian confirmed sixteen defects in the first P02 commit; all fixed with tests (DECISIONS.md). One of them, the .env loader keeping an inline comment, was the cause of the CFBD 401s.
 - CFBD live calls, in John's order: fixtures (9), 2026 season (10, including a rerun), 2014–25 games and polls (35), lines (26). 118 calls used this month against an allowance of 700.
-- In the lake: 34,507 game rows (2014–2026), 9,855 poll rows, about 39,000 closing-line rows, and 72 committee releases (1,800 rows) for every season except 2019.
+- In the lake: 31,269 game rows (2014–2026), 9,855 poll rows, 38,479 closing-line rows, and 70 committee releases (1,750 rows) for every season except 2019. Release vintage: 30 archived_authentic, 1 live, 39 reconstructed.
 - Recorded, trimmed fixtures now back the CFBD parser tests.
 
 Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src`, `uv run lint-imports` (4 kept), `uv run pytest -q` (206 passed), `cfp ingest cfbd ...` and `cfp ingest releases ...` as above.
