@@ -17,9 +17,17 @@ from cfp.common.hashing import sha256_hex
 from cfp.common.timeutil import require_utc
 from cfp.forecast.baselines import FINAL_LAG, ap_order, baseline1, baseline2, initial_order, losses_since
 from cfp.forecast.cutoffs import ET, ISSUES, issue_time
-from cfp.forecast.observations import RANKED, ObservationError, fbs_field, label_leaked
+from cfp.forecast.observations import (
+    RANKED,
+    ObservationError,
+    fbs_field,
+    label_leaked,
+    open_points_feature,
+)
 from cfp.ingest.public_time import tuesday_after
+from cfp.open_ranking.frozen import Frozen
 from cfp.release.edition import canonical, input_id
+from cfp.snapshot.build import SnapshotBlocked
 from cfp.store.lake import Lake
 from cfp.store.types import Mode
 
@@ -65,6 +73,8 @@ def build_issue(
     revision: int = 1,
     dry_run: bool = False,
     allow_unresolved: bool = False,
+    frozen: Frozen | None = None,
+    lists: Mapping[str, Any] | None = None,
 ) -> Issue:
     """The forecast for the committee release revealed at `reveal`, from inputs public at the issue cutoff.
 
@@ -75,6 +85,10 @@ def build_issue(
     4.5 hours, within the last week) and is still listed as scheduled, because that means results were not
     ingested. `allow_unresolved` issues anyway and lists those games in the document. A dry run (frozen
     clock) and a replay carry their own edition IDs and are never eligible for prospective scoring.
+
+    With `frozen` parameters and the hand-kept `lists`, open points are built at the cutoff (SC-04a) and
+    break ties among teams level on AP standing. If that build cannot be made, the issue still goes out:
+    open points are listed as a missing input and the reason is in `open_points_error`.
     """
     if revision < 1:
         raise IssueRefused(f"revision must be 1 or more; got {revision}")
@@ -103,7 +117,17 @@ def build_issue(
     eligible: dict[str, bool] = dict(field.iter_rows())
     if not teams:
         raise IssueRefused(f"no FBS teams are on record for {season} at the cutoff")
-    missing = ["open_points", "rank_noise_temperature"]
+    missing = ["rank_noise_temperature"]
+    feature = None
+    feature_error: str | None = None
+    if frozen is not None and lists is not None:
+        try:
+            feature = open_points_feature(lake.open_ranking_view(cutoff, mode), season, frozen, lists)
+        except (SnapshotBlocked, ValueError) as error:
+            feature_error = f"{type(error).__name__}: {error}"
+    if feature is None:
+        missing.insert(0, "open_points")
+    open_points = feature.points if feature is not None else None
 
     releases = read["committee_releases"]
     leaked = label_leaked(releases, reveal)
@@ -156,7 +180,7 @@ def build_issue(
 
     try:
         first = baseline1(teams, ap, draw)
-        placed = baseline2(initial_order(teams, prior, ap, None, draw), losses)
+        placed = baseline2(initial_order(teams, prior, ap, open_points, draw), losses)
     except ValueError as error:
         raise IssueRefused(str(error)) from error
     second = [
@@ -167,6 +191,7 @@ def build_issue(
             "initial": p.initial,
             "losses": p.losses,
             "adjusted": p.adjusted,
+            "open_points_cp": open_points.get(p.team_id) if open_points is not None else None,
             "cfp_eligible": eligible[p.team_id],
         }
         for p in placed
@@ -177,8 +202,10 @@ def build_issue(
     edition_id = f"{stem}-e{revision}"
     inputs = [input_id(name, read[name], lake.spec(name).key) for name in TABLES]
     inputs.append(f"draw:{len(draw)}:{sha256_hex(canonical(dict(sorted(draw.items()))))}")
+    if feature is not None:
+        inputs.append(f"feature:{feature.feature_build_id}")
     doc: dict[str, Any] = {
-        "schema": 1,
+        "schema": 2,
         "edition_id": edition_id,
         "product": PRODUCT,
         "public_name": "Open Ranking Models",
@@ -195,6 +222,19 @@ def build_issue(
         "unresolved_games": unresolved,
         "headline_forecast": "baseline2",
         "missing_inputs": missing,
+        "open_ranking_feature": (
+            {
+                "feature_build_id": feature.feature_build_id,
+                "snapshot_hash": feature.snapshot_hash,
+                "lists_hash": feature.lists_hash,
+                "params_sha256": feature.params_sha256,
+                "formula_hash": feature.formula_hash,
+                "rule_version_id": feature.rule_version_id,
+            }
+            if feature is not None
+            else None
+        ),
+        "open_points_error": feature_error,
         "ap_week": ap_week,
         "fbs_teams": len(teams),
         "forecasts": {

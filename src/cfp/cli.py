@@ -78,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument(
         "--now", help="dry run at a frozen time: separate edition ID, never scored; needs --no-proof"
     )
+    issue.add_argument("--frozen", default="frozen", help="frozen-parameters directory (for open points)")
     issue.add_argument(
         "--allow-unresolved",
         action="store_true",
@@ -336,6 +337,20 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
     if day not in shows:
         print(f"refused: {day} is not a sourced reveal date for {args.season}", file=sys.stderr)
         return 1
+    frozen, lists = None, None
+    try:  # open points (SC-04a); without them the issue still goes out and says so
+        from cfp.open_ranking.frozen import FrozenError, load_frozen
+        from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+
+        frozen = load_frozen(args.frozen, args.season)
+        lists = {
+            "title_games": load_title_games(data / "title_games.csv"),
+            "forfeits": load_forfeits(data / "forfeits.csv"),
+            "unplayed": load_unplayed(data / "unplayed_games.csv"),
+        }
+    except (FrozenError, OSError, ValueError) as error:
+        print(f"WARNING: open points will be missing: {error}", file=sys.stderr)
+        frozen, lists = None, None
     try:
         built = build_issue(
             lake,
@@ -350,6 +365,8 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             revision=args.revision,
             dry_run=dry,
             allow_unresolved=args.allow_unresolved,
+            frozen=frozen,
+            lists=lists,
         )
     except TooEarly as error:
         print(str(error), file=sys.stderr)
@@ -360,6 +377,8 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
     except (IssueRefused, OSError, ValueError) as error:
         print(f"refused: {error}", file=sys.stderr)
         return 1
+    if built.doc["open_points_error"]:
+        print(f"WARNING: open points are missing: {built.doc['open_points_error']}", file=sys.stderr)
     folder = lake.root / "editions"
     superseded = built.doc["supersedes"]
     if superseded and not (folder / superseded).is_dir():

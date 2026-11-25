@@ -158,6 +158,8 @@ Waiting on John:
 
 Open Ranking release step built (`cfp open-ranking build`); 359 tests pass. No Open Ranking edition has been written to the real lake yet.
 
-Next: wire open points into the forecast (SC-04a); the gate (RL-01); the ledger page.
+Release-step review fixes applied (corrections, crash repair, published snapshot rows). Open points are wired into the forecast issue (SC-04a); 368 tests pass.
+
+Next: rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
 
 Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).

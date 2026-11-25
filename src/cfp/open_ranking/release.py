@@ -21,7 +21,7 @@ from cfp.common.hashing import sha256_hex
 from cfp.open_ranking import RULE_VERSION_ID
 from cfp.open_ranking.band import band_ranks, field_size
 from cfp.open_ranking.frozen import Frozen
-from cfp.open_ranking.ledger import FCS_LOSS_CP, FCS_WIN_CP, build_ledgers
+from cfp.open_ranking.ledger import FCS_LOSS_CP, FCS_WIN_CP, build_ledgers, row_dict
 from cfp.open_ranking.link import BOUNDARY, SCALE
 from cfp.open_ranking.ordering import WINDOW_CP, rank_teams
 from cfp.snapshot import build as snapshot_build
@@ -143,21 +143,7 @@ def build_edition(
             key = (ledger.team_id, row.game_id)
             change = row.points_cp - old[key] if previous is not None and key in old else None
             boundary_rows += row.boundary
-            rows.append(
-                {
-                    "game_id": row.game_id,
-                    "week": row.week,
-                    "opponent_id": row.opponent_id,
-                    "site": row.site,
-                    "result": row.result,
-                    "title_game": row.title_game,
-                    "q": row.q,
-                    "boundary": row.boundary,
-                    "points_cp": row.points_cp,
-                    "policy_exception": row.policy_exception,
-                    "revision_cp": change,
-                }
-            )
+            rows.append(row_dict(row) | {"revision_cp": change})
         if ledger.total_cp != sum(item["points_cp"] for item in rows):
             raise ReleaseError(f"{ledger.team_id}: the total is not the sum of its rows")
         wins = sum(1 for item in rows if item["result"] == "W")

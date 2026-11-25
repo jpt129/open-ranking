@@ -6,11 +6,17 @@ denominator. Bid eligibility is a separate flag and never removes a team.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime
+from typing import Any
 
 import polars as pl
 
 from cfp.common.timeutil import require_utc
+from cfp.open_ranking.feature import FeatureBuild, feature_build
+from cfp.open_ranking.frozen import Frozen
+from cfp.snapshot.build import build_snapshot
+from cfp.store.views import OpenRankingView
 
 RANKED = 25
 
@@ -59,3 +65,20 @@ def label_leaked(visible_releases: pl.DataFrame, reveal: datetime) -> bool:
     """True if the release being forecast (or a later one) was already visible at the cutoff (SC-02)."""
     reveal = require_utc(reveal, "reveal")
     return visible_releases.filter(pl.col("reveal_utc") >= reveal).height > 0
+
+
+def open_points_feature(
+    view: OpenRankingView, season: int, frozen: Frozen, lists: Mapping[str, Any]
+) -> FeatureBuild:
+    """Open points at a forecast cutoff (SC-04a): a snapshot through the Open Ranking view, then its formula.
+
+    `lists` holds the hand-kept title_games, forfeits and unplayed lists. No formula lives here.
+    """
+    snapshot = build_snapshot(
+        view,
+        season,
+        title_games=lists["title_games"],
+        forfeits=lists["forfeits"],
+        unplayed=lists["unplayed"],
+    )
+    return feature_build(snapshot, frozen)

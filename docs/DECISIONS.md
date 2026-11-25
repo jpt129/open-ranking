@@ -423,3 +423,15 @@ End-to-end check on a scratch copy of the lake (replay, cutoffs 22 Nov 07:00 and
 - Command-level tests added (`tests/unit/test_open_release_cli.py`).
 
 Left open: the lists hash covers every season of the hand-kept lists, so adding a 2027 row changes a 2026 replay's bytes; `revision_cp` does not show rows dropped since the previous edition; "previous" is the latest earlier edition, not strictly last week's.
+
+## 2026-11-25 — Open points in the forecast (SC-04a)
+
+- `cfp.open_ranking.feature.feature_build(snapshot, frozen)` is the public entry point. It runs the same ledger code as an edition; on the same snapshot its rows are byte-identical to the edition's (`test_feature_build_matches_edition_on_same_snapshot`). A feature build is never written as an edition.
+- `cfp.forecast.observations.open_points_feature` builds the snapshot through `OpenRankingView` at the issue cutoff. Forecast code holds no formula.
+- The issue document (schema 2) records `open_ranking_feature` (feature build ID, snapshot hash, lists hash, frozen-parameters hash, formula hash, rule version), lists `feature:<id>` among its inputs, and gives each Baseline 2 row its `open_points_cp`.
+- Feature build ID: `orf:` + SHA-256 of snapshot hash, parameters hash, formula hash and rule version.
+- **Effect on Baseline 2:** open points only order teams level on AP standing (in practice, teams with no AP votes), before the draw.
+- **If the build cannot be made** (no frozen file, a blocked snapshot, too few teams), the issue still goes out: `open_points` returns to `missing_inputs`, the reason is in `open_points_error`, and the command prints a warning. Claude's choice: a missed forecast deadline cannot be repaired (RL-02), a disclosed gap can.
+- The issue command reads `frozen/` and `data/` relative to the code repository, which is where `scripts/issue.sh` runs.
+
+Replay on a scratch copy (tminus60 for the 24 Nov reveal): all 138 teams carry open points; `missing_inputs` is `rank_noise_temperature` only.

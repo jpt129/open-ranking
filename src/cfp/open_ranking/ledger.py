@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from typing import Final
+from typing import Any, Final
 
 import polars as pl
 
@@ -53,6 +53,23 @@ class Ledger:
     band_strength: float
     home_adv: float
     rule_version_id: str = RULE_VERSION_ID
+
+
+def row_dict(row: Row) -> dict[str, Any]:
+    """A ledger row as it is published."""
+    return {
+        "game_id": row.game_id,
+        "week": row.week,
+        "opponent_id": row.opponent_id,
+        "site": row.site,
+        "result": row.result,
+        "title_game": row.title_game,
+        "q": row.q,
+        "boundary": row.boundary,
+        "points_cp": row.points_cp,
+        "policy_exception": row.policy_exception,
+        "revision_cp": row.revision_cp,
+    }
 
 
 def points_cp(won: bool, q: int) -> int:
