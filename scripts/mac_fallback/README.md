@@ -20,3 +20,6 @@ Remove after 6 Dec:
     launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.openranking.issue-fallback.plist
     launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.openranking.keep-awake.plist
     rm ~/Library/LaunchAgents/com.openranking.*.plist
+
+By hand at any time: `scripts/issue_now.sh` starts the issue that is due; `scripts/issue_now.sh rehearsal`
+runs the whole thing in replay on a temporary copy and writes no edition.
