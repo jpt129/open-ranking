@@ -69,6 +69,9 @@ def build_parser() -> argparse.ArgumentParser:
     fit_maps.add_argument("--first-season", type=int, default=2014)
     fit_maps.add_argument("--frozen", default="frozen")
     fit_maps.add_argument("--report", action="store_true", help="print the tables and write nothing")
+    fit_maps.add_argument(
+        "--correct", metavar="REASON", help="write a numbered correction beside the earlier fit"
+    )
     fit_noise = forecast_kinds.add_parser("fit-noise", help="fit rank-noise temperatures on earlier seasons")
     fit_noise.add_argument("--season", type=int, required=True)
     fit_noise.add_argument("--first-season", type=int, default=2014)
@@ -333,6 +336,9 @@ def _forecast_fit_calibration(args: argparse.Namespace) -> int:
     except (CalibrationError, NoiseError) as error:
         print(f"refused: {error}", file=sys.stderr)
         return 1
+    if args.report and args.correct:
+        print("refused: --report writes nothing; drop it to write a correction", file=sys.stderr)
+        return 1
     cells = document["verification"]["cells"]
     for issue in ISSUES:
         for quantity in QUANTITIES:
@@ -343,6 +349,15 @@ def _forecast_fit_calibration(args: argparse.Namespace) -> int:
                 f"Brier {b['brier']:.5f} -> {a['brier']:.5f}; "
                 + ("VERIFIED" if cell["verified"] else "not verified")
             )
+            if cell["cohort_places"]:
+                near = cell["near_values"]
+                print(
+                    f"  teams at starting places {cell['cohort_places'][0]}-{cell['cohort_places'][1]}; map "
+                    f"intercept {document['maps'][issue][quantity]['intercept']:.4f} slope "
+                    f"{document['maps'][issue][quantity]['slope']:.4f}; held-out values within "
+                    f"{document['near_width']} places: {near['min']:.4f} to {near['max']:.4f} "
+                    f"({'inside' if cell['near_in_bounds'] else 'OUTSIDE'} 0.01-0.99, n {near['n']})"
+                )
             for label, table in (
                 ("raw", cell["reliability_before"]),
                 ("calibrated", cell["reliability_after"]),
@@ -359,7 +374,7 @@ def _forecast_fit_calibration(args: argparse.Namespace) -> int:
         print("refused: the maps are frozen from committed code only; commit first", file=sys.stderr)
         return 1
     try:
-        path, digest = write_calibration(args.frozen, args.season, document)
+        path, digest = write_calibration(args.frozen, args.season, document, correction_reason=args.correct)
     except CalibrationError as error:
         print(f"refused: {error}", file=sys.stderr)
         return 1

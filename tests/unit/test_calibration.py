@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import copy
 import itertools
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -12,8 +14,11 @@ import pytest
 from cfp.forecast.calibration import (
     QUANTITIES,
     CalibrationError,
+    apply_logistic,
     apply_map,
+    cohort,
     fit_calibration,
+    fit_logistic,
     fit_map,
     forecast_rows,
     leave_one_season_out,
@@ -63,6 +68,28 @@ def test_equal_probabilities_share_one_value_and_gaps_are_interpolated() -> None
     assert apply_map(found, 1.0, FLOOR) == pytest.approx(top)
 
 
+def test_logistic_map_is_smooth_monotone_and_recovers_its_parameters() -> None:
+    rng = np.random.default_rng(8)
+    p = rng.uniform(0.02, 0.98, 20000)
+    truth = 1 / (1 + np.exp(-(0.4 + 1.8 * np.log(p / (1 - p)))))
+    y = (rng.uniform(0, 1, 20000) < truth).astype(int)
+    found = fit_logistic(p.tolist(), y.tolist(), FLOOR)
+    assert found.intercept == pytest.approx(0.4, abs=0.08)
+    assert found.slope == pytest.approx(1.8, abs=0.08)
+    out = [apply_logistic(found, float(g), FLOOR) for g in np.linspace(0, 1, 501)]
+    assert all(b >= a for a, b in itertools.pairwise(out))  # never decreasing
+    assert max(b - a for a, b in itertools.pairwise(out[5:-5])) < 0.02  # no steps
+    assert all(FLOOR <= v <= 1 - FLOOR for v in out)  # never 0 or 1
+    with pytest.raises(CalibrationError, match="both outcomes"):
+        fit_logistic([0.2, 0.4], [0, 0], FLOOR)
+
+
+def test_rank_maps_cover_teams_within_ten_places_of_the_rank() -> None:
+    assert cohort("top25") is None
+    assert cohort("rank4") == (1, 14)
+    assert cohort("rank12") == (2, 22)
+
+
 def test_reliability_table_and_scores() -> None:
     table = reliability([0.1, 0.1, 0.9, 0.9], [0, 1, 1, 1], edges=(0.0, 0.5, 1.0))
     assert [(r["n"], r["mean_forecast"], r["observed"]) for r in table] == [(2, 0.1, 0.5), (2, 0.9, 1.0)]
@@ -91,7 +118,9 @@ def past(shaken: bool = True) -> list[Example]:
                     base = sorted(base, key=lambda k, fallen=fallen: k + 10.5 if k in fallen else k)
                 drawn = sample_orders(60, 1.5 if shaken else 2.0, 1, seed=seed)[0]
                 actual = [TEAMS[base[i]] for i in drawn[:25]]
-                out.append(Example(season, number, which, release_kind(number, 6), TEAMS, TEAMS, actual))
+                out.append(
+                    Example(season, number, which, release_kind(number, 6), TEAMS, TEAMS, actual, TEAMS)
+                )
     return out
 
 
@@ -114,11 +143,23 @@ def test_leave_one_season_out_never_fits_a_season_on_itself() -> None:
     assert cell["after"]["brier"] <= cell["before"]["brier"]
     assert cell["verified"] is True
     assert report["seasons"] == list(SEASONS)
+    for which in ("rank4", "rank12"):
+        near = report["cells"]["sun0200"][which]
+        assert near["cohort_places"] == list(cohort(which) or ())
+        assert near["before"]["n"] == len(SEASONS) * 4 * (
+            near["cohort_places"][1] - near["cohort_places"][0] + 1
+        )
+        assert near["near_values"]["min"] <= near["near_values"]["max"]
+        assert near["near_in_bounds"] == (
+            near["near_values"]["min"] >= 0.01 and near["near_values"]["max"] <= 0.99
+        )
+        assert not near["verified"] or near["near_in_bounds"]  # out of bounds near the rank is never verified
+    assert "near_values" not in cell  # the top-25 map covers every team and has no such bound
     assert sum(r["n"] for r in cell["reliability_before"]) == cell["before"]["n"]
     assert sum(r["n"] for r in cell["reliability_after"]) == cell["after"]["n"]
     # change one season's outcomes: its own calibrated values must not move; another season's do
     spoiled = [
-        Example(e.season, e.release_no, e.issue, e.kind, e.baseline1, e.baseline2, TEAMS[::-1][:25])
+        Example(e.season, e.release_no, e.issue, e.kind, e.baseline1, e.baseline2, TEAMS[::-1][:25], TEAMS)
         if e.season == 2022
         else e
         for e in data
@@ -150,8 +191,17 @@ def test_calibration_file_is_written_once_and_checked(tmp_path: Path) -> None:
     assert 0 < loaded.value("sun0200", "top25", 0.5) < 1
     with pytest.raises(CalibrationError, match="no map"):
         loaded.value("sun0200", "nothing", 0.5)
+    assert doc["maps"]["sun0200"]["top25"]["kind"] == "isotonic"
+    assert doc["maps"]["sun0200"]["rank4"]["kind"] == "logistic"
     with pytest.raises(CalibrationError, match="never rewritten"):
         write_calibration(tmp_path, 2026, doc)
+    with pytest.raises(CalibrationError, match="reason"):
+        write_calibration(tmp_path, 2026, doc, correction_reason=" ")
+    again, second = write_calibration(tmp_path, 2026, doc, correction_reason="rank maps refitted")
+    assert again.name == "calibration_2026.c1.json"
+    latest = load_calibration(tmp_path, 2026)
+    assert latest.sha256 == second != digest
+    assert latest.document["supersedes_sha256"] == digest
     path.chmod(0o644)
     path.write_text(path.read_text() + " ")
     with pytest.raises(CalibrationError, match="recorded hash"):
@@ -160,10 +210,21 @@ def test_calibration_file_is_written_once_and_checked(tmp_path: Path) -> None:
         load_calibration(tmp_path / "none", 2026)
 
 
+def tuned(intercept: float) -> dict[str, Any]:
+    """Fitted maps with every cell marked verified and the rank maps set by hand."""
+    doc = copy.deepcopy(fit_calibration(past(), 2026, taus=TAUS, paths=2000))
+    for which in ("sun0200", "tminus60"):
+        for quantity in ("rank4", "rank12"):
+            doc["maps"][which][quantity] |= {"intercept": intercept, "slope": 1.0}
+        for cell in doc["verification"]["cells"][which].values():
+            cell["verified"] = True
+    return doc
+
+
 def test_issue_carries_a_labelled_calibrated_column_for_weekly_forecasts_only(tmp_path: Path) -> None:
     write_noise(tmp_path / "p", 2026, fit_noise(noise_examples(), 2026))
     noise = load_noise(tmp_path / "p", 2026)
-    write_calibration(tmp_path / "p", 2026, fit_calibration(past(), 2026, taus=TAUS, paths=2000))
+    write_calibration(tmp_path / "p", 2026, tuned(0.0))
     maps = load_calibration(tmp_path / "p", 2026)
     plain = issue(world(tmp_path / "a"), noise=noise).doc
     assert plain["rank_noise"]["calibration"] is None
@@ -181,14 +242,105 @@ def test_issue_carries_a_labelled_calibrated_column_for_weekly_forecasts_only(tm
     block = doc["rank_noise"]["calibration"]
     assert block["sha256"] == maps.sha256
     assert "not a promoted model" in block["label"]
-    assert "top25" in block["published"]
-    row = doc["forecasts"]["baseline2"]["rows"][0]
-    assert row["calibrated"]["p_top25"] == maps.value("sun0200", "top25", row["p_top25"])
-    assert set(row["calibrated"]["p_rank_at_most"]) <= {"4", "12"}
+    # in this small world the raw P(rank <= 12) of a team five places off is already under 0.01
+    assert block["published"] == ["top25", "rank4"]
+    assert "outside 0.01-0.99" in block["left_out"]["rank12"]
+    rows = doc["forecasts"]["baseline2"]["rows"]
+    assert all(r["calibrated"]["p_top25"] == maps.value("sun0200", "top25", r["p_top25"]) for r in rows)
+    for r in rows:  # a rank column only for teams within ten places of that rank in the starting order
+        assert ("4" in r["calibrated"]["p_rank_at_most"]) == (1 <= r["initial"] <= 14)
+        assert "12" not in r["calibrated"]["p_rank_at_most"]
+    first = next(r for r in rows if r["initial"] == 3)
+    assert first["calibrated"]["p_rank_at_most"]["4"] == pytest.approx(first["p_rank_at_most"]["4"])
     assert f"calibration:{maps.sha256}" in doc["inputs"]
-    raw = issue(world(tmp_path / "d"), noise=noise, reveals=reveals).doc["forecasts"]["baseline2"]["rows"][0]
-    assert {k: v for k, v in row.items() if k != "calibrated"} == raw  # the raw column is untouched
-    other = fit_calibration(past(), 2027, taus=TAUS, paths=2000)
-    write_calibration(tmp_path / "q", 2027, other)
+    raws = issue(world(tmp_path / "d"), noise=noise, reveals=reveals).doc["forecasts"]["baseline2"]["rows"]
+    assert [{k: v for k, v in r.items() if k != "calibrated"} for r in rows] == raws  # raw column untouched
+    # a rank map that would publish a value past 0.99 near the rank is left out, with the reason
+    write_calibration(tmp_path / "hot", 2026, tuned(9.0))
+    hot = issue(
+        world(tmp_path / "e"),
+        noise=noise,
+        calibration=load_calibration(tmp_path / "hot", 2026),
+        reveals=reveals,
+    ).doc
+    block = hot["rank_noise"]["calibration"]
+    assert block["published"] == ["top25"]
+    assert "outside 0.01-0.99" in block["left_out"]["rank4"]
+    assert all(r["calibrated"]["p_rank_at_most"] == {} for r in hot["forecasts"]["baseline2"]["rows"])
+    failed = tuned(0.0)
+    failed["verification"]["cells"]["sun0200"]["rank4"] |= {
+        "verified": False,
+        "near_in_bounds": False,
+        "near_values": {"n": 9, "min": 0.0001, "max": 1.0},
+    }
+    write_calibration(tmp_path / "no", 2026, failed)
+    said = issue(
+        world(tmp_path / "g"),
+        noise=noise,
+        calibration=load_calibration(tmp_path / "no", 2026),
+        reveals=reveals,
+    ).doc["rank_noise"]["calibration"]
+    assert "rank4" not in said["published"]
+    assert "ran from 0.0001 to 1.0000" in said["left_out"]["rank4"]
+    write_calibration(tmp_path / "q", 2027, fit_calibration(past(), 2027, taus=TAUS, paths=2000))
     with pytest.raises(ValueError, match="2027, not 2026"):
-        issue(world(tmp_path / "e"), noise=noise, calibration=load_calibration(tmp_path / "q", 2027))
+        issue(world(tmp_path / "f"), noise=noise, calibration=load_calibration(tmp_path / "q", 2027))
+
+
+def test_fit_calibration_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The command prints the check, writes once from committed code only, and corrects by a new file."""
+    from cfp import cli
+    from cfp.forecast import calibration
+
+    params = tmp_path / "params"
+    write_noise(params, 2026, fit_noise(noise_examples(), 2026))
+    real = calibration.fit_calibration
+    monkeypatch.setattr("cfp.release.history.past_examples", lambda *a, **k: (past(), ["a note"]))
+    monkeypatch.setattr("cfp.open_ranking.frozen.load_frozen", lambda *a, **k: None)
+    monkeypatch.setattr(calibration, "fit_calibration", lambda e, s, taus: real(e, s, taus=taus, paths=1000))
+    monkeypatch.setattr(cli, "_code_hash", lambda: "abc123-dirty")
+    argv = ["--lake", str(tmp_path / "lake"), "--data", "data", "forecast", "fit-calibration"]
+    argv += ["--season", "2026", "--frozen", str(params)]
+    assert cli.main([*argv, "--report"]) == 0
+    out = capsys.readouterr().out
+    assert "sun0200 top25" in out
+    assert "tminus60 rank12" in out
+    assert "held-out values within 5 places" in out
+    assert "raw: published range" in out
+    assert not list(params.glob("calibration_*"))  # a report writes nothing
+    assert cli.main(argv) == 1  # an uncommitted tree
+    assert "committed code" in capsys.readouterr().err
+    assert not list(params.glob("calibration_*"))
+    monkeypatch.setattr(cli, "_code_hash", lambda: "abc123")
+    assert cli.main(argv) == 0
+    assert "calibration_2026.json: sha256" in capsys.readouterr().out
+    found = load_calibration(params, 2026)
+    assert found.document["code_hash"] == "abc123"
+    assert found.document["problems"] == ["a note"]
+    assert found.document["rank_noise_sha256"] == load_noise(params, 2026).sha256
+    assert found.document["taus"]["sun0200"] == load_noise(params, 2026).tau("baseline2", "sun0200", "weekly")
+    assert cli.main(argv) == 1  # never rewritten
+    assert "never rewritten" in capsys.readouterr().err
+    assert cli.main([*argv, "--report", "--correct", "x"]) == 1
+    capsys.readouterr()
+    assert cli.main([*argv, "--correct", "rank maps refitted"]) == 0
+    assert load_calibration(params, 2026).document["correction"] == 1
+    assert (
+        cli.main(
+            [
+                "--lake",
+                str(tmp_path / "lake"),
+                "--data",
+                "data",
+                "forecast",
+                "fit-calibration",
+                "--season",
+                "2026",
+                "--frozen",
+                str(tmp_path / "empty"),
+            ]
+        )
+        == 1
+    )  # no rank noise to fit with

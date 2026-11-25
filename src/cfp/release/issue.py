@@ -112,37 +112,68 @@ def _calibrate(
         "criterion": maps.document["verification"]["criterion"],
     }
     fitted_on = str(maps.document["fitted_on_kind"])
+    low, high = (float(v) for v in maps.document.get("bounds_near_rank", (0.0, 1.0)))
     if kind != fitted_on:
         return block | {
             "published": [],
             "left_out": f"the maps are fitted on {fitted_on} releases only; this issue forecasts "
             f"the {kind} release, so only the raw column is published",
         }
-    published = [q for q in CALIBRATED_CUTS if maps.verified(issue, q)]
+    left_out: dict[str, str] = {}
+    columns: dict[str, dict[str, float]] = {}  # quantity -> team -> calibrated value
+    for quantity, cut in CALIBRATED_CUTS.items():
+        if not maps.verified(issue, quantity):
+            cell = maps.document["verification"]["cells"].get(issue, {}).get(quantity, {})
+            why = "its map did not pass the leave-one-season-out check"
+            if cell.get("near_in_bounds") is False:
+                seen = cell["near_values"]
+                why = (
+                    f"its map failed the pass rule: held-out values for teams within "
+                    f"{maps.document['near_width']} places of the rank ran from {seen['min']:.4f} to "
+                    f"{seen['max']:.4f}, outside {low}-{high}"
+                )
+            left_out[quantity] = f"{why}; raw only"
+            continue
+        values: dict[str, float] = {}
+        outside: list[str] = []
+        for row in rows:
+            place = int(row["initial"])
+            if not maps.covers(quantity, place):
+                continue
+            raw = row["p_top25"] if quantity == "top25" else row["p_rank_at_most"][str(cut)]
+            values[str(row["team_id"])] = maps.value(issue, quantity, raw)
+            if maps.near(quantity, place) and not low <= values[str(row["team_id"])] <= high:
+                outside.append(str(row["team_id"]))
+        if outside:
+            left_out[quantity] = (
+                f"a value for a team within {maps.document['near_width']} places of the rank fell outside "
+                f"{low}-{high} ({', '.join(outside)}); raw only"
+            )
+            continue
+        columns[quantity] = values
     for row in rows:
+        team = str(row["team_id"])
         column: dict[str, Any] = {}
-        if "top25" in published:
-            column["p_top25"] = maps.value(issue, "top25", row["p_top25"])
+        if team in columns.get("top25", {}):
+            column["p_top25"] = columns["top25"][team]
         column["p_rank_at_most"] = {
-            str(CALIBRATED_CUTS[q]): maps.value(issue, q, row["p_rank_at_most"][str(CALIBRATED_CUTS[q])])
-            for q in published
-            if q != "top25"
+            str(CALIBRATED_CUTS[q]): columns[q][team] for q in columns if q != "top25" and team in columns[q]
         }
         row["calibrated"] = column
     return block | {
-        "published": published,
-        "left_out": ", ".join(q for q in CALIBRATED_CUTS if q not in published) or None,
+        "published": list(columns),
+        "left_out": left_out or None,
         "scores": {
             q: {k: maps.document["verification"]["cells"][issue][q][k] for k in ("before", "after")}
-            for q in published
+            for q in columns
         },
         "notes": [
             "Each value is mapped on its own, so the calibrated column need not add up to 25 teams.",
-            "The map is a step function of the raw value: teams with nearby raw values can share one "
-            "calibrated value, and a small change in the raw value can cross a step.",
-            "The lowest and highest steps pool every past forecast in which the event never, or always, "
-            "happened. Their values (near 0.0001 and 0.998) say how rare an exception was across all such "
-            "forecasts, not for a team just past the step.",
+            "P(top 25) uses a step map of the raw value: teams with nearby raw values can share one "
+            "calibrated value, and a small change in the raw value can cross a step. Its lowest and highest "
+            "steps pool every past forecast in which the event never, or always, happened.",
+            "P(rank at most 4 or 12) uses a smooth map fitted on teams within ten places of that rank in "
+            "the prior release, and is published only for those teams.",
         ],
     }
 
