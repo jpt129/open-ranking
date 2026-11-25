@@ -24,6 +24,10 @@ from cfp.release.issue import IssueRefused, build_issue
 from cfp.store.lake import Lake
 
 
+def _initial(row: Mapping[str, Any]) -> int:
+    return int(row["initial"])
+
+
 def past_examples(
     lake: Lake,
     data: Path,
@@ -78,6 +82,13 @@ def past_examples(
                         forecasts["baseline1"]["order"],
                         [row["team_id"] for row in forecasts["baseline2"]["rows"]],
                         actual,
+                        [row["team_id"] for row in sorted(forecasts["baseline2"]["rows"], key=_initial)],
+                        {
+                            row["team_id"]: row["losses"]
+                            for row in forecasts["baseline2"]["rows"]
+                            if row["losses"]
+                        },
+                        len(shows),
                     )
                 )
     return out, problems

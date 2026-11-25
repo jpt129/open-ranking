@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
 from cfp.common.hashing import sha256_hex
+from cfp.forecast.baselines import LOSS_STEP
 from cfp.forecast.rank_noise import fit_temperature
 
 KINDS: Final = ("opening", "weekly", "final")
@@ -36,6 +37,9 @@ class Example:
     baseline1: Sequence[str]
     baseline2: Sequence[str]
     actual: Sequence[str]
+    initial: Sequence[str] = ()  # Baseline 2's starting order, before losses
+    losses: Mapping[str, int] = field(default_factory=dict)  # losses since that order was set
+    of: int = 0  # releases in the season
 
 
 def release_kind(release_no: int, of: int) -> str:
@@ -66,6 +70,38 @@ def fit_noise(examples: Sequence[Example], season: int) -> dict[str, Any]:
                     "picks": fit.picks,
                     "log_likelihood": fit.log_likelihood,
                 }
+    # The final list seen from one release further back (FF-04): the starting order of the issue before the
+    # last weekly release, five places for each loss in that week and in title week, against the final list.
+    for issue in sorted({e.issue for e in examples}):
+        pairs = []
+        for last in (e for e in examples if e.kind == "final" and e.issue == "sun0200" and e.of > 2):
+            before = [
+                e for e in examples if (e.season, e.release_no, e.issue) == (last.season, last.of - 1, issue)
+            ]
+            if not before or not before[0].initial:
+                continue
+            start = before[0]
+            total = {
+                team: start.losses.get(team, 0) + last.losses.get(team, 0)
+                for team in {*start.losses, *last.losses}
+            }
+            order = [
+                team
+                for _, _, team in sorted(
+                    (place + LOSS_STEP * total.get(team, 0), place, team)
+                    for place, team in enumerate(start.initial, start=1)
+                )
+            ]
+            if set(last.actual) <= set(order):
+                pairs.append((order, last.actual))
+        if pairs:
+            fit = fit_temperature(pairs)
+            temperatures["baseline2"][issue]["final_two_back"] = {
+                "tau": fit.tau,
+                "releases": fit.releases,
+                "picks": fit.picks,
+                "log_likelihood": fit.log_likelihood,
+            }
     return {
         "season": season,
         "model": MODEL,

@@ -108,3 +108,28 @@ def test_issue_publishes_sampled_probabilities(tmp_path: Path) -> None:
     assert "p_top25" not in bare.doc["forecasts"]["baseline2"]["rows"][0]
     assert CUTOFF < REVEAL
     assert json.loads(built.body)["rank_noise"]["seed"] == info["seed"]
+
+
+def test_final_seen_from_two_releases_back() -> None:
+    """A field forecast issued before the last weekly release needs the noise over both remaining steps."""
+    made = []
+    for season in (2023, 2024, 2025):
+        start = list(TEAMS)
+        losses_week = {"T004": 1}
+        losses_title = {"T002": 1}
+        drawn = sample_orders(60, 3.0, 1, seed=season)[0]
+        base = [
+            t
+            for _, _, t in sorted(
+                (k + 1 + 5 * ((t == "T004") + (t == "T002")), k, t) for k, t in enumerate(start)
+            )
+        ]
+        final = [base[i] for i in drawn[:25]]
+        for which in ("sun0200", "tminus60"):
+            made.append(Example(season, 5, which, "weekly", TEAMS, TEAMS, TEAMS[:25], start, losses_week, 6))
+            made.append(Example(season, 6, which, "final", TEAMS, TEAMS, final, start, losses_title, 6))
+    doc = fit_noise(made, 2026)
+    two = doc["temperatures"]["baseline2"]["sun0200"]["final_two_back"]
+    assert two["releases"] == 3
+    assert 1.0 < two["tau"] < 9.0
+    assert "final_two_back" in doc["temperatures"]["baseline2"]["tminus60"]
