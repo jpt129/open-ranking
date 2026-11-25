@@ -498,3 +498,12 @@ John approved the plan and the order (simulator before the fitted ranking model)
 - **Finding, no action.** On the 3,771 past games with both, the spread curve scored slightly better than the moneylines (log loss 0.5446 against 0.5475). The spec's order (moneylines first) is kept.
 - **Real-data check (25 Nov, 20:00 UTC cutoff).** 71 games left; 70 priced from moneylines; the Conference USA title game (placeholder pairing, no quote) is refused until it has a quote or a strength estimate. 10,000 paths with scores take 0.04 s. Over eight seeds of 200,000 paths the largest gap between a simulated win rate and its input was 2.9 standard errors across 71 games, as chance predicts.
 - **Not built:** the strength estimate for unquoted games (P18 has the snapshot it needs); standings and title-game pairings (P18).
+
+**Spec review of P17 (25 Nov).** No numerical or time-leak findings: win rates match at a = 0, 0.5 and 1; the covariance series is within 4.2e-7 of the exact value; the fit's equation has one root; outputs are identical under reordered inputs. Fixed:
+- A missing seed was accepted and drew from the operating system. A seed must now be a whole number (DS-07).
+- One bookmaker reaching the store from two sources was counted twice; books are now matched by name and the later quote counts. Names that differ between sources (for example William Hill) can still count twice.
+- A moneyline pair is dropped and counted when either side is missing, not a number, under 100, or when the two implied probabilities sum below 1.00 or above 1.25. A strength estimate outside 0 to 1 is refused. The slate reports how many books priced each game.
+- Quote ties are broken by a full sort, so row order cannot change a price.
+- Tests renamed to the spec's names (`test_sim_win_rates_within_mc_error`, `test_within_team_dependence_vs_residuals`, `test_seed_recorded_and_reproducible`) and `test_futures_prices_not_in_predictor` added. The dependence test uses simulated seasons; the measurement on real residuals is the figure above, not a test.
+
+Noted, not changed: a = 0.034 is below what this estimator returns on average when the truth is zero (0.057 in the reviewer's simulation), so it is read as no measurable dependence. A quote's age is not checked. Draws for one game change when another game is added to the slate, so two runs with different slates are not comparable path by path. The 10,000-path floor for public forecasts is enforced where an edition is built, not here. An empty slate is returned as empty; the caller decides whether that is an error.

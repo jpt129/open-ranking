@@ -16,6 +16,7 @@ playoff chances: only game lines.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Final
@@ -36,7 +37,7 @@ _EPS: Final = 1e-9
 
 
 def _implied(moneyline: float) -> float:
-    if abs(moneyline) < 100:
+    if not math.isfinite(moneyline) or abs(moneyline) < 100:
         raise ValueError(f"{moneyline!r} is not a valid American moneyline")
     return -moneyline / (-moneyline + 100) if moneyline < 0 else 100 / (moneyline + 100)
 
@@ -85,6 +86,8 @@ def game_probability(
     if spreads:
         return curve.probability(float(np.median(list(spreads)))), "spread"
     if strength is not None:
+        if not 0.0 < strength < 1.0:
+            raise ValueError(f"a strength estimate of {strength!r} is not a probability")
         return strength, "strength"
     raise ValueError("no probability: the game has no moneyline, no spread and no strength estimate")
 
@@ -107,6 +110,8 @@ class ScoreTable:
     @classmethod
     def from_history(cls, history: pl.DataFrame, bins: int = SCORE_BINS) -> ScoreTable:
         p = history["p_home"].to_numpy().astype(np.float64)
+        if not (np.isfinite(p) & (p >= 0.0) & (p <= 1.0)).all():
+            raise ValueError("a past game has a probability outside 0 to 1")
         pts = np.column_stack([history["home_pts"].to_numpy(), history["away_pts"].to_numpy()]).astype(
             np.int64
         )
@@ -153,6 +158,8 @@ def simulate(
     """`n` joint outcomes of `games`. The same games, `a`, seed and score table give the same arrays."""
     if not 0.0 <= a <= 1.0:
         raise ValueError("the dependence weight a must be between 0 and 1")
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ValueError("a recorded seed is needed: a whole number, zero or more")
     if n < 1:
         raise ValueError("at least one path is needed")
     ordered = sorted(games, key=lambda g: g.game_id)

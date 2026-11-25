@@ -81,7 +81,7 @@ def slate() -> list[Game]:
     ]
 
 
-def test_win_rates_match_inputs() -> None:
+def test_sim_win_rates_within_mc_error() -> None:
     for a in (0.0, 0.6, 1.0):
         paths = simulate(slate(), N, a=a, seed=5)
         assert paths.home_won.shape == (N, 6)
@@ -104,7 +104,7 @@ def test_a_zero_independent() -> None:
         simulate(slate(), 10, a=1.2, seed=1)
 
 
-def test_seed_reproducible() -> None:
+def test_seed_recorded_and_reproducible() -> None:
     table = ScoreTable.from_history(history())
     one = simulate(slate(), 500, a=0.5, seed=42, scores=table)
     two = simulate(slate(), 500, a=0.5, seed=42, scores=table)
@@ -113,9 +113,13 @@ def test_seed_reproducible() -> None:
     assert np.array_equal(one.home_won, two.home_won)
     assert np.array_equal(one.home_pts, two.home_pts)
     assert not np.array_equal(one.home_won, other.home_won)
-    assert (
-        simulate(list(reversed(slate())), 500, a=0.5, seed=42).game_ids == one.game_ids
-    )  # sorted by game id
+    back = simulate(list(reversed(slate())), 500, a=0.5, seed=42, scores=table)  # input order does not matter
+    assert back.game_ids == one.game_ids
+    assert np.array_equal(back.home_won, one.home_won)
+    assert np.array_equal(back.away_pts, one.away_pts)
+    for bad in (None, True, -1, 1.5):
+        with pytest.raises(ValueError, match="recorded seed"):
+            simulate(slate(), 5, a=0.5, seed=bad)  # type: ignore[arg-type]
 
 
 def history(n: int = 6000) -> pl.DataFrame:
@@ -172,7 +176,8 @@ def season_of(a: float, seed: int, teams: int = 60, rounds: int = 12) -> pl.Data
     )
 
 
-def test_fit_dependence_recovers_a() -> None:
+def test_within_team_dependence_vs_residuals() -> None:
+    """The weight is read from residuals (result minus probability) of games that share a team."""
     strong = pl.concat([season_of(0.7, seed) for seed in range(1, 13)])
     fit = fit_dependence(strong)
     assert fit.a == pytest.approx(0.7, abs=0.15)
@@ -199,3 +204,32 @@ def test_pair_covariance_matches_the_bivariate_normal() -> None:
         exact = float(joint - norm.cdf(h) * norm.cdf(k))
         got = float(_pair_covariance(np.array([rho]), np.array([h]), np.array([k]))[0])
         assert got == pytest.approx(exact, abs=2e-5)
+
+
+def test_bad_numbers_are_refused() -> None:
+    curve = SpreadCurve(14.0)
+    with pytest.raises(ValueError, match="moneyline"):
+        devig(float("nan"), -110)
+    for bad in (1.7, 0.0, float("nan")):
+        with pytest.raises(ValueError, match="not a probability"):
+            game_probability(curve, moneylines=[], spreads=[], strength=bad)
+    with pytest.raises(ValueError, match="outside 0 to 1"):
+        ScoreTable.from_history(pl.DataFrame({"p_home": [float("nan")], "home_pts": [21], "away_pts": [20]}))
+
+
+def test_futures_prices_not_in_predictor() -> None:
+    """FF-01: the simulator reads game lines only; nothing in it touches a market or futures table."""
+    from pathlib import Path
+
+    import cfp.forecast.sim_inputs as inputs
+    import cfp.forecast.simulator as core
+
+    for module in (core, inputs):
+        code = "\n".join(
+            line
+            for line in Path(str(module.__file__)).read_text().splitlines()
+            if "import" in line or "table(" in line
+        )
+        assert "cfp.markets" not in code
+        assert "futures" not in code
+        assert "market" not in code

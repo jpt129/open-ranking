@@ -73,6 +73,29 @@ def test_consensus_takes_each_books_latest_quote() -> None:
     assert (found["g2"].moneylines, found["g2"].spreads) == ([], [7.0])
 
 
+def test_one_book_from_two_sources_counts_once_and_bad_prices_are_dropped() -> None:
+    lines = pl.DataFrame(
+        [
+            quote("g1", "DraftKings", 9, (-200, 170), -5.0),
+            quote("g1", "oddsapi:draftkings", 2, (-150, 130), -3.0),  # the same book, later: this one counts
+            quote("g1", "oddsapi:fanduel", 2, (-160, 140), -3.5),
+            quote("g1", "x", 2, (150, 150), None),  # the two sides sum below one: not a real price
+            quote("g1", "y", 2, (-900, -900), None),  # sums far above one
+            quote("g1", "z", 2, (float("nan"), -110), None),
+        ],
+        schema_overrides=LINE_SCHEMA,
+    )
+    found = consensus(lines)["g1"]
+    assert sorted(found.moneylines) == [(-160.0, 140.0), (-150.0, 130.0)]
+    assert (found.invalid, found.books) == (3, 5)
+    assert consensus(lines.reverse())["g1"].moneylines == found.moneylines
+    tied = pl.DataFrame(
+        [quote("g", "a", 2, (-300, 250), None), quote("g", "a", 2, (-150, 130), None)],
+        schema_overrides=LINE_SCHEMA,
+    )
+    assert consensus(tied)["g"].moneylines == consensus(tied.reverse())["g"].moneylines
+
+
 def past(season: int, n: int = 400) -> tuple[pl.DataFrame, pl.DataFrame]:
     rng = np.random.default_rng(season)
     games, lines = [], []
@@ -170,6 +193,7 @@ def test_slate_is_the_games_still_to_play() -> None:
     assert by["ml"].p_home == pytest.approx(devig(-150, 130))
     assert by["sp"].p_home == pytest.approx(curve.probability(-7.0))
     assert (by["st"].p_home, by["st"].home_id, by["st"].away_id) == (0.4, "st-h", "st-a")
+    assert made.books == {"ml": 1, "sp": 1, "st": 0}
     assert made.in_progress == ("started",)  # reported, never simulated from a pregame line
     with pytest.raises(ValueError, match="no probability for st"):
         slate(games, lines, CUT, 2026, curve)

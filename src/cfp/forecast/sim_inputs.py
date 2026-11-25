@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Final
 
 import polars as pl
 
@@ -19,10 +20,30 @@ from cfp.forecast.simulator import (
     Game,
     ScoreTable,
     SpreadCurve,
+    _implied,
     fit_dependence,
     fit_spread_curve,
     game_probability,
 )
+
+MIN_BOOK_SUM: Final = 1.0  # the two implied probabilities of a real two-sided price sum to at least one
+MAX_BOOK_SUM: Final = 1.25
+
+
+def book_key(provider: str) -> str:
+    """One name per bookmaker across sources: "oddsapi:draftkings" and "DraftKings" are the same book."""
+    name = provider.split(":", 1)[-1].lower()
+    return "".join(ch for ch in name if ch.isalnum())
+
+
+def _usable(home: float | None, away: float | None) -> bool:
+    if home is None or away is None:
+        return False
+    try:
+        total = _implied(home) + _implied(away)
+    except ValueError:
+        return False
+    return MIN_BOOK_SUM <= total <= MAX_BOOK_SUM
 
 
 @dataclass
@@ -30,24 +51,30 @@ class Quotes:
     moneylines: list[tuple[float, float]] = field(default_factory=list)
     spreads: list[float] = field(default_factory=list)
     invalid: int = 0  # moneyline pairs that could not be used
+    books: int = 0
 
 
 def consensus(lines: pl.DataFrame) -> dict[str, Quotes]:
     """Each game's usable quotes: one per book, that book's most recently published."""
-    latest = (
-        lines.sort("first_public_time", "provider")
-        .group_by("game_id", "provider", maintain_order=True)
-        .last()
-    )
+    keyed = lines.with_columns(book=pl.col("provider").map_elements(book_key, return_dtype=pl.String))
+    order = [
+        "first_public_time",
+        "provider",
+        "ml_home",
+        "ml_away",
+        "spread",
+    ]  # full order: ties cannot matter
+    latest = keyed.sort(order, nulls_last=True).group_by("game_id", "book", maintain_order=True).last()
     out: dict[str, Quotes] = {}
-    for row in latest.sort("game_id", "provider").iter_rows(named=True):
+    for row in latest.sort("game_id", "book").iter_rows(named=True):
         quotes = out.setdefault(row["game_id"], Quotes())
+        quotes.books += 1
         home, away = row["ml_home"], row["ml_away"]
         if home is not None or away is not None:
-            if home is None or away is None or abs(home) < 100 or abs(away) < 100:
-                quotes.invalid += 1
-            else:
+            if _usable(home, away):
                 quotes.moneylines.append((float(home), float(away)))
+            else:
+                quotes.invalid += 1
         if row["spread"] is not None:
             quotes.spreads.append(float(row["spread"]))
     return out
@@ -114,6 +141,7 @@ class Slate:
     sources: dict[str, str]  # game id -> moneyline, spread or strength
     in_progress: tuple[str, ...]  # kicked off before the cutoff with no final score: not simulated
     invalid_quotes: int
+    books: dict[str, int]  # game id -> books quoting it; one book is a thin price and is shown as such
 
 
 def slate(
@@ -137,6 +165,7 @@ def slate(
     sources: dict[str, str] = {}
     started: list[str] = []
     invalid = 0
+    books: dict[str, int] = {}
     for row in open_.iter_rows(named=True):
         gid = row["game_id"]
         if row["start_utc"] <= cutoff:
@@ -144,6 +173,7 @@ def slate(
             continue
         found = quotes.get(gid, Quotes())
         invalid += found.invalid
+        books[gid] = found.books
         try:
             p, source = game_probability(
                 curve, moneylines=found.moneylines, spreads=found.spreads, strength=(strength or {}).get(gid)
@@ -154,4 +184,4 @@ def slate(
             ) from error
         made.append(Game(gid, row["home_id"], row["away_id"], p))
         sources[gid] = source
-    return Slate(tuple(made), sources, tuple(started), invalid)
+    return Slate(tuple(made), sources, tuple(started), invalid, books)
