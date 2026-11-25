@@ -240,3 +240,12 @@ Twelve findings confirmed; fixed with tests unless noted.
 - **Snapshot hash:** SHA-256 over the kept rows in game-ID order as canonical JSON, including each row's correction version and raw hash. It does not include the cutoff, so a feature build and an edition over the same rows share a hash (SC-04a).
 - **Games never played** (2020) cannot come from CFBD, which omits them; they are a sourced list logged in the omissions.
 
+## 2026-11-25 — P02c The Odds API reader (approved by John; DS-01, DS-03, SC-04)
+
+- **Credit cap (Claude, on John's "be realistic"):** the plan is 15M credits a month, shared with John's other projects. This project caps itself at 50,000 a month (0.33%), counted before each request: one credit per market per region, ten times that for historical snapshots. Change `MONTHLY_CREDITS` to move it.
+- **What is pulled now:** current moneyline, spread and total for every listed college game from US-region books, 3 credits a pull, hourly with the market snapshots (about 2,200 credits a month).
+- **Rows** go to `lines` with provider `oddsapi:<book>`, the home team's spread (as CFBD), public at capture time, vintage live. Prices on spreads and totals stay in the archived payload.
+- **Matching:** the API's team names resolve through ESPN display names plus a hand-checked file; an event is tied to the stored game between the same two teams within 36 hours. Anything unmatched is reported and skipped.
+- **Not done:** historical snapshots (available from June 2020). They wait for John's plan for this source; the parser already accepts the historical wrapper.
+- **Schedules:** `scripts/market_snapshot.sh` runs from John's crontab at five past every hour, and at 01:50 ET Sun 29 Nov, 17:50 ET Tue 1 Dec, and 01:50 and 10:50 ET Sun 6 Dec. It needs this machine awake.
+

@@ -28,6 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     cfbd.add_argument("--what", nargs="+", choices=("games", "rankings", "reference", "lines"), required=True)
     cfbd.add_argument("--stage", required=True, help="name for the call counter, e.g. season-2026")
 
+    kinds.add_parser("odds", help="current game lines from The Odds API (3 credits a pull)")
+
     identity = commands.add_parser("identity", help="team identity and conference membership")
     identity.add_subparsers(dest="kind", metavar="<action>", required=True).add_parser(
         "build", help="rebuild teams, aliases and membership from archived payloads"
@@ -108,6 +110,33 @@ def _ingest_cfbd(args: argparse.Namespace) -> int:
             for note in report.notes:
                 print(f"  NOTE {note}")
     print(f"checkpoint: stage used {budget.stage_used(SOURCE, args.stage)}; month used {budget.used(SOURCE)}")
+    return 0
+
+
+def _ingest_odds(args: argparse.Namespace) -> int:
+    import polars as pl
+
+    from cfp.common.env import load_env
+    from cfp.ingest.cfp_releases import load_aliases
+    from cfp.ingest.odds_api import MONTHLY_CREDITS, OddsApi, line_rows
+    from cfp.ingest.upsert import upsert
+    from cfp.store.lake import Lake
+
+    load_env()
+    lake = Lake(args.lake)
+    espn = lake.scan("team_aliases").filter(pl.col("source") == "espn").collect()
+    team_ids = dict(espn.select("alias", "team_id").iter_rows()) | load_aliases(
+        Path(args.data) / "aliases_odds_api.csv"
+    )
+    api = OddsApi.from_env(lake)
+    got = api.odds()
+    rows, report = line_rows(got, team_ids, lake.scan("games").collect())
+    result = upsert(lake, "lines", rows, got.fetched_at, "observed")
+    print(
+        f"lines: new={result.new} from {report.games} games; credits this month {api.used()}/{MONTHLY_CREDITS}"
+    )
+    for line in report.unmatched:
+        print(f"  not matched: {line}")
     return 0
 
 
@@ -207,6 +236,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
     elif args.command == "ingest" and args.kind == "releases":
         return _ingest_releases(args)
+    elif args.command == "ingest" and args.kind == "odds":
+        return _ingest_odds(args)
     elif args.command == "ingest" and args.kind == "cfbd":
         return _ingest_cfbd(args)
     elif args.command == "snapshot":

@@ -1,0 +1,232 @@
+[
+ {
+  "sport_key": "americanfootball_ncaaf",
+  "sport_title": "NCAAF",
+  "commence_time": "2026-11-27T20:30:00Z",
+  "home_team": "San Jose State Spartans",
+  "away_team": "North Dakota State Bison",
+  "bookmakers": [
+   {
+    "key": "fanduel",
+    "title": "FanDuel",
+    "last_update": "2026-11-25T17:31:46Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-11-25T17:31:45Z",
+      "outcomes": [
+       {
+        "name": "North Dakota State Bison",
+        "price": -350
+       },
+       {
+        "name": "San Jose State Spartans",
+        "price": 280
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-11-25T17:31:45Z",
+      "outcomes": [
+       {
+        "name": "North Dakota State Bison",
+        "price": -110,
+        "point": -8.5
+       },
+       {
+        "name": "San Jose State Spartans",
+        "price": -110,
+        "point": 8.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-11-25T17:31:45Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -110,
+        "point": 39.5
+       },
+       {
+        "name": "Under",
+        "price": -110,
+        "point": 39.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "betrivers",
+    "title": "BetRivers",
+    "last_update": "2026-11-25T17:31:42Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-11-25T17:31:42Z",
+      "outcomes": [
+       {
+        "name": "North Dakota State Bison",
+        "price": -400
+       },
+       {
+        "name": "San Jose State Spartans",
+        "price": 295
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-11-25T17:31:42Z",
+      "outcomes": [
+       {
+        "name": "North Dakota State Bison",
+        "price": -110,
+        "point": -9.5
+       },
+       {
+        "name": "San Jose State Spartans",
+        "price": -113,
+        "point": 9.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-11-25T17:31:42Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -105,
+        "point": 40.5
+       },
+       {
+        "name": "Under",
+        "price": -120,
+        "point": 40.5
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "sport_key": "americanfootball_ncaaf",
+  "sport_title": "NCAAF",
+  "commence_time": "2026-11-28T00:30:00Z",
+  "home_team": "Texas A&M Aggies",
+  "away_team": "Texas Longhorns",
+  "bookmakers": [
+   {
+    "key": "draftkings",
+    "title": "DraftKings",
+    "last_update": "2026-11-25T17:32:04Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-11-25T17:32:04Z",
+      "outcomes": [
+       {
+        "name": "Texas A&M Aggies",
+        "price": 350
+       },
+       {
+        "name": "Texas Longhorns",
+        "price": -455
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-11-25T17:32:04Z",
+      "outcomes": [
+       {
+        "name": "Texas A&M Aggies",
+        "price": -115,
+        "point": 11.5
+       },
+       {
+        "name": "Texas Longhorns",
+        "price": -105,
+        "point": -11.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-11-25T17:32:04Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -115,
+        "point": 40.5
+       },
+       {
+        "name": "Under",
+        "price": -105,
+        "point": 40.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "fanduel",
+    "title": "FanDuel",
+    "last_update": "2026-11-25T17:31:46Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-11-25T17:31:44Z",
+      "outcomes": [
+       {
+        "name": "Texas A&M Aggies",
+        "price": 375
+       },
+       {
+        "name": "Texas Longhorns",
+        "price": -490
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-11-25T17:31:44Z",
+      "outcomes": [
+       {
+        "name": "Texas A&M Aggies",
+        "price": -110,
+        "point": 11.5
+       },
+       {
+        "name": "Texas Longhorns",
+        "price": -110,
+        "point": -11.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-11-25T17:31:44Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -110,
+        "point": 40.5
+       },
+       {
+        "name": "Under",
+        "price": -110,
+        "point": 40.5
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+]
