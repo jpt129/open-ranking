@@ -303,3 +303,26 @@ Choices made while building (Claude):
 
 Dry run (scratch copy, replay mode): forecasting the 24 Nov release from the 22 Nov cutoff, Baseline 2 had 22 of the committee's 25 teams with mean rank error 1.64 on those; Baseline 1 had 21 with 2.52.
 
+## 2026-11-25 — P15/P23 review round (spec-guardian) and issues on GitHub Actions
+
+John chose to run issues on GitHub Actions. The `issue` workflow in the private `jpt129/open-ranking-data` repository runs `scripts/issue.sh` from this repository against the lake held there, which is now the store live issues are built from. Each cutoff has four scheduled triggers from two hours before it, because GitHub starts scheduled runs late; the script waits for the cutoff itself and a second run finds the edition already written. The capture and issue workflows share one concurrency group, so only one job writes the lake at a time.
+
+Review findings fixed with tests:
+- **Stale results.** A live issue is refused (exit 18) when a game involving an FBS team should be final by the cutoff (kickoff + 4.5 h, within the last 7 days) and is still listed as scheduled. `--allow-unresolved` issues anyway and lists those games in the edition. The script retries once with that flag, so a forecast still exists, with the gap disclosed. A missing newer AP poll is listed under `missing_inputs` as `latest_ap_poll`.
+- **Dry runs and replays have their own edition IDs** (`-dry`, `-replay`), are never prospective, and a dry run writes no editions row. They can no longer take the live edition's ID.
+- **"Losses since that release" (SC-03), revised.** A loss counts if the game was not yet final at the reveal: kickoff later than the reveal minus 4.5 hours, the same lag used to date results. The first version used kickoff after the reveal, which dropped two 24 Nov games that kicked off 30 minutes before the show and ended after it. Claude's reading of the spec; John has not ruled on it.
+- **AP rank ties** fall to open points, then the draw, not to row order. Only games involving an FBS team are examined, so a tied lower-division game cannot stop an issue.
+- **Edition folders appear in one step** (staged, then renamed) and the folder is read-only. A run that died after writing the folder and before recording it is repaired by the next run. The timestamp request is tried three times; the tag command has a timeout.
+- **A live issue needs committed code:** a `-dirty` or `unknown` code hash is refused.
+- **Corrections** carry `supersedes` and are refused if the edition they supersede does not exist.
+- `build_issue` moved to `cfp.release.issue`, the module the SPEC table names.
+- An AP poll with no "others" votes is now disclosed (`ap_votes_outside_25`) instead of refused, so a failed ESPN read cannot cost the forecast.
+
+Known and not fixed:
+- **Leak marking cannot fire from ingested data** (SC-02): release rows are always public at the scheduled show start, so the store never holds a label before its reveal. A real early leak would have to be marked by hand, and no tool does that yet.
+- If no timestamp authority answers, the edition is written without a token and cannot be given one later.
+- `test_missing_issue_marked` (RL-04) does not exist; missed issues are not recorded yet.
+- The token check confirms the status and that the hash is present; it does not verify the authority's signature (use `openssl ts -verify`).
+
+Rehearsal on Actions (25 Nov 18:16 UTC, replay mode, temporary copy): inputs refreshed, edition built and hashed, timestamp token granted. Two steps did not run because their credentials are not there yet: the CFBD results pull (`CFBD_API_KEY` secret) and the signed tag (`ISSUER_KEY` secret; Claude was not permitted to create a write-access key and John must do it).
+

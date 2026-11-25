@@ -140,3 +140,17 @@ Open
 
 Next prompt: P11-lite, then P05–P08 (the ledger).
 
+## 2026-11-25 (later) — review fixes; issues on GitHub Actions
+
+Done: P15/P23 review findings fixed (304 tests); `scripts/issue.sh`; `issue` workflow in the data repository, rehearsed once.
+
+Blocked on John before Sun 29 Nov 02:00 ET:
+1. Add `CFBD_API_KEY` as a secret on `jpt129/open-ranking-data` (results pull before the cutoff).
+2. Create the issuer key (write deploy key on this repository, private half as the `ISSUER_KEY` secret) so the job can sign and push the tag.
+3. Make this repository public, or the tag proves nothing publicly.
+Then: rerun the rehearsal and confirm all steps pass.
+
+Also open: local cron entries fail hourly (macOS blocks cron from the Desktop folder); the cloud capture replaces them.
+
+Next prompt: P11-lite, then P05–P08.
+
