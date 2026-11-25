@@ -5,6 +5,7 @@ Only the SHA-256 of the edition leaves the machine. Nothing here reads or writes
 
 from __future__ import annotations
 
+import http.client
 import re
 import urllib.request
 from collections.abc import Callable, Sequence
@@ -78,7 +79,7 @@ def request_token(
     for url in authorities:
         try:
             reply = post(url, query)
-        except OSError as error:
+        except (OSError, http.client.HTTPException) as error:
             problems.append(f"{url}: {type(error).__name__}")
             continue
         if granted(reply, sha256):

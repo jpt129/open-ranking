@@ -9,10 +9,11 @@ from typing import Any
 
 import pytest
 
+from cfp import cli
 from cfp.cli import main
 from cfp.common.hashing import sha256_hex
-from cfp.forecast.issue import IssueRefused, build_issue
 from cfp.release.edition import EditionExists, canonical, write_edition
+from cfp.release.issue import IssueRefused, TooEarly, Unresolved, build_issue, due_issue
 from cfp.release.proof import ProofError, granted, post_text, request_token, tag_commands, timestamp_query
 from cfp.store.lake import Lake
 
@@ -179,7 +180,7 @@ def test_issue_builds_baselines_at_the_cutoff(tmp_path: Path) -> None:
     assert any(item.startswith("games:") for item in doc["inputs"])
 
 
-def test_hashes_replay_byte_for_byte(tmp_path: Path) -> None:
+def test_hash_replays_bytewise(tmp_path: Path) -> None:
     lake = world(tmp_path)
     first = issue(lake)
     again = issue(lake, now=CUTOFF + timedelta(hours=30))  # the wall clock is not part of the edition
@@ -215,12 +216,12 @@ def test_issue_refuses_outside_its_window_or_without_inputs(tmp_path: Path) -> N
     lake = world(tmp_path)
     with pytest.raises(IssueRefused, match="after the reveal"):
         issue(lake, now=REVEAL)
-    with pytest.raises(IssueRefused, match="before the cutoff"):
+    with pytest.raises(TooEarly, match="before the cutoff"):
         issue(lake, now=CUTOFF - timedelta(seconds=1))
     with pytest.raises(IssueRefused, match="not a scheduled reveal"):
         issue(lake, reveal=REVEAL + timedelta(days=1))
-    with pytest.raises(IssueRefused, match="votes for teams outside the top 25"):
-        issue(world(tmp_path / "a", others=False))
+    degraded = issue(world(tmp_path / "a", others=False)).doc  # disclosed, not fatal
+    assert "ap_votes_outside_25" in degraded["missing_inputs"]
     with pytest.raises(IssueRefused, match="cfp-2026-01"):
         issue(world(tmp_path / "b", prior=False))  # the schedule says a release exists; the store lacks it
 
@@ -251,7 +252,7 @@ def test_opening_week_anchors_on_ap(tmp_path: Path) -> None:
 # --- write-once editions ---------------------------------------------------------
 
 
-def test_edition_is_write_once(tmp_path: Path) -> None:
+def test_editions_write_once(tmp_path: Path) -> None:
     body = canonical({"b": 1, "a": [2, 1]})
     assert body == b'{"a":[2,1],"b":1}\n'
     folder = write_edition(tmp_path / "editions", "scw-test-e1", body, {"sha256": sha256_hex(body)})
@@ -341,7 +342,7 @@ def test_tag_and_post_text() -> None:
 # --- command line ------------------------------------------------------------------
 
 
-def run_cli(tmp_path: Path, now: datetime, *extra: str) -> int:
+def cli_args(tmp_path: Path, *extra: str) -> list[str]:
     data = tmp_path / "data"
     data.mkdir(exist_ok=True)
     head = "season,release_date,show_date,show_start_et,basis,source_url,quote,notes\n"
@@ -351,8 +352,18 @@ def run_cli(tmp_path: Path, now: datetime, *extra: str) -> int:
     lines = [f"2026,{position},{team},School\n" for team, position in DRAW.items()]
     (data / "preseason_draw_2026.csv").write_text("season,position,team_id,name\n" + "".join(lines))
     argv = ["--lake", str(tmp_path / "lake"), "--data", str(data), "forecast", "issue", "--season", "2026"]
-    argv += ["--issue", "sun0200", "--reveal", "2026-12-01", "--now", now.isoformat(), "--no-proof", *extra]
-    return main(argv)
+    return [*argv, "--issue", "sun0200", "--reveal", "2026-12-01", "--no-proof", *extra]
+
+
+def run_cli(tmp_path: Path, now: datetime, *extra: str) -> int:
+    """A dry run at a frozen time."""
+    return main([*cli_args(tmp_path, *extra), "--now", now.isoformat()])
+
+
+def run_live(tmp_path: Path, now: datetime, monkeypatch: pytest.MonkeyPatch, *extra: str) -> int:
+    """The live command with the clock and the code hash pinned."""
+    monkeypatch.setattr(cli, "_code_hash", lambda: "abc1234")
+    return cli._forecast_issue(cli.build_parser().parse_args(cli_args(tmp_path, *extra)), Clock(now))
 
 
 def test_frozen_clock_after_reveal_exits_nonzero(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -362,21 +373,158 @@ def test_frozen_clock_after_reveal_exits_nonzero(tmp_path: Path, capsys: pytest.
     assert not (tmp_path / "lake" / "editions").exists()
 
 
-def test_cli_writes_the_edition_once_and_records_it(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_issue_refuses_after_reveal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    world(tmp_path)
+    assert run_live(tmp_path, REVEAL, monkeypatch) == 1
+    assert run_live(tmp_path, CUTOFF - timedelta(minutes=1), monkeypatch) == 75  # too early: try again
+    assert not (tmp_path / "lake" / "editions").exists()
+
+
+def test_dry_run_never_takes_the_live_edition_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     lake = world(tmp_path)
     now = CUTOFF + timedelta(minutes=5)
     assert run_cli(tmp_path, now) == 0
+    folder = tmp_path / "lake" / "editions"
+    dry = json.loads((folder / "scw-2026-r02-sun0200-dry-e1" / "edition.json").read_text())
+    assert (dry["dry_run"], dry["prospective_eligible"]) == (True, False)
+    assert lake.scan("editions").collect().height == 0  # a dry run is not recorded as an edition
+    assert main([*cli_args(tmp_path), "--mode", "replay", "--revision", "0"]) == 1
+    assert main([*cli_args(tmp_path), "--mode", "replay"]) == 0
+    assert (folder / "scw-2026-r02-sun0200-replay-e1").is_dir()
+    assert run_live(tmp_path, now, monkeypatch) == 0  # the live ID was still free
+    live = json.loads((folder / "scw-2026-r02-sun0200-e1" / "edition.json").read_text())
+    assert (live["dry_run"], live["prospective_eligible"], live["mode"]) == (False, True, "live")
+
+
+def test_cli_writes_the_edition_once_and_records_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lake = world(tmp_path)
+    now = CUTOFF + timedelta(minutes=5)
+    assert run_live(tmp_path, now, monkeypatch) == 0
     out = capsys.readouterr().out
     folder = tmp_path / "lake" / "editions" / "scw-2026-r02-sun0200-e1"
     body = (folder / "edition.json").read_bytes()
     assert sha256_hex(body) in out
     receipt = json.loads((folder / "receipt.json").read_text())
-    assert (receipt["sha256"], receipt["issued_utc"]) == (sha256_hex(body), now.isoformat())
+    assert (receipt["sha256"], receipt["issued_utc"], receipt["dry_run"]) == (
+        sha256_hex(body),
+        now.isoformat(),
+        False,
+    )
+    assert not folder.stat().st_mode & 0o222  # the folder is read-only too
+    assert not list(folder.parent.glob(".staging-*"))
     stored = lake.scan("editions").collect().row(0, named=True)
     assert (stored["edition_id"], stored["sha256"]) == ("scw-2026-r02-sun0200-e1", sha256_hex(body))
-    assert stored["product"] == "shadow_committee_weekly"
-    assert run_cli(tmp_path, now) != 0  # the same edition cannot be written twice
-    assert run_cli(tmp_path, now, "--revision", "2") == 0  # a correction is a new edition
-    assert (tmp_path / "lake" / "editions" / "scw-2026-r02-sun0200-e2" / "edition.json").is_file()
+    assert (stored["product"], stored["vintage"]) == ("shadow_committee_weekly", "live")
+    assert (stored["first_public_time"], stored["ingest_time"]) == (now, now)
+    assert run_live(tmp_path, now, monkeypatch) == 17  # the same edition cannot be written twice
+    assert lake.scan("editions").collect().height == 1
+
+
+def test_a_run_that_died_before_recording_is_repaired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lake = world(tmp_path)
+    now = CUTOFF + timedelta(minutes=5)
+    built = issue(lake)
+    receipt = {"sha256": built.sha256, "issued_utc": now.isoformat()}
+    write_edition(tmp_path / "lake" / "editions", built.edition_id, built.body, receipt)
+    assert lake.scan("editions").collect().height == 0
+    assert run_live(tmp_path, now + timedelta(minutes=3), monkeypatch) == 17
+    stored = lake.scan("editions").collect().row(0, named=True)
+    assert (stored["sha256"], stored["first_public_time"]) == (built.sha256, now)
+
+
+def test_correction_creates_new_edition(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    world(tmp_path)
+    now = CUTOFF + timedelta(minutes=5)
+    assert run_live(tmp_path, now, monkeypatch, "--revision", "2") == 1  # nothing to supersede yet
+    assert run_live(tmp_path, now, monkeypatch) == 0
+    assert run_live(tmp_path, now, monkeypatch, "--revision", "2") == 0
+    folder = tmp_path / "lake" / "editions"
+    first = (folder / "scw-2026-r02-sun0200-e1" / "edition.json").read_bytes()
+    second = json.loads((folder / "scw-2026-r02-sun0200-e2" / "edition.json").read_text())
+    assert second["supersedes"] == "scw-2026-r02-sun0200-e1"
+    assert json.loads(first)["supersedes"] is None
+    assert (
+        folder / "scw-2026-r02-sun0200-e1" / "edition.json"
+    ).read_bytes() == first  # the original is untouched
+
+
+def test_stale_results_refuse_a_live_issue_unless_disclosed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lake = world(tmp_path)
+    pending = game(
+        lake, "g-pending", home_id="T05", away_id="T06", home_pts=None, away_pts=None, start_utc=SAT
+    )
+    old = game(lake, "g-old", home_id="T07", away_id="T08", start_utc=SAT - timedelta(days=30))
+    late = game(lake, "g-late-kick", home_id="T10", away_id="T11", start_utc=CUTOFF - timedelta(hours=3))
+    lower = game(lake, "g-lower", home_id="X1", away_id="X2", start_utc=SAT)
+    rows = [
+        row | {"status": "scheduled", "home_pts": None, "away_pts": None}
+        for row in (pending, old, late, lower)
+    ]
+    public = datetime(2026, 9, 1, tzinfo=UTC)
+    lake.append(
+        "games", frame("games", [row | {"event_time": public, "first_public_time": public} for row in rows])
+    )
+    with pytest.raises(Unresolved, match="g-pending"):
+        issue(lake)
+    doc = issue(lake, allow_unresolved=True).doc
+    assert doc["unresolved_games"] == [
+        "g-pending"
+    ]  # not the month-old game, the late kickoff or the outsiders
+    assert issue(lake, mode="replay").doc["unresolved_games"] == ["g-pending"]  # a replay only records them
+    now = CUTOFF + timedelta(minutes=5)
+    assert run_live(tmp_path, now, monkeypatch) == 18
+    assert run_live(tmp_path, now, monkeypatch, "--allow-unresolved") == 0
+
+
+def test_live_issue_needs_committed_code_and_notes_a_missing_ap_poll(tmp_path: Path) -> None:
+    lake = world(tmp_path)
+    for bad in ("abc1234-dirty", "unknown"):
+        with pytest.raises(IssueRefused, match="committed code"):
+            issue(lake, code_hash=bad)
+    assert issue(lake, code_hash="abc1234-dirty", dry_run=True).edition_id.endswith("-dry-e1")
+    assert "latest_ap_poll" not in issue(lake).doc["missing_inputs"]  # week 14 finished on Saturday
+    tuesday = issue(lake, issue="tminus60", now=REVEAL - timedelta(minutes=30)).doc
+    assert "latest_ap_poll" in tuesday["missing_inputs"]  # by Tuesday evening the week-15 poll should be in
+
+
+def test_due_issue_picks_the_cutoff_that_is_near() -> None:
+    selection = datetime(2026, 12, 6, 17, 0, tzinfo=UTC)
+    reveals = [PRIOR, REVEAL, selection]
+    assert due_issue(reveals, CUTOFF - timedelta(hours=4)) is None
+    assert due_issue(reveals, CUTOFF - timedelta(hours=2)) == ("sun0200", REVEAL)
+    assert due_issue(reveals, CUTOFF + timedelta(minutes=40)) == (
+        "sun0200",
+        REVEAL,
+    )  # a late start still issues
+    assert due_issue(reveals, CUTOFF + timedelta(hours=2)) is None
+    assert due_issue(reveals, REVEAL - timedelta(minutes=90)) == ("tminus60", REVEAL)
+    assert due_issue(reveals, REVEAL - timedelta(minutes=10)) == ("tminus60", REVEAL)
+    assert due_issue(reveals, REVEAL) is None  # never after the reveal
+    assert due_issue(reveals, selection - timedelta(hours=11)) == ("sun0200", selection)
+    assert due_issue(reveals, selection - timedelta(hours=3)) == ("tminus60", selection)
+
+
+def test_due_command_prints_issue_date_and_cutoff(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    world(tmp_path)
+    run_cli(tmp_path, REVEAL + timedelta(minutes=1))  # writes the data files; refused after the reveal
+    capsys.readouterr()
+    base = [
+        "--lake",
+        str(tmp_path / "lake"),
+        "--data",
+        str(tmp_path / "data"),
+        "forecast",
+        "due",
+        "--season",
+        "2026",
+    ]
+    assert main([*base, "--now", (CUTOFF - timedelta(hours=1)).isoformat()]) == 0
+    assert capsys.readouterr().out.split() == ["sun0200", "2026-12-01", str(int(CUTOFF.timestamp()))]
+    assert main([*base, "--now", (CUTOFF - timedelta(days=2)).isoformat()]) == 0
+    assert capsys.readouterr().out == ""

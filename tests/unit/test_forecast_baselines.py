@@ -169,7 +169,7 @@ def test_initial_order_cfp_then_ap_votes_then_open_points_then_draw() -> None:
         initial_order(TEAMS[:20], cfp, poll, None, DRAW)
 
 
-def test_losses_since_counts_only_later_finals() -> None:
+def test_losses_since_counts_only_games_not_final_at_the_release() -> None:
     since = REVEAL - timedelta(days=7)
     played = games(
         ("T03", "T09", 10, 20, since + timedelta(days=3)),
@@ -181,12 +181,29 @@ def test_losses_since_counts_only_later_finals() -> None:
             14,
             since - timedelta(days=2),
         ),  # before the release: already in the committee's order
-        ("T05", "T06", 21, 20, since + timedelta(days=3)),
+        ("T05", "T06", 21, 20, since - timedelta(minutes=30)),  # kicked off before the show, final after it
+        ("T07", "T08", 21, 20, since - timedelta(hours=5)),  # final before the show
+        ("T60", "T61", 14, 14, since + timedelta(days=1)),  # a tie between teams outside the field is ignored
+        ("T62", "T63", 3, 0, since + timedelta(days=1)),
     )
-    assert losses_since(played, since) == {"T03": 2, "T06": 1}
+    assert losses_since(played, TEAMS, since=since) == {"T03": 2, "T06": 1}
+    assert losses_since(played, TEAMS, since_week=14) == {"T03": 3, "T06": 1, "T08": 1}
+    assert losses_since(played, TEAMS, since_week=15) == {}
     tie = games(("T01", "T02", 14, 14, since + timedelta(days=1)))
     with pytest.raises(ValueError, match="tie"):
-        losses_since(tie, since)
+        losses_since(tie, TEAMS, since=since)
+    with pytest.raises(ValueError, match="no week"):
+        losses_since(played.with_columns(week=pl.lit(None, pl.Int32)), TEAMS, since_week=14)
+
+
+def test_ap_rank_ties_fall_to_open_points_then_the_draw() -> None:
+    poll = ap(TEAMS[:25]).with_columns(
+        rank=pl.when(pl.col("team_id") == "T21").then(20).otherwise(pl.col("rank")).cast(pl.Int32),
+        points=pl.when(pl.col("team_id") == "T21").then(600).otherwise(pl.col("points")).cast(pl.Int32),
+    )  # T20 and T21 share rank 20 on 600 points
+    for frame in (poll, poll.reverse(), poll.sort("team_id", descending=True)):
+        assert baseline1(TEAMS[:30], frame, DRAW)[19:21] == ["T21", "T20"]  # the draw puts T21 first
+        assert initial_order(TEAMS[:30], None, frame, {"T20": 5, "T21": 4}, DRAW)[19:21] == ["T20", "T21"]
 
 
 def test_baseline2_two_losses_move_ten() -> None:

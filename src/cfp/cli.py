@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
+from datetime import date, datetime
 from pathlib import Path
 
 from cfp import __version__
@@ -32,7 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     kinds.add_parser("odds", help="current game lines from The Odds API (3 credits a pull)")
     others = kinds.add_parser("ap-others", help="AP votes for teams outside the top 25, from ESPN")
     others.add_argument("--season", type=int, required=True)
-    others.add_argument("--weeks", type=int, nargs="+", required=True, help="ESPN week numbers")
+    others.add_argument("--weeks", type=int, nargs="+", default=[], help="ESPN week numbers")
+    others.add_argument("--current", action="store_true", help="also read ESPN's current poll")
 
     identity = commands.add_parser("identity", help="team identity and conference membership")
     identity.add_subparsers(dest="kind", metavar="<action>", required=True).add_parser(
@@ -60,6 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     forecast_kinds = forecast.add_subparsers(dest="kind", metavar="<action>", required=True)
     draw = forecast_kinds.add_parser("draw", help="write the season's tiebreak draw to the data directory")
     draw.add_argument("--season", type=int, required=True)
+    due = forecast_kinds.add_parser("due", help="print the issue due now, its reveal date and cutoff, if any")
+    due.add_argument("--season", type=int, required=True)
+    due.add_argument("--now", help="frozen clock, for tests")
     issue = forecast_kinds.add_parser("issue", help="build, write and prove one forecast issue")
     issue.add_argument("--season", type=int, required=True)
     issue.add_argument("--issue", choices=["sun0200", "tminus60"], required=True)
@@ -68,7 +75,14 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--revision", type=int, default=1, help="a correction is a new edition: 2, 3, ...")
     issue.add_argument("--no-proof", action="store_true", help="skip the timestamp token and the signed tag")
     issue.add_argument("--push", action="store_true", help="push the signed tag to origin")
-    issue.add_argument("--now", help="frozen clock for tests and dry runs; requires --no-proof")
+    issue.add_argument(
+        "--now", help="dry run at a frozen time: separate edition ID, never scored; needs --no-proof"
+    )
+    issue.add_argument(
+        "--allow-unresolved",
+        action="store_true",
+        help="issue even if games that should be final are still scheduled, and list them in the edition",
+    )
 
     commands.add_parser("budget", help="show API calls used this month")
     return parser
@@ -176,17 +190,25 @@ def _ingest_ap_others(args: argparse.Namespace) -> int:
     stored = stored.sort("correction_version").unique(["week", "team_id"], keep="last")
     live = args.season == LIVE_SEASON
     failed = False
-    for week in args.weeks:
-        got = espn.get("/rankings", {"seasons": args.season, "types": 2, "weeks": week}, reuse=not live)
+    queries: list[tuple[str, dict[str, object]]] = [
+        (f"ESPN week {week}", {"seasons": args.season, "types": 2, "weeks": week}) for week in args.weeks
+    ]
+    if args.current:
+        queries.append(("ESPN current poll", {}))
+    if not queries:
+        print("nothing to do: give --weeks or --current", file=sys.stderr)
+        return 2
+    for label, query in queries:
+        got = espn.get("/rankings", query, reuse=not live)
         try:
             rows = others_rows(got, stored, by_espn, live)
         except SourceError as error:
             failed = True
-            print(f"ESPN week {week}: FAILED, nothing written: {error}")
+            print(f"{label}: FAILED, nothing written: {error}")
             continue
         result = upsert(lake, "polls", rows, got.fetched_at, "observed" if live else "asserted")
         print(
-            f"ESPN week {week} -> AP week {rows['week'][0]}: {rows.height} teams with votes; "
+            f"{label} -> AP week {rows['week'][0]}: {rows.height} teams with votes; "
             f"new={result.new} corrected={result.corrected} unchanged={result.unchanged}"
         )
     return 1 if failed else 0
@@ -220,6 +242,32 @@ def _forecast_draw(args: argparse.Namespace) -> int:
     return 0
 
 
+EXIT_EXISTS = 17  # the edition is already written
+EXIT_TOO_EARLY = 75  # the cutoff has not passed; try again
+EXIT_UNRESOLVED = 18  # results look stale: games that should be final are still scheduled
+TOKEN_ATTEMPTS = 3
+
+
+def _forecast_due(args: argparse.Namespace) -> int:
+    from datetime import datetime
+
+    from cfp.common.timeutil import require_utc, utc_now
+    from cfp.forecast.cutoffs import ET, issue_time
+    from cfp.ingest.cfp_releases import load_schedule
+    from cfp.release.issue import due_issue
+
+    now = require_utc(datetime.fromisoformat(args.now), "--now") if args.now else utc_now()
+    schedule = load_schedule(Path(args.data) / "cfp_reveals.csv")
+    shows = [reveal.show_start for day, reveal in schedule.items() if day.year == args.season]
+    due = due_issue(shows, now)
+    if due is None:
+        return 0
+    issue, reveal = due
+    cutoff = issue_time(issue, reveal)
+    print(f"{issue} {reveal.astimezone(ET).date().isoformat()} {int(cutoff.timestamp())}")
+    return 0
+
+
 def _code_hash() -> str:
     import subprocess
 
@@ -231,27 +279,28 @@ def _code_hash() -> str:
     return head.stdout.strip() + ("-dirty" if dirty.stdout.strip() else "")
 
 
-def _forecast_issue(args: argparse.Namespace) -> int:
+def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | None = None) -> int:
     import subprocess
-    from datetime import date, datetime
 
     import polars as pl
 
     from cfp.common.timeutil import require_utc, utc_now
     from cfp.forecast.draw import load_draw
-    from cfp.forecast.issue import PRODUCT, RULE_VERSION, IssueRefused, build_issue
     from cfp.ingest.cfp_releases import load_schedule
     from cfp.ingest.upsert import upsert
     from cfp.release import proof
     from cfp.release.edition import EditionExists, write_edition
+    from cfp.release.issue import PRODUCT, RULE_VERSION, IssueRefused, TooEarly, Unresolved, build_issue
     from cfp.store.lake import Lake
     from cfp.store.schemas import TABLES
 
     if args.now and not args.no_proof:
-        print("--now is for tests and dry runs and cannot be combined with a proof", file=sys.stderr)
+        print("--now is a dry run and cannot be combined with a proof", file=sys.stderr)
         return 2
-    now = require_utc(datetime.fromisoformat(args.now), "--now") if args.now else utc_now()
-    lake = Lake(args.lake, clock=(lambda: now) if args.now else utc_now)
+    dry = bool(args.now)
+    clock = clock or utc_now
+    now = require_utc(datetime.fromisoformat(args.now), "--now") if dry else clock()
+    lake = Lake(args.lake, clock=clock)
     data = Path(args.data)
     schedule = load_schedule(data / "cfp_reveals.csv")
     shows = {day: reveal.show_start for day, reveal in schedule.items() if day.year == args.season}
@@ -271,61 +320,102 @@ def _forecast_issue(args: argparse.Namespace) -> int:
             code_hash=_code_hash(),
             draw=load_draw(data / f"preseason_draw_{args.season}.csv", args.season),
             revision=args.revision,
+            dry_run=dry,
+            allow_unresolved=args.allow_unresolved,
         )
-    except IssueRefused as error:
+    except TooEarly as error:
         print(str(error), file=sys.stderr)
+        return EXIT_TOO_EARLY
+    except Unresolved as error:
+        print(str(error), file=sys.stderr)
+        return EXIT_UNRESOLVED
+    except (IssueRefused, OSError, ValueError) as error:
+        print(f"refused: {error}", file=sys.stderr)
         return 1
     folder = lake.root / "editions"
-    if (folder / built.edition_id).exists():
-        print(f"refused: edition {built.edition_id} already exists; use --revision", file=sys.stderr)
+    superseded = built.doc["supersedes"]
+    if superseded and not (folder / superseded).is_dir():
+        print(
+            f"refused: revision {args.revision} would supersede {superseded}, which does not exist",
+            file=sys.stderr,
+        )
         return 1
+
+    def record() -> None:
+        """Append the editions row unless it is there already (a dry run records nothing)."""
+        if dry:
+            return
+        held = lake.scan("editions").filter(pl.col("edition_id") == built.edition_id).collect()
+        if held.height:
+            return
+        body = (folder / built.edition_id / "edition.json").read_bytes()
+        issued = require_utc(
+            datetime.fromisoformat(
+                json.loads((folder / built.edition_id / "receipt.json").read_text())["issued_utc"]
+            ),
+            "issued_utc",
+        )
+        doc = json.loads(body)
+        row = {
+            "edition_id": built.edition_id,
+            "season": args.season,
+            "product": PRODUCT,
+            "issue_utc": built.cutoff,
+            "input_ids": doc["inputs"],
+            "seed": None,
+            "code_hash": doc["code_hash"],
+            "rule_version_id": RULE_VERSION,
+            "sha256": hashlib.sha256(body).hexdigest(),
+            "source_id": "cfp:forecast issue",
+            "event_time": built.cutoff,
+            "first_public_time": issued,
+            "raw_hash": lake.put_raw(body),
+            "vintage": "live" if args.mode == "live" else "reconstructed",
+        }
+        keep = ("correction_version", "ingest_time")
+        schema = {k: v for k, v in TABLES["editions"].schema.items() if k not in keep}
+        upsert(lake, "editions", pl.DataFrame([row], schema=schema), clock(), "asserted")
+
+    if (folder / built.edition_id).exists():
+        record()  # repairs a run that died between writing the folder and recording it
+        print(f"edition {built.edition_id} already exists; use --revision for a correction", file=sys.stderr)
+        return EXIT_EXISTS
     receipt: dict[str, object] = {
         "edition_id": built.edition_id,
         "sha256": built.sha256,
         "issued_utc": now.isoformat(),
-        "frozen_clock": bool(args.now),
-        "tag": None,
+        "dry_run": dry,
+        "tag_name": None if args.no_proof else proof.tag_name(built.edition_id),
         "timestamp_authority": None,
     }
     extra: dict[str, bytes] = {}
     problems: list[str] = []
     if not args.no_proof:
-        receipt["tag"] = proof.tag_name(built.edition_id)
-        try:
-            token, authority = proof.request_token(built.sha256)
-        except proof.ProofError as error:
-            problems.append(str(error))
-        else:
-            extra["timestamp.tsr"] = token
-            receipt["timestamp_authority"] = authority
+        for attempt in range(TOKEN_ATTEMPTS):
+            try:
+                token, authority = proof.request_token(built.sha256)
+            except proof.ProofError as error:
+                if attempt + 1 == TOKEN_ATTEMPTS:
+                    problems.append(str(error))
+                else:
+                    time.sleep(5)
+            else:
+                extra["timestamp.tsr"] = token
+                receipt["timestamp_authority"] = authority
+                break
     try:
         where = write_edition(folder, built.edition_id, built.body, receipt, extra)
     except EditionExists as error:
         print(str(error), file=sys.stderr)
-        return 1
-    row = {
-        "edition_id": built.edition_id,
-        "season": args.season,
-        "product": PRODUCT,
-        "issue_utc": built.cutoff,
-        "input_ids": built.doc["inputs"],
-        "seed": None,
-        "code_hash": built.doc["code_hash"],
-        "rule_version_id": RULE_VERSION,
-        "sha256": built.sha256,
-        "source_id": "cfp:forecast issue",
-        "event_time": built.cutoff,
-        "first_public_time": now,
-        "raw_hash": lake.put_raw(built.body),
-        "vintage": "live" if args.mode == "live" and not args.now else "reconstructed",
-    }
-    schema = {
-        k: v for k, v in TABLES["editions"].schema.items() if k not in ("correction_version", "ingest_time")
-    }
-    upsert(lake, "editions", pl.DataFrame([row], schema=schema), now, "asserted")
+        return EXIT_EXISTS
+    record()
     if not args.no_proof:
         for command in proof.tag_commands(built.edition_id, built.sha256, args.push):
-            done = subprocess.run(command, capture_output=True, text=True, check=False)
+            try:
+                done = subprocess.run(command, capture_output=True, text=True, check=False, timeout=90)
+            except subprocess.TimeoutExpired:
+                problems.append(f"{' '.join(command[:3])} timed out")
+                break
             if done.returncode != 0:
                 problems.append(f"{' '.join(command[:3])} failed: {done.stderr.strip()[:200]}")
                 break
@@ -333,8 +423,10 @@ def _forecast_issue(args: argparse.Namespace) -> int:
     print(f"edition {built.edition_id} written to {where}")
     print(f"  eligible for prospective scoring: {built.doc['prospective_eligible']}")
     print(f"  not available at this issue: {', '.join(built.doc['missing_inputs'])}")
-    for row_ in top:
-        print(f"  {row_['position']:>2}. {row_['name']}")
+    if built.doc["unresolved_games"]:
+        print(f"  games still listed as scheduled: {', '.join(built.doc['unresolved_games'])}")
+    for placed in top:
+        print(f"  {placed['position']:>2}. {placed['name']}")
     print()
     print(proof.post_text(built.edition_id, built.sha256, built.cutoff, built.reveal))
     for problem in problems:
@@ -444,6 +536,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ingest_ap_others(args)
     elif args.command == "forecast" and args.kind == "draw":
         return _forecast_draw(args)
+    elif args.command == "forecast" and args.kind == "due":
+        return _forecast_due(args)
     elif args.command == "forecast" and args.kind == "issue":
         return _forecast_issue(args)
     elif args.command == "ingest" and args.kind == "cfbd":

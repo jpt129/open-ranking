@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -56,15 +57,23 @@ def write_edition(
             raise ValueError(f"not a file name: {name!r}")
     folder = Path(root) / edition_id
     Path(root).mkdir(parents=True, exist_ok=True)
-    try:
-        folder.mkdir()
-    except FileExistsError as error:
-        raise EditionExists(f"edition {edition_id} already exists; issue a new revision") from error
+    if folder.exists():
+        raise EditionExists(f"edition {edition_id} already exists; issue a new revision")
+    staging = Path(root) / f".staging-{edition_id}-{uuid.uuid4().hex}"
+    staging.mkdir()
     for name, payload in files.items():
-        path = folder / name
+        path = staging / name
         with path.open("xb") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
         path.chmod(0o444)
+    try:
+        staging.rename(folder)  # one step: the edition appears complete or not at all
+    except OSError as error:
+        for path in staging.iterdir():
+            path.unlink()
+        staging.rmdir()
+        raise EditionExists(f"edition {edition_id} already exists; issue a new revision") from error
+    folder.chmod(0o555)
     return folder

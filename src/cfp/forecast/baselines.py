@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import polars as pl
 
 LOSS_STEP = 5
+FINAL_LAG = timedelta(hours=4, minutes=30)  # kickoff to final; the same lag dates results in the store
 
 
 @dataclass(frozen=True)
@@ -33,16 +34,20 @@ def ap_order(ap: pl.DataFrame) -> list[tuple[int, str, int]]:
     if ap.height == 0:
         raise ValueError("no AP poll is available")
     latest = ap.filter(pl.col("week") == ap["week"].max())
-    ranked = latest.filter(pl.col("rank").is_not_null()).sort("rank")
+    ranked = latest.filter(pl.col("rank").is_not_null()).sort(["rank", "team_id"])
     others = latest.filter(pl.col("rank").is_null()).sort(["points", "team_id"], descending=[True, False])
     rows = [*ranked.iter_rows(named=True), *others.iter_rows(named=True)]
     return [(int(row["week"]), row["team_id"], int(row["points"] or 0)) for row in rows]
 
 
-def _votes(ap: pl.DataFrame) -> tuple[list[str], dict[str, int]]:
-    order = ap_order(ap)
-    ranked = set(ap.filter(pl.col("rank").is_not_null() & (pl.col("week") == order[0][0]))["team_id"])
-    return [team for _, team, _ in order if team in ranked], {team: points for _, team, points in order}
+def _standing(ap: pl.DataFrame) -> tuple[dict[str, int], dict[str, int]]:
+    """(AP rank by team, AP points by team) for the latest poll. Teams sharing a rank share the number."""
+    if ap.height == 0:
+        raise ValueError("no AP poll is available")
+    latest = ap.filter(pl.col("week") == ap["week"].max())
+    ranks = {r["team_id"]: int(r["rank"]) for r in latest.iter_rows(named=True) if r["rank"] is not None}
+    points = {r["team_id"]: int(r["points"] or 0) for r in latest.iter_rows(named=True)}
+    return ranks, points
 
 
 def baseline1(teams: Sequence[str], ap: pl.DataFrame, draw: Mapping[str, int]) -> list[str]:
@@ -60,13 +65,13 @@ def initial_order(
     """Baseline 2's starting order over `teams`.
 
     The prior committee top 25 in order (none on the opening week, when AP is the anchor), then every other
-    team by AP standing: ranked teams in rank order, then by votes. Equal votes fall to open points when
-    given (a team without open points sorts after those with), then to the draw. Votes for a team outside
+    team by AP standing: ranked teams in rank order, then by votes. Equal ranks or votes fall to open points
+    when given (a team without open points sorts after those with), then to the draw. Votes for a team outside
     the field (AP voters sometimes name an FCS team) are ignored.
     """
     field = set(teams)
     head = list(prior_cfp or [])
-    ap_ranked, votes = _votes(ap)
+    ranks, votes = _standing(ap)
     for team in head:
         if team not in field:
             raise ValueError(f"{team} is in the committee's 25 but is not in the field")
@@ -74,15 +79,14 @@ def initial_order(
     if missing:
         raise ValueError(f"the draw does not cover {missing[0]}")
     placed = set(head)
-    rank_of = {team: place for place, team in enumerate(ap_ranked)}
     points = open_points or {}
+    unranked = max(ranks.values(), default=0) + 1
 
     def key(team: str) -> tuple[int, int, int, int, int]:
-        has_points = team in points
         return (
-            rank_of.get(team, len(rank_of)),
+            ranks.get(team, unranked),
             -votes.get(team, 0),
-            0 if has_points else 1,
+            0 if team in points else 1,
             -points.get(team, 0),
             draw[team],
         )
@@ -91,13 +95,28 @@ def initial_order(
 
 
 def losses_since(
-    games: pl.DataFrame, since: datetime | None = None, since_week: int | None = None
+    games: pl.DataFrame,
+    teams: Sequence[str],
+    since: datetime | None = None,
+    since_week: int | None = None,
 ) -> dict[str, int]:
-    """Losses in final games that kicked off after `since`, or (AP anchor) in weeks from `since_week`."""
-    finals = games.filter(pl.col("status") == "final")
+    """Losses by `teams` in final games the anchor could not have counted.
+
+    With a committee release as the anchor, those are games not yet final at its reveal: kickoff later than
+    the reveal minus FINAL_LAG (4.5 hours, the same lag used to date results). With an AP poll as the anchor
+    they are games in weeks from `since_week`. Games between two teams outside `teams` are ignored.
+    """
+    field = set(teams)
+    finals = games.filter(
+        (pl.col("status") == "final") & (pl.col("home_id").is_in(teams) | pl.col("away_id").is_in(teams))
+    )
     if since is not None:
-        finals = finals.filter(pl.col("start_utc") > since)
+        if finals["start_utc"].null_count():
+            raise ValueError("a final game has no kickoff time")
+        finals = finals.filter(pl.col("start_utc") > since - FINAL_LAG)
     if since_week is not None:
+        if finals["week"].null_count():
+            raise ValueError("a final game has no week")
         finals = finals.filter(pl.col("week") >= since_week)
     out: dict[str, int] = {}
     for row in finals.iter_rows(named=True):
@@ -107,7 +126,8 @@ def losses_since(
         if home == away:
             raise ValueError(f"{row['game_id']}: a {home}-{away} tie is not a result")
         loser = row["away_id"] if home > away else row["home_id"]
-        out[loser] = out.get(loser, 0) + 1
+        if loser in field:
+            out[loser] = out.get(loser, 0) + 1
     return out
 
 
