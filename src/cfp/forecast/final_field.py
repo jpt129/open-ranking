@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -166,7 +165,6 @@ def run(
         (column, setup.title_games[g]) for column, g in enumerate(paths.game_ids) if g in setup.title_games
     ]
     needs_league = rules.group_of == "team" and bool(rules.group)
-    cache: dict[tuple[Any, ...], list[Entry]] = {}
     for p in range(n):
         champions = dict(setup.champions)
         for column, conference in title_columns:
@@ -175,24 +173,22 @@ def run(
             tally = champion_paths.setdefault(conference, {})
             tally[team] = tally.get(team, 0) + 1
         order = [teams[k] for k in sampled[p]]
-        key = (tuple(sampled[p]), tuple(sorted(champions.items())))
-        entries = cache.get(key)
-        if entries is None:
-            try:
-                entries = select_field(
-                    rules,
-                    order[:RANKED],
-                    champions,
-                    eligible=setup.eligible,
-                    conference_of=setup.conference_of if needs_league else None,
-                    extra_order=order[RANKED:],
-                )
-            except RulesError as error:
-                raise FieldError(f"path {p}: {error}") from error
-            entries = [entry for entry in entries if entry.qualifier]
-            cache[key] = entries
+        try:
+            entries = select_field(
+                rules,
+                order[:RANKED],
+                champions,
+                eligible=setup.eligible,
+                conference_of=setup.conference_of if needs_league else None,
+                extra_order=order[RANKED:],
+            )
+        except RulesError as error:
+            raise FieldError(f"path {p}: {error}") from error
+        entries = [entry for entry in entries if entry.qualifier]
         for entry in entries:
             team = entry.team_id
+            if team not in index:
+                raise FieldError(f"{team} qualified but is not in the starting order")
             in_field[p, index[team]] = True
             field[team] = field.get(team, 0) + 1
             if entry.bye:
@@ -215,8 +211,15 @@ def run(
     for team, columns in sorted(playing.items()):
         if team not in index:
             continue
-        chosen = paths.game_ids.index(next_game[team]) if next_game and team in next_game else columns[0]
-        if next_game is None and len(columns) > 1:
+        if next_game is not None and team in next_game:
+            if next_game[team] not in paths.game_ids:
+                raise FieldError(f"{team}'s next game {next_game[team]} was not simulated")
+            chosen = paths.game_ids.index(next_game[team])
+            if chosen not in columns:
+                raise FieldError(f"{team} does not play in {next_game[team]}")
+        elif len(columns) == 1:
+            chosen = columns[0]
+        else:
             continue  # more than one game left and no order given: no single next game
         won = paths.home_won[:, chosen] if home_ids[chosen] == team else ~paths.home_won[:, chosen]
         inside = in_field[:, index[team]]
@@ -242,7 +245,16 @@ def field_today(setup: Setup, rules: SeasonRules) -> Today:
     A title not yet decided has no champion, so each such conference's best-placed team stands in for one.
     That is an assumption, shown as such; it is not a forecast.
     """
-    order = list(setup.initial)
+    lost = {
+        team: setup.regular_losses.get(team, 0) + setup.title_losses.get(team, 0) for team in setup.initial
+    }
+    order = [
+        team
+        for _, _, team in sorted(
+            (place + BASELINE.drop_regular * lost[team], place, team)
+            for place, team in enumerate(setup.initial, start=1)
+        )
+    ]
     champions = dict(setup.champions)
     stand_ins: dict[str, str] = {}
     leagues = sorted({c for c in setup.conference_of.values() if c and c != INDEPENDENT})

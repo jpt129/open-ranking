@@ -281,6 +281,7 @@ def build_issue(
             "tau": taus,
             "paths": PATHS,
             "seed": seed,
+            "seeds": {"baseline1": seed, "baseline2": seed + 1},
             "params_sha256": noise.sha256,
             "trained_on": list(noise.document["trained_on"]),
             "note": "A count of no paths or every path is published half a path short of 0 or 1.",
@@ -288,6 +289,7 @@ def build_issue(
     inputs = [input_id(name, read[name], lake.spec(name).key) for name in TABLES]
     field_section: dict[str, Any] | None = None
     field_error: str | None = None
+    field_inputs: list[str] = []
     if noise is not None and pairing_files is not None:
         try:
             all_games = lake.as_of("games", cutoff, mode).frame
@@ -318,6 +320,7 @@ def build_issue(
                 target=target,
                 total=len(schedule),
                 boundary=schedule[-2] if len(schedule) > 1 else schedule[-1],
+                final_reveal=schedule[-1],
                 rows=second,
                 names=names,
                 conference_of=members,
@@ -329,12 +332,18 @@ def build_issue(
                 stem=stem,
                 paths=PATHS,
             )
-            inputs.append(input_id("lines", all_lines, lake.spec("lines").key))
-            inputs.append(f"pairings:{found.sha256}")
+            field_inputs = [
+                input_id("lines", all_lines, lake.spec("lines").key),
+                "all-seasons-" + input_id("games", all_games, lake.spec("games").key),
+                f"pairings:{found.sha256}",
+            ]
         except (FieldError, PairingError, RulesError, ValueError) as error:
             field_error = f"{type(error).__name__}: {error}"
         except Exception as error:  # the field forecast must not cost the weekly forecast its deadline
             field_error = f"unexpected {type(error).__name__}: {error}"
+    if field_error is not None:
+        field_section = None
+    inputs.extend(field_inputs if field_section is not None else [])
     inputs.append(f"draw:{len(draw)}:{sha256_hex(canonical(dict(sorted(draw.items()))))}")
     if noise is not None:
         inputs.append(f"rank-noise:{noise.sha256}")

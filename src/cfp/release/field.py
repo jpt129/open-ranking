@@ -44,6 +44,7 @@ def build_field(
     target: int,
     total: int,
     boundary: datetime,
+    final_reveal: datetime,
     rows: Sequence[Mapping[str, Any]],
     names: Mapping[str, str],
     conference_of: Mapping[str, str],
@@ -77,8 +78,10 @@ def build_field(
     initial = [str(row["team_id"]) for row in ordered]
     known = {str(row["team_id"]): int(row["losses"]) for row in ordered if row["losses"]}
     eligible = {str(row["team_id"]): bool(row["cfp_eligible"]) for row in ordered}
+    # a game that kicks off after the final list is revealed cannot move it (Army-Navy, the bowls)
+    before_reveal = seasonal.filter(pl.col("start_utc") < final_reveal)
     made = slate(
-        seasonal,
+        before_reveal,
         lines.filter(pl.col("first_public_time") <= cutoff),
         cutoff,
         season,
@@ -104,13 +107,24 @@ def build_field(
                 raise FieldError(f"the {conference} pairing matches {between.height} games")
             if between.height == 1:
                 row = between.row(0, named=True)
+                sides = {conference_of.get(row["home_id"]), conference_of.get(row["away_id"])}
+                if sides != {conference}:
+                    raise FieldError(f"the {conference} pairing names a team from another conference")
                 if row["status"] == "final":
+                    if (
+                        row["home_pts"] is None
+                        or row["away_pts"] is None
+                        or row["home_pts"] == row["away_pts"]
+                    ):
+                        raise FieldError(f"the {conference} title game is final with no winner")
                     champions[conference] = (
                         row["home_id"] if row["home_pts"] > row["away_pts"] else row["away_id"]
                     )
                 else:
                     title_games[row["game_id"]] = conference
                 continue
+            if {conference_of.get(pair.team_a), conference_of.get(pair.team_b)} != {conference}:
+                raise FieldError(f"the {conference} pairing names a team from another conference")
             p = estimate(pair.team_a, pair.team_b, True) if estimate is not None else None
             if p is None:
                 raise FieldError(
@@ -136,7 +150,7 @@ def build_field(
             title_games,
             title_week,
         )
-        tag = f"{stem}|{label or ''}"
+        tag = stem  # every scenario shares the same draws, so they differ only by the pairing
         simulated = simulate(slate_games, paths, a=fitted.dependence.a, seed=_seed(f"field-games|{tag}"))
         upcoming: dict[str, tuple[datetime, str]] = {}
         for (

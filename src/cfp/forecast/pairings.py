@@ -86,6 +86,8 @@ def resolve_pairings(
             continue
         conference = conference_id(row["conference"])
         where = f"title games: {season} {row['conference']}"
+        if conference in days:
+            raise PairingError(f"{where}: the conference is listed twice")
         days[conference] = date.fromisoformat(row["game_date"])
         public = _time(row.get("first_public_utc") or "", where)
         if row["team_a"] and row["team_b"] and public is not None and public <= cutoff:

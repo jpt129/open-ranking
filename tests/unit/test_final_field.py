@@ -166,3 +166,14 @@ def test_field_today_in_the_champions_era_ignores_independents_and_unknown_leagu
     today = field_today(setup(season=2025, conference_of=members), load_rules(2025))
     assert "fbs-independents" not in today.stand_ins
     assert len([e for e in today.entries if e.qualifier]) == 12
+
+
+def test_today_counts_losses_and_conditionals_check_their_game() -> None:
+    hurt = field_today(setup(regular_losses={"R04": 3}), load_rules(2026))
+    seeds = {entry.team_id: entry.seed for entry in hurt.entries if entry.seed}
+    assert "R04" not in seeds  # three losses on the books: fifteen places down, out of today's field
+    paths = simulate(games(), 200, a=0.0, seed=4)
+    with pytest.raises(FieldError, match="does not play"):
+        run(setup(), paths, load_rules(2026), PILOT, seed=1, next_game={"R14": "title-sec"})
+    with pytest.raises(FieldError, match="was not simulated"):
+        run(setup(), paths, load_rules(2026), PILOT, seed=1, next_game={"R14": "nope"})

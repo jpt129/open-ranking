@@ -559,3 +559,14 @@ John confirmed the position-26 rule and the CFBD schedule as a labelled fallback
 - **Conditionals** use each team's earliest remaining game.
 - **Six-conference place:** filled on every path by the highest-placed team of the group in that path's sampled order (a test asserts one per path). The Open Ranking ranks every team; the forecast predicts the committee's field, so its order starts from the committee's list and uses open points only below it.
 - **End-to-end check on real data** with invented pairings in a scratch file (not data): 74 games, 70 from moneylines and 4 from strength, ΣP(field) = 12 and ΣP(bye) = 4, under four seconds. With the real files today the section is refused: "no champion or title game for big-ten: its pairing is not known".
+
+**Spec review of the field section, rank noise and pairings (25 Nov).** No post-cutoff input found. Fixed:
+- **High:** games that kick off after the final reveal (Army–Navy on 12 Dec) were simulated and cost a team five places. Only games before the final reveal are simulated now.
+- "Field if the season ended today" ignored losses already played; it now applies five places a loss.
+- A pairing whose teams are not both in that conference is refused; a conference listed twice in the title file is refused; a final title game with no winner is refused.
+- Conditionals check that the named next game was simulated and includes the team.
+- Scenarios share the same draws, so two scenarios differ only by the pairing.
+- The all-seasons games frame and the lines frame are recorded as inputs when the section is built; both rank-noise seeds are recorded.
+- The per-path cache never hit and is removed.
+
+Left open: the CFBD fallback cannot tell a title game from a makeup game between two teams of one conference on the title date (it needs exactly one such game; labelled secondary). `cfp.scoring` and a promotion module do not exist, so the promotion figures above came from scratch scripts and cannot yet be rerun from the repo; VT-12 and VT-14's named tests are missing with them. SC-05's pairwise probabilities for bubble comparisons are not built. A fitted temperature at a search bound is not flagged. A missing temperature for an issue's kind refuses the weekly issue rather than disclosing.

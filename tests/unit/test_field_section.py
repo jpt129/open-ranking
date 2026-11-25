@@ -18,6 +18,7 @@ from .test_sim_inputs import GAME_SCHEMA, LINE_SCHEMA, game, past, quote
 CUT = datetime(2026, 11, 29, 7, tzinfo=UTC)
 BOUNDARY = datetime(2026, 12, 2, 0, tzinfo=UTC)  # the reveal of the last weekly release
 DAY = datetime(2026, 12, 5, 21, tzinfo=UTC)
+FINAL = datetime(2026, 12, 6, 17, tzinfo=UTC)  # the final list is revealed
 TEAMS = [f"R{k:02d}" for k in range(1, 41)]
 TITLES = {"sec": ("R01", "R06"), "big-ten": ("R02", "R09"), "big-12": ("R03", "R14"), "acc": ("R05", "R16")}
 NOISE = Noise(
@@ -77,6 +78,7 @@ def section(**over: Any) -> dict[str, Any]:
         "target": 5,
         "total": 6,
         "boundary": BOUNDARY,
+        "final_reveal": FINAL,
         "rows": rows,
         "names": {t: f"School {t}" for t in TEAMS},
         "conference_of": league(),
@@ -185,3 +187,35 @@ def test_a_title_game_already_played_gives_its_champion() -> None:
     assert run["champions_decided"] == {"sec": "R06"}
     assert "t-sec" not in [g["game_id"] for g in run["games"]]
     assert {t["team_id"]: t for t in run["teams"]}["R06"]["field_paths"] == 2000
+
+
+def test_games_after_the_final_reveal_are_not_simulated() -> None:
+    """Army-Navy is played a week after Selection Day: it cannot cost anyone a place."""
+    games, lines = frames()
+    late = pl.DataFrame(
+        [game("late", start_utc=FINAL + timedelta(days=6), home_id="R08", away_id="R21")],
+        schema_overrides=GAME_SCHEMA,
+    )
+    price = pl.DataFrame([quote("late", "a", 3, (150, -180), None)], schema_overrides=LINE_SCHEMA)
+    plain = section()
+    more = section(
+        games=pl.concat([games, late], how="diagonal_relaxed"),
+        lines=pl.concat([lines, price], how="diagonal_relaxed"),
+    )
+    assert "late" not in [g["game_id"] for g in more["forecast"]["games"]]
+    assert more["forecast"]["teams"] == plain["forecast"]["teams"]
+
+
+def test_a_pairing_from_the_wrong_conference_is_refused_and_scenarios_share_draws() -> None:
+    wrong = pairings()
+    wrong.decided["sec"] = Pairing("sec", DAY.date(), "R02", "R09", "official", "https://example.test/x", CUT)
+    with pytest.raises(FieldError, match="another conference"):
+        section(pairings=wrong)
+    same = [
+        Pairing("sec", DAY.date(), "R01", "R06", "scenario", "https://example.test/s", CUT, "one"),
+        Pairing("sec", DAY.date(), "R01", "R06", "scenario", "https://example.test/s", CUT, "two"),
+    ]
+    doc = section(
+        skip_game="sec", pairings=pairings(skip="sec", scenarios={"sec": same}), estimate=lambda h, a, n: 0.6
+    )
+    assert doc["scenarios"][0]["teams"] == doc["scenarios"][1]["teams"]  # the same pairing, the same paths
