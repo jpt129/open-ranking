@@ -22,7 +22,7 @@ import numpy as np
 import polars as pl
 
 INDEPENDENT: Final = "fbs-independents"
-MAX_CONDITION: Final = 1e8  # real seasons on the calibration grid stay under 1e4
+MAX_CONDITION: Final = 1e12  # real seasons on the calibration grid stay under 1e4
 IndependentPenalty = Literal["combined", "team"]
 
 

@@ -251,4 +251,4 @@ def test_no_prior_year_inputs() -> None:
 
 def test_ill_conditioned_fit_is_refused() -> None:
     with pytest.raises(StrengthError, match="ill-conditioned"):
-        fit(frame(season()), Params(lambda_c=1e-9, lambda_u=1e-9))
+        fit(frame(season()), Params(lambda_c=1e-13, lambda_u=1e-13))
