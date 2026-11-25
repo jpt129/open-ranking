@@ -308,3 +308,49 @@ def test_seed_boundaries() -> None:
     # 2025 with the same champions: straight seeding
     field = by_team(pick(load_rules(2025), order_of(), moved))
     assert [field[t].seed for t in ("R01", "R02", "R03", "R04", "R06", "R09")] == [1, 2, 3, 4, 6, 9]
+
+
+def test_2027_cutoffs_and_open_items() -> None:
+    rules = load_rules(2027)
+    field = by_team(pick(rules, order_of(30), champs()))
+    assert (field["R24"].qualifier, field["R24"].seed) == (True, 24)
+    assert not field["R25"].qualifier  # the 24/25 cutoff
+    assert (field["R08"].bye, field["R08"].host_round) == (True, 2)
+    assert (field["R09"].bye, field["R09"].host_round) == (False, 1)
+    assert (field["R16"].host_round, field["R17"].host_round) == (1, None)
+    assert any("names its champion" in item for item in rules.unpublished)  # S-l: the freeze waits on this
+    assert load_rules(2026).unpublished == ()
+    assert rules.fcs_wins_given_weight == 1
+    assert dict(rules.qualifying_games).keys() == {"power", "group"}
+    assert len(load_rules(2026).sources) == 2
+
+
+def test_the_engine_refuses_what_the_rules_do_not_cover() -> None:
+    rules = load_rules(2026)
+    with pytest.raises(RulesError, match="not eligible"):
+        pick(rules, order_of(), champs(), eligible={"R01": False})  # an ineligible named champion
+    with pytest.raises(RulesError, match="two conferences"):
+        pick(rules, order_of(), champs(acc="R01", sec="R01"))
+    with pytest.raises(RulesError, match="5 champions qualify"):
+        pick(load_rules(2025), order_of(), {"sec": "R01", "acc": "R02"})
+    # no group team is ranked and only one champion is known: the committee names the team, not the engine
+    lone = {conf: team for conf, team in champs().items() if conf in POWER} | {"sun-belt": "U-sb"}
+    with pytest.raises(RulesError, match="extra committee ordering"):
+        pick(rules, order_of(), lone)
+    assert by_team(pick(rules, order_of(), lone, extra_order=["U-sb"]))["U-sb"].seed == 12
+    # a waiver given to a team that was eligible anyway is not flagged
+    field = by_team(pick(load_rules(2027), order_of(30), champs(), waivers={"R05"}))
+    assert not field["R05"].waiver
+    assert "waiver" not in field["R05"].reason
+    old = by_team(pick(load_rules(2019), order_of(), champs()))
+    assert old["R05"].reason == "ranked 5, outside the top four"
+
+
+def test_season_files_are_strict() -> None:
+    from cfp.rules.engine import _parse
+
+    good = {"seasons": {"first": 2030, "last": 2030}, "field_size": 4, "auto": [], "seeding": "rank"}
+    good |= {"byes": [], "hosts": {}, "source": "https://example.test"}
+    assert _parse(good).field_size == 4
+    with pytest.raises(RulesError, match="unknown key"):
+        _parse(good | {"guarentee": {}})

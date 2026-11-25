@@ -51,6 +51,10 @@ class SeasonRules:
     at_large_route: str
     schedule_standard: int | None
     source: str
+    qualifying_games: tuple[tuple[str, str], ...] = ()  # which games count toward the standard, by group
+    fcs_wins_given_weight: int | None = None
+    unpublished: tuple[str, ...] = ()  # rules the CFP has not published; a season freeze waits on these
+    sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -67,7 +71,30 @@ class Entry:
     below_schedule_standard: bool = False
 
 
+_KEYS: Final = frozenset(
+    {
+        "seasons",
+        "field_size",
+        "auto",
+        "at_large_route",
+        "seeding",
+        "byes",
+        "hosts",
+        "guarantee",
+        "schedule_standard",
+        "qualifying_games",
+        "fcs_wins_given_weight",
+        "source",
+        "source_also",
+        "unpublished",
+    }
+)
+
+
 def _parse(doc: Mapping[str, Any]) -> SeasonRules:
+    unknown = sorted(set(doc) - _KEYS)
+    if unknown:
+        raise RulesError(f"unknown key in a season file: {unknown[0]}")
     count, named, group, group_of = 0, (), (), "champion"
     for item in doc["auto"]:
         kind = item["kind"]
@@ -99,6 +126,10 @@ def _parse(doc: Mapping[str, Any]) -> SeasonRules:
         doc.get("at_large_route", "at_large"),
         doc.get("schedule_standard"),
         doc["source"],
+        tuple(sorted((str(k), str(v)) for k, v in (doc.get("qualifying_games") or {}).items())),
+        doc.get("fcs_wins_given_weight"),
+        tuple(doc.get("unpublished") or ()),
+        (doc["source"], *([doc["source_also"]] if doc.get("source_also") else [])),
     )
 
 
@@ -145,6 +176,7 @@ def select_field(
         raise RulesError(f"{both[0]} is both ranked and in the extra ordering")
     extra = {team: place for place, team in enumerate(extra_order, start=1)}
     waived = set(waivers)
+    excused = {team for team in waived if eligible is not None and not eligible.get(team, True)}
 
     def allowed(team: str) -> bool:
         return team in waived or eligible is None or eligible.get(team, True)
@@ -171,13 +203,19 @@ def select_field(
             raise RulesError(f"{what}: {', '.join(unplaced)} need extra committee ordering")
         return [*placed, *unplaced]
 
+    holders: dict[str, str] = {}
+    for conference, team in sorted(champions.items()):
+        if team in holders:
+            raise RulesError(f"{team} is given as champion of two conferences: {holders[team]}, {conference}")
+        holders[team] = conference
     routes: dict[str, str] = {}
     for conference in rules.named:
         if conference not in champions:
             raise RulesError(f"no champion is given for {conference}")
         team = champions[conference]
-        if allowed(team):
-            routes[team] = f"auto:{conference}"
+        if not allowed(team):  # no source says where that place would go
+            raise RulesError(f"the {conference} champion {team} is not eligible; the rules do not cover this")
+        routes[team] = f"auto:{conference}"
     if rules.group:
         if rules.group_of == "team":
             if conference_of is None:
@@ -198,13 +236,19 @@ def select_field(
             ]
         if not candidates:
             raise RulesError("no team is given for the group place")
+        if not any(team in rank or team in extra for team in candidates):
+            # the committee identifies this team itself; one known champion is not enough to name it
+            raise RulesError("the group place: no candidate is ranked; it needs extra committee ordering")
         for team in best(candidates, 1, "the group place"):
             routes[team] = "auto:group"
     if rules.champion_count:
-        conference_of = {team: conference for conference, team in sorted(champions.items())}
-        candidates = sorted(team for team in conference_of if allowed(team))
+        candidates = sorted(team for team in holders if allowed(team))
+        if len(candidates) < rules.champion_count:
+            raise RulesError(
+                f"{rules.champion_count} champions qualify; only {len(candidates)} eligible ones are given"
+            )
         for team in best(candidates, rules.champion_count, "the champions' places"):
-            routes[team] = f"auto:{conference_of[team]}"
+            routes[team] = f"auto:{holders[team]}"
 
     places = rules.field_size - len(routes)
     if places < 0:
@@ -254,14 +298,18 @@ def select_field(
                 notes.append("ranked in the top four")
             else:
                 notes.append("at-large place by rank")
-            if team in waived:
+            if team in excused:
                 notes.append("eligible by waiver")
         elif not allowed(team):
             notes.append("not eligible")
         elif team == displaced:
             notes.append(
-                f"last at-large place went to {promise.team_id if promise else ''} under its guarantee"
+                f"last at-large place went to {promise.name} ({promise.team_id}) under its guarantee"
+                if promise
+                else "displaced"
             )
+        elif team in rank and rules.at_large_route == "top_four":
+            notes.append(f"ranked {rank[team]}, outside the top four")
         elif team in rank:
             notes.append(
                 f"ranked {rank[team]}, below the last at-large place"
@@ -286,7 +334,7 @@ def select_field(
                 place in rules.byes if place is not None else False,
                 host.get(place) if place is not None else None,
                 "; ".join(notes),
-                team in waived and team in routes,
+                team in excused and team in routes,
                 short,
             )
         )

@@ -14,5 +14,14 @@ seeding: rank
 byes: [1, 2, 3, 4, 5, 6, 7, 8]
 hosts: {1: [9, 10, 11, 12, 13, 14, 15, 16], 2: [1, 2, 3, 4, 5, 6, 7, 8]}
 schedule_standard: 10
+qualifying_games:
+  power: conference games, plus nonconference games against another power-league opponent or Notre Dame
+  group: conference games, plus nonconference games against either group or any FBS independent
 fcs_wins_given_weight: 1  # "will not give any weight to a win over more than one (1) FCS opponent"
 source: https://collegefootballplayoff.com/sports/2026/11/9/24-team-format
+unpublished:
+  - how each league names its champion (S-l); the 2027 freeze waits on this
+  - any Notre Dame provision
+  - where an automatic qualifier outside the ranked teams is seeded
+  - what missing the ten-game standard costs
+  - the waiver process

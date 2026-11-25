@@ -467,3 +467,13 @@ John approved the plan. Rules and past fields were checked against collegefootba
 - BR-SCHED says the CFP "permits consideration of at most one FCS win". The source says: "will not give any weight to a win over more than one (1) FCS opponent per season." Same effect, different wording; the 2027 file quotes the source.
 - BR-FIX and the plan assume ten champions a season; 2024 and 2025 have nine (the two-team Pac-12 named none).
 - Unverified: the 2024 rule sentence for placing a fifth champion ranked outside the top twelve (only the outcome, Clemson at seed 12, is primary).
+
+**Spec review of P09 (25 Nov).** No high findings; the official 2014–2025 fields and FF-06 reproduce, and output was identical across 200 input shuffles. Fixed, all in the direction of refusing rather than guessing:
+- An ineligible champion of a named conference is an error: no source says where that place goes. (Before, the place silently became an extra at-large.)
+- One team given as champion of two conferences is an error. Fewer eligible champions than the places for champions (2024, 2025) is an error.
+- The group place is never named from one known champion when no group team is ranked: it needs the committee's extra ordering.
+- Season files are strict: an unknown key is an error. The 2027 file now stores which games count toward the ten-game standard, the FCS-weight figure, and a list of what the CFP has not published (including how each league names its champion, S-l). Nothing yet reads that list to block a 2027 freeze; the freeze step must.
+- A waiver is flagged only for a team that was otherwise ineligible. Reasons name Notre Dame, and say "outside the top four" in the four-team era.
+- Tests added for the 24/25 cutoff and the 8/9 and 16/17 seed boundaries in 2027.
+
+Left open: a waiver overrides any ineligibility, though the CFP's waiver covers scheduling only; in 2024, with fewer than four ranked champions, an extra-ordered unranked champion would take a top-four seed (literal to the rule, never happened, unverified).
