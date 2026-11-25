@@ -222,3 +222,21 @@ Twelve findings confirmed; fixed with tests unless noted.
 - **Rows written earlier the same day by the faulty code were removed and rebuilt** (identity tables, venue history). They were hours old, unpublished and fully derived from archived payloads. This is not a precedent: from the first published edition on, the lake changes by correction only.
 - **Not changed:** history is hourly, which cannot meet MK-01's 30-minute matching on its own; matched quotes for the contest come from live snapshots, and history is a price path for context. Kalshi's listing is asked for open events only, so a contract's settlement is not yet recorded; that arrives with the contest scoring step. `data/transitioning.csv` is still read by no code (P04).
 
+## 2026-11-25 — John's ruling: who is FBS (S-e, OR-07b, OR-05) and bid eligibility
+
+- **Rule, not a two-team exception.** A team is FBS on the game date if, in that season, it is an NCAA FBS member (including a reclassifying member in its first FBS season) and is a football member of an FBS conference or an FBS independent.
+- **Consequences.** Its games against FBS opponents enter the strength fit, score through the normal link and belong to the exact-flip population. Its own games against FCS teams follow the FCS policy. North Dakota State and Sacramento State are ordinary FBS opponents in 2026: a loss to either scores −q, never −9900.
+- **Bid eligibility is a separate flag per team-season** (`eligibility.cfp_eligible`), set from sources. True for both newcomers in 2026, citing the NCAA Division I Cabinet decision of 24 June 2026. James Madison 2022–23 is FBS for the ledger and not bid-eligible.
+- **Data, with a source per row.** Classification lives in `membership` (`source_url`), eligibility in `eligibility`. If CFBD's classification disagrees with the rule for any team-season, the identity build stops; if a game row disagrees with the membership table, the snapshot stops. Checked on real data: CFBD agrees with the rule in every team-season 2014–2026, including all 37 sourced transition rows.
+- **Closed question:** the NCAA's bowl-eligibility counting of "FBS wins" is not an input to the Open Ranking. The empty `counts_as_fbs_opponent` values for 2026 do not matter and need no follow-up.
+- **How the rule is applied (Claude):** "an FBS conference" is any conference with a sourced row for that season in `data/conference_groups.csv`. A team-season with no eligibility row is an established member with no restriction.
+- Carry-over to P07: `test_loss_to_first_year_fbs_member_scores_minus_q` on the ledger. The snapshot-level test exists now.
+
+## 2026-11-25 — P04 snapshot builder (plan approved by John; OR-07)
+
+- `build_snapshot(view, season, title_games, forfeits, unplayed)` reads only through the Open Ranking's view. It keeps completed regular-season and listed conference-title games with at least one FBS team that were public at the cutoff, and logs every omission with a reason (no FBS team, not final at the cutoff, postseason, cancelled / no contest / never played).
+- **Blocks rather than guesses:** a 0–0, 1–0 or 2–0 final not on the forfeit list; a tie; a final with no score; a classification clash with membership; a team with no membership on the game date; a listed title game overdue by three days and absent; a game the source flags as a title game that is not on the list.
+- **Title games** come from the hand-verified list, matched by the two teams and the date. The site flag is CFBD's; nothing is forced neutral. A listed title game is kept even if the source files it under postseason.
+- **Snapshot hash:** SHA-256 over the kept rows in game-ID order as canonical JSON, including each row's correction version and raw hash. It does not include the cutoff, so a feature build and an edition over the same rows share a hash (SC-04a).
+- **Games never played** (2020) cannot come from CFBD, which omits them; they are a sourced list logged in the omissions.
+

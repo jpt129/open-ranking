@@ -150,8 +150,9 @@ TABLES: Final[dict[str, TableSpec]] = {
                 "conference_id": S,
                 "division": S,
                 "cfp_group": S,
+                "source_url": S,  # for an FBS row: the source that makes this team-season FBS
             },
-            nullable=("valid_to", "conference_id", "cfp_group"),
+            nullable=("valid_to", "conference_id", "cfp_group", "source_url"),
             partition_by_season=False,
         ),
         _spec(
@@ -242,6 +243,9 @@ TABLES: Final[dict[str, TableSpec]] = {
                 "team_id": S,
                 "standard_met": B,
                 "waiver": B,
+                "cfp_eligible": B,  # may the team take a playoff bid this season
+                "ncaa_status": S,
+                "source_url": S,
             },
             nullable=("standard_met",),
         ),

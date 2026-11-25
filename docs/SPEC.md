@@ -8,9 +8,10 @@ Units: proposal "points" are hundredths of a win. Code stores **centipoints (cp)
 
 Defined terms [S-e]:
 - **Ordinary FBS game**: a completed regular-season or title game between two teams classified FBS on the game date, not a forfeit.
+- **FBS on the game date** [S, ruling 2026-11-25]: in that season the team is an NCAA FBS member (including a reclassifying member in its first FBS season) and a football member of an FBS conference or an FBS independent. The NCAA's bowl-eligibility counting of FBS wins is not an input.
 - **Week 7**: CFBD calendar week 7.
 - **Cutoff**: Monday 06:00 ET after the week's last game.
-- **Transitioning programs**: NCAA status on the game date, with CFP eligibility as a separate flag.
+- **Transitioning programs**: classed by the rule above; bid eligibility is a separate sourced flag per team-season.
 
 ---
 

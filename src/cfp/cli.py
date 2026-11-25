@@ -40,6 +40,16 @@ def build_parser() -> argparse.ArgumentParser:
     hist = market_kinds.add_parser("history", help="hourly venue history for the depth-flagged events")
     hist.add_argument("--hours", type=int, default=48)
 
+    snapshot = commands.add_parser("snapshot", help="the games the Open Ranking scores at a cutoff")
+    snapshot_build = snapshot.add_subparsers(dest="kind", metavar="<action>", required=True).add_parser(
+        "build", help="build and summarise a snapshot (writes nothing)"
+    )
+    snapshot_build.add_argument("--season", type=int, required=True)
+    snapshot_build.add_argument(
+        "--cutoff", required=True, help="ISO time with offset, e.g. 2026-11-29T02:00-05:00"
+    )
+    snapshot_build.add_argument("--mode", choices=["live", "replay"], default="replay")
+
     commands.add_parser("budget", help="show API calls used this month")
     return parser
 
@@ -98,6 +108,38 @@ def _ingest_cfbd(args: argparse.Namespace) -> int:
             for note in report.notes:
                 print(f"  NOTE {note}")
     print(f"checkpoint: stage used {budget.stage_used(SOURCE, args.stage)}; month used {budget.used(SOURCE)}")
+    return 0
+
+
+def _snapshot(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    import polars as pl
+
+    from cfp.snapshot.build import build_snapshot
+    from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+    from cfp.store.lake import Lake
+
+    cutoff = datetime.fromisoformat(args.cutoff)
+    if cutoff.tzinfo is None:
+        raise SystemExit("--cutoff needs a UTC offset")
+    data = Path(args.data)
+    view = Lake(args.lake).open_ranking_view(cutoff.astimezone(UTC), args.mode)
+    result = build_snapshot(
+        view,
+        args.season,
+        title_games=load_title_games(data / "title_games.csv"),
+        forfeits=load_forfeits(data / "forfeits.csv"),
+        unplayed=load_unplayed(data / "unplayed_games.csv"),
+    )
+    games = result.games
+    print(f"snapshot {args.season} at {result.cutoff.isoformat()} ({result.mode}): {games.height} games")
+    print(f"  ordinary FBS: {games['ordinary_fbs'].sum()}  title: {games['title_game'].sum()}", end="")
+    latest = games.select(pl.col("start_utc").max().dt.strftime("%Y-%m-%dT%H:%MZ")).item()
+    print(f"  forfeits: {games['forfeit'].sum()}  latest kickoff: {latest}")
+    for reason, count in result.omissions.group_by("reason").len().sort("reason").iter_rows():
+        print(f"  omitted {reason}: {count}")
+    print(f"  hash {result.snapshot_hash}")
     return 0
 
 
@@ -167,6 +209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ingest_releases(args)
     elif args.command == "ingest" and args.kind == "cfbd":
         return _ingest_cfbd(args)
+    elif args.command == "snapshot":
+        return _snapshot(args)
     elif args.command == "markets":
         return _markets(args)
     elif args.command == "identity":

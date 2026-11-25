@@ -75,10 +75,15 @@ def espn_payload(lake: Lake, teams: list[dict[str, Any]] | None = None) -> Fetch
 
 
 OVERRIDES = "team_id,name,reason\n"
+MOVING_HEADER = "season,school,ncaa_status,cfp_eligible,source_url\n"
 
 
 def write_data(
-    tmp_path: Path, groups: str | None = None, counts: str = "2023,3\n2024,3\n", overrides: str = OVERRIDES
+    tmp_path: Path,
+    groups: str | None = None,
+    counts: str = "2023,3\n2024,3\n",
+    overrides: str = OVERRIDES,
+    moving: str = "",
 ) -> Path:
     data = tmp_path / "data"
     data.mkdir(exist_ok=True)
@@ -98,6 +103,7 @@ def write_data(
     (data / "fbs_counts.csv").write_text("season,played\n" + counts)
     (data / "team_name_overrides.csv").write_text(overrides)
     (data / "espn_id_matches.csv").write_text(ESPN_MATCHES)
+    (data / "transitioning.csv").write_text(MOVING_HEADER + moving)
     (data / "aliases_cfp_site.csv").write_text("alias,team_id\nTexas,cfbd-251\nNotre Dame,cfbd-87\n")
     return data
 
@@ -234,7 +240,7 @@ def test_checks_run_before_anything_is_written(tmp_path: Path) -> None:
             ("FBS Independents", "independent"),
         )
     )
-    with pytest.raises(MissingSource, match="SEC"):
+    with pytest.raises(build.IdentityError, match="SEC"):  # a conference with no sourced row is not FBS
         build_identity(lake, cfbd, write_data(tmp_path, groups=no_sec), [2023, 2024], espn_payload(lake))
     with pytest.raises(SourceError, match="no source"):
         build_identity(
@@ -346,3 +352,58 @@ def test_alias_rows_cite_their_own_source(tmp_path: Path) -> None:
     assert by_source["cfp_site"][0] == "data:aliases_cfp_site.csv"
     assert lake.get_raw(by_source["cfp_site"][1]) == (data / "aliases_cfp_site.csv").read_bytes()
     assert by_source["cfbd"][0] == "cfbd:/games"
+
+
+def test_reclassifying_team_in_an_fbs_conference_is_fbs_with_sourced_eligibility(tmp_path: Path) -> None:
+    lake, cfbd, _ = archive(tmp_path, SEASONS)
+    moving = (
+        "2023,Rice,transition year 1,no,https://example.test/rice-2023\n"
+        "2024,Rice,transition year 2,yes,https://example.test/rice-2024\n"
+    )
+    build_identity(lake, cfbd, write_data(tmp_path, moving=moving), [2023, 2024], espn_payload(lake))
+    membership = lake.scan("membership").collect()
+    rice = membership_on(membership, "cfbd-242", date(2023, 10, 1))
+    assert (rice["division"], rice["source_url"]) == ("fbs", "https://example.test/rice-2023")
+    texas = membership.filter(pl.col("team_id") == "cfbd-251").sort("valid_from").row(0, named=True)
+    assert (texas["source_url"], texas["source_id"]) == ("https://example.test/rule", "cfbd:/games")
+    assert membership.filter(pl.col("division") != "fbs")["source_url"].null_count() == 3
+    rows = lake.scan("eligibility").collect().sort("season")
+    assert rows.select("season", "team_id", "cfp_eligible", "ncaa_status", "source_id").rows() == [
+        (2023, "cfbd-242", False, "transition year 1", "data:transitioning.csv"),
+        (2024, "cfbd-242", True, "transition year 2", "data:transitioning.csv"),
+    ]
+
+
+def test_cfbd_disagreeing_with_the_classification_rule_stops_the_build(tmp_path: Path) -> None:
+    fbs_in_fcs_league = {2023: [game(TEXAS_23, IRISH), game((500, "Mover", "fbs", "Big Sky"), FCS)]}
+    lake, cfbd, _ = archive(tmp_path, fbs_in_fcs_league)
+    with pytest.raises(build.IdentityError, match="exactly when"):
+        build_identity(lake, cfbd, write_data(tmp_path, counts="2023,3\n"), [2023], espn_payload(lake))
+    assert lake.scan("membership").collect().height == 0
+
+
+def test_fcs_class_in_an_fbs_conference_also_stops_the_build(tmp_path: Path) -> None:
+    seasons = {2023: [game(TEXAS_23, IRISH), game((500, "Mover", "fcs", "SEC"), FCS)]}
+    lake, cfbd, _ = archive(tmp_path, seasons)
+    with pytest.raises(build.IdentityError, match="exactly when"):
+        build_identity(lake, cfbd, write_data(tmp_path, counts="2023,2\n"), [2023], espn_payload(lake))
+
+
+def test_transition_table_is_validated(tmp_path: Path) -> None:
+    lake, cfbd, _ = archive(tmp_path, SEASONS)
+    for bad, message in (
+        ("2023,Rice,transition year 1,maybe,https://example.test/x\n", "yes, no or waiver"),
+        ("2023,Rice,transition year 1,no,\n", "no source"),
+        ("2023,Nowhere Tech,transition year 1,no,https://example.test/x\n", "matches 0 teams"),
+    ):
+        with pytest.raises(SourceError, match=message):
+            build_identity(lake, cfbd, write_data(tmp_path, moving=bad), [2023, 2024], espn_payload(lake))
+
+
+def test_repo_transition_file_loads_with_the_2026_newcomers_eligible() -> None:
+    rows = build.load_transitions(Path(__file__).resolve().parents[2] / "data" / "transitioning.csv")
+    by_key = {(r.season, r.school): r for r in rows}
+    for school in ("North Dakota State", "Sacramento State"):
+        assert by_key[(2026, school)].cfp_eligible
+        assert "ncaa.org" in by_key[(2026, school)].source_url  # the 24 June 2026 Division I Cabinet decision
+    assert not by_key[(2023, "James Madison")].cfp_eligible

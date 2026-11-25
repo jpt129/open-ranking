@@ -69,8 +69,15 @@ def build_identity(
         by_season[season] = build.renamed(found, overrides)
         sources[season] = payloads[0]
     build.check_counts(by_season, counts)
+    moving_file = data_dir / "transitioning.csv"
+    moving = build.check_classification(by_season, groups, build.load_transitions(moving_file))
+    moving_origin = build.Origin("data:transitioning.csv", lake.put_raw(moving_file.read_bytes()))
+    group_sources = build.load_group_sources(data_dir / "conference_groups.csv")
     confirmed, unconfirmed = build.espn_matches(by_season, espn_teams(espn.json()), hand)
-    membership = [build.membership_rows(s, by_season[s], groups, sources[s]) for s in sorted(by_season)]
+    membership = [
+        build.membership_rows(s, by_season[s], groups, sources[s], group_sources, moving, moving_origin)
+        for s in sorted(by_season)
+    ]
     origins = {
         "cfp_site": build.Origin("data:aliases_cfp_site.csv", lake.put_raw(site_file.read_bytes())),
         "espn": build.Origin("espn:/teams", espn.raw_hash),
@@ -78,6 +85,7 @@ def build_identity(
     frames = {
         "teams": build.team_rows(by_season, sources, confirmed),
         "team_aliases": build.alias_rows(by_season, sources, site_aliases, confirmed, origins),
+        "eligibility": build.eligibility_rows(by_season, moving, moving_origin),
     }
     now = max([espn.fetched_at, *(got.fetched_at for got in sources.values())])
     report = IdentityReport(unconfirmed_espn=unconfirmed)

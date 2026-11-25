@@ -114,6 +114,79 @@ def load_groups(path: Path | str) -> dict[tuple[int, str], str]:
     return out
 
 
+def load_group_sources(path: Path | str) -> dict[tuple[int, str], str]:
+    """(season, conference) -> the source for that conference's standing as an FBS conference that season."""
+    with Path(path).open(newline="") as handle:
+        return {(int(row["season"]), row["conference"]): row["source_url"] for row in csv.DictReader(handle)}
+
+
+@dataclass(frozen=True)
+class Transition:
+    """One sourced team-season of a program moving between FCS and FBS."""
+
+    season: int
+    school: str
+    ncaa_status: str
+    cfp_eligible: bool
+    waiver: bool
+    source_url: str
+
+
+def load_transitions(path: Path | str) -> list[Transition]:
+    out: list[Transition] = []
+    with Path(path).open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            where = f"transitioning: {row['school']} {row['season']}"
+            if row["cfp_eligible"] not in ("yes", "no", "waiver"):
+                raise SourceError(f"{where}: cfp_eligible must be yes, no or waiver")
+            if not row["source_url"].startswith("https://"):
+                raise SourceError(f"{where}: no source")
+            if not row["ncaa_status"].startswith(("transition year", "full FBS member")):
+                raise SourceError(f"{where}: unknown NCAA status {row['ncaa_status']!r}")
+            out.append(
+                Transition(
+                    int(row["season"]),
+                    row["school"],
+                    row["ncaa_status"],
+                    row["cfp_eligible"] != "no",
+                    row["cfp_eligible"] == "waiver",
+                    row["source_url"],
+                )
+            )
+    return out
+
+
+def check_classification(
+    by_season: Mapping[int, Mapping[str, SeasonTeam]],
+    groups: Mapping[tuple[int, str], str],
+    transitions: Sequence[Transition],
+) -> dict[tuple[int, str], Transition]:
+    """Apply the classification rule and stop if CFBD disagrees with it (John's ruling, 2026-11-25).
+
+    A team is FBS in a season if it is an NCAA FBS member that season, including a reclassifying member in
+    any transition year, and is a football member of an FBS conference or an FBS independent. The sourced
+    conference list says which conferences are FBS; the sourced transition table says who is reclassifying.
+    Returns the transition rows keyed by (season, team_id).
+    """
+    keyed: dict[tuple[int, str], Transition] = {}
+    for row in transitions:
+        teams = by_season.get(row.season)
+        if teams is None:
+            continue
+        match = [team for team in teams.values() if team.name == row.school]
+        if len(match) != 1:
+            raise IdentityError(f"transitioning: {row.school!r} matches {len(match)} teams in {row.season}")
+        keyed[(row.season, match[0].team_id)] = row
+    for season, teams in sorted(by_season.items()):
+        for team in teams.values():
+            in_fbs_conference = team.conference is not None and (season, team.conference) in groups
+            if (team.division == "fbs") != in_fbs_conference:
+                where = f"{season}: CFBD classes {team.name} as {team.division} in {team.conference!r}"
+                rule = "a team is FBS exactly when it plays in an FBS conference or as an FBS independent"
+                raise IdentityError(f"{where}; {rule}")
+    return keyed
+
+
 def load_counts(path: Path | str) -> dict[int, int]:
     """Hand-kept count of FBS teams that played each season (in 2020 three members sat out)."""
     with Path(path).open(newline="") as handle:
@@ -199,17 +272,29 @@ def load_espn_matches(path: Path | str) -> dict[str, str]:
 
 
 def membership_rows(
-    season: int, teams: Mapping[str, SeasonTeam], groups: Mapping[tuple[int, str], str], got: Fetched
+    season: int,
+    teams: Mapping[str, SeasonTeam],
+    groups: Mapping[tuple[int, str], str],
+    got: Fetched,
+    group_sources: Mapping[tuple[int, str], str] | None = None,
+    transitions: Mapping[tuple[int, str], Transition] | None = None,
+    transition_origin: Origin | None = None,
 ) -> pl.DataFrame:
+    """One row per team for the season. An FBS row names the source that makes the team-season FBS."""
     rows: list[dict[str, Any]] = []
     for team in sorted(teams.values(), key=lambda t: t.team_id):
-        group = None
+        group = url = None
+        origin: Origin | Fetched = got
         if team.division == "fbs":
             if team.conference is None:
                 raise IdentityError(f"{season}: FBS team {team.name} ({team.team_id}) has no conference")
             group = groups.get((season, team.conference))
             if group is None:
                 raise MissingSource(f"{season}: no sourced CFP group for conference {team.conference!r}")
+            url = (group_sources or {}).get((season, team.conference))
+            moving = (transitions or {}).get((season, team.team_id))
+            if moving is not None and transition_origin is not None:
+                url, origin = moving.source_url, transition_origin
         rows.append(
             {
                 "team_id": team.team_id,
@@ -218,10 +303,35 @@ def membership_rows(
                 "conference_id": conference_id(team.conference),
                 "division": team.division,
                 "cfp_group": group,
+                "source_url": url,
             }
-            | _provenance(got, season)
+            | _provenance(origin, season)
         )
     return _frame("membership", rows)
+
+
+def eligibility_rows(
+    by_season: Mapping[int, Mapping[str, SeasonTeam]],
+    transitions: Mapping[tuple[int, str], Transition],
+    origin: Origin,
+) -> pl.DataFrame:
+    """Bid eligibility for the sourced transition team-seasons that are FBS. A team-season with no row is an
+    established FBS member with no restriction."""
+    rows = [
+        {
+            "season": season,
+            "team_id": team_id,
+            "standard_met": None,
+            "waiver": row.waiver,
+            "cfp_eligible": row.cfp_eligible,
+            "ncaa_status": row.ncaa_status,
+            "source_url": row.source_url,
+        }
+        | _provenance(origin, season)
+        for (season, team_id), row in sorted(transitions.items())
+        if by_season[season][team_id].division == "fbs"
+    ]
+    return _frame("eligibility", rows)
 
 
 def team_rows(
