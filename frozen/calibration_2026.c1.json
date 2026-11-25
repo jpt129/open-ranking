@@ -1,0 +1,1227 @@
+{
+ "bounds_near_rank": [
+  0.01,
+  0.99
+ ],
+ "code_hash": "46aa175df003a606e4cf70539e72832c612f41ce",
+ "correction": 1,
+ "correction_reason": "John's ruling of 25 Nov: P(top 25) kept as built (isotonic). P(rank <= 4) and P(rank <= 12) refitted as two-parameter logistic maps on teams within ten places of the rank, replacing the isotonic step maps, under a pass rule fixed before the fit.",
+ "fitted_on_kind": "weekly",
+ "floor": 5e-05,
+ "label": "Calibrated: a disclosure column, not a promoted model. Both columns are scored.",
+ "maps": {
+  "sun0200": {
+   "rank12": {
+    "intercept": 0.23199777730067295,
+    "kind": "logistic",
+    "n": 1008,
+    "slope": 1.6406643042978055
+   },
+   "rank4": {
+    "intercept": 1.738647435701652,
+    "kind": "logistic",
+    "n": 672,
+    "slope": 5.739891003074933
+   },
+   "top25": {
+    "hi": [
+     0.0004,
+     0.0027,
+     0.0043,
+     0.0085,
+     0.0115,
+     0.0135,
+     0.0222,
+     0.0568,
+     0.2832,
+     0.2864,
+     0.381,
+     0.4935,
+     0.495,
+     0.6237,
+     0.755,
+     0.9653,
+     0.9674,
+     0.9869,
+     0.9993,
+     0.9999,
+     0.99995
+    ],
+    "kind": "isotonic",
+    "lo": [
+     5e-05,
+     0.0005,
+     0.0028,
+     0.0045,
+     0.0086,
+     0.0117,
+     0.0136,
+     0.023,
+     0.0571,
+     0.2833,
+     0.2869,
+     0.3812,
+     0.4938,
+     0.4956,
+     0.6238,
+     0.756,
+     0.9654,
+     0.9675,
+     0.987,
+     0.9994,
+     0.99995
+    ],
+    "n": 6261,
+    "value": [
+     0.0009832841691248771,
+     0.015444015444015444,
+     0.031746031746031744,
+     0.03225806451612903,
+     0.041666666666666664,
+     0.05555555555555555,
+     0.1038961038961039,
+     0.13076923076923078,
+     0.16883116883116883,
+     0.3076923076923077,
+     0.3235294117647059,
+     0.32432432432432434,
+     0.5,
+     0.5510204081632653,
+     0.6463414634146342,
+     0.7796610169491526,
+     0.7894736842105263,
+     0.8709677419354839,
+     0.9230769230769231,
+     0.9848484848484849,
+     0.9985835694050992
+    ]
+   }
+  },
+  "tminus60": {
+   "rank12": {
+    "intercept": 0.2046947131497641,
+    "kind": "logistic",
+    "n": 1008,
+    "slope": 1.5867263390717141
+   },
+   "rank4": {
+    "intercept": 1.3755646928645056,
+    "kind": "logistic",
+    "n": 672,
+    "slope": 5.039399693007055
+   },
+   "top25": {
+    "hi": [
+     5e-05,
+     0.0005,
+     0.0018,
+     0.0056,
+     0.0265,
+     0.0276,
+     0.0413,
+     0.0568,
+     0.0887,
+     0.1266,
+     0.1824,
+     0.2585,
+     0.2626,
+     0.2634,
+     0.3682,
+     0.3706,
+     0.3767,
+     0.5054,
+     0.511,
+     0.5148,
+     0.7915,
+     0.9944,
+     0.9947,
+     0.9997,
+     0.9999,
+     0.99995
+    ],
+    "kind": "isotonic",
+    "lo": [
+     5e-05,
+     0.0001,
+     0.0006,
+     0.0019,
+     0.0057,
+     0.0266,
+     0.0277,
+     0.0414,
+     0.0569,
+     0.089,
+     0.1268,
+     0.1834,
+     0.2599,
+     0.2627,
+     0.2636,
+     0.3691,
+     0.3708,
+     0.3773,
+     0.5055,
+     0.5111,
+     0.5151,
+     0.7916,
+     0.9945,
+     0.9949,
+     0.9998,
+     0.99995
+    ],
+    "n": 6261,
+    "value": [
+     0.00025464731347084286,
+     0.003401360544217687,
+     0.006944444444444444,
+     0.02142857142857143,
+     0.0335195530726257,
+     0.07692307692307693,
+     0.08064516129032258,
+     0.10526315789473684,
+     0.16666666666666666,
+     0.17647058823529413,
+     0.19148936170212766,
+     0.30303030303030304,
+     0.3333333333333333,
+     0.4,
+     0.4166666666666667,
+     0.42857142857142855,
+     0.46153846153846156,
+     0.5,
+     0.5263157894736842,
+     0.5294117647058824,
+     0.632183908045977,
+     0.793939393939394,
+     0.8888888888888888,
+     0.956989247311828,
+     0.9722222222222222,
+     0.9934810951760105
+    ]
+   }
+  }
+ },
+ "model": "top 25: isotonic map of the raw published probability over every team; rank <= 4 and rank <= 12: logistic map on its logit, for teams near the rank; one map per cutoff",
+ "near_width": 5,
+ "paths": 10000,
+ "problems": [
+  "2020 release 1 sun0200: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 1 tminus60: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 2 sun0200: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 2 tminus60: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 3 sun0200: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30"
+ ],
+ "rank_noise_sha256": "2da5bfa973151eca17fa0e5e826d19862f9cf28960a09db4aa318a050c1a6605",
+ "season": 2026,
+ "supersedes_sha256": "63adf3ea18cc03f4561af74d2b6dab1b913824b45b5a4520cea39a2da632a467",
+ "taus": {
+  "sun0200": 2.9160262790812754,
+  "tminus60": 2.5489813458025985
+ },
+ "trained_on": [
+  2014,
+  2015,
+  2016,
+  2017,
+  2018,
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "verification": {
+  "cells": {
+   "sun0200": {
+    "rank12": {
+     "after": {
+      "brier": 0.05349182,
+      "log_loss": 0.19826581,
+      "n": 1008
+     },
+     "before": {
+      "brier": 0.06055669,
+      "log_loss": 0.21597761,
+      "n": 1008
+     },
+     "cohort_places": [
+      2,
+      22
+     ],
+     "near_in_bounds": false,
+     "near_values": {
+      "max": 0.99995,
+      "min": 0.0040952971120355505,
+      "n": 528
+     },
+     "reliability_after": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.00132,
+       "n": 71,
+       "observed": 0.0,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.006126,
+       "n": 82,
+       "observed": 0.012195,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.02479,
+       "n": 135,
+       "observed": 0.014815,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.097635,
+       "n": 98,
+       "observed": 0.071429,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.29103,
+       "n": 94,
+       "observed": 0.223404,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.555428,
+       "n": 48,
+       "observed": 0.666667,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.749321,
+       "n": 48,
+       "observed": 0.895833,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.887181,
+       "n": 51,
+       "observed": 0.921569,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.971723,
+       "n": 88,
+       "observed": 0.965909,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.99541,
+       "n": 35,
+       "observed": 1.0,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.999664,
+       "n": 258,
+       "observed": 0.984496,
+       "to": 1.0
+      }
+     ],
+     "reliability_before": [
+      {
+       "from": 0.003,
+       "mean_forecast": 0.007141,
+       "n": 17,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.028654,
+       "n": 131,
+       "observed": 0.007634,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.101299,
+       "n": 191,
+       "observed": 0.020942,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.292703,
+       "n": 141,
+       "observed": 0.184397,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.49816,
+       "n": 48,
+       "observed": 0.666667,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.687809,
+       "n": 96,
+       "observed": 0.90625,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.887275,
+       "n": 96,
+       "observed": 0.96875,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.975515,
+       "n": 92,
+       "observed": 0.956522,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.995207,
+       "n": 41,
+       "observed": 1.0,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.999442,
+       "n": 155,
+       "observed": 1.0,
+       "to": 1.0
+      }
+     ],
+     "verified": false
+    },
+    "rank4": {
+     "after": {
+      "brier": 0.02306006,
+      "log_loss": 0.08898958,
+      "n": 672
+     },
+     "before": {
+      "brier": 0.06214872,
+      "log_loss": 0.23650969,
+      "n": 672
+     },
+     "cohort_places": [
+      1,
+      14
+     ],
+     "near_in_bounds": false,
+     "near_values": {
+      "max": 0.99995,
+      "min": 5e-05,
+      "n": 432
+     },
+     "reliability_after": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.000291,
+       "n": 382,
+       "observed": 0.0,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.005234,
+       "n": 3,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.019505,
+       "n": 47,
+       "observed": 0.021277,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.178342,
+       "n": 24,
+       "observed": 0.25,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.217806,
+       "n": 24,
+       "observed": 0.041667,
+       "to": 0.4
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.777556,
+       "n": 28,
+       "observed": 0.928571,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.819859,
+       "n": 20,
+       "observed": 0.85,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.984808,
+       "n": 39,
+       "observed": 0.974359,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.991833,
+       "n": 9,
+       "observed": 0.777778,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.99968,
+       "n": 96,
+       "observed": 1.0,
+       "to": 1.0
+      }
+     ],
+     "reliability_before": [
+      {
+       "from": 0.003,
+       "mean_forecast": 0.007537,
+       "n": 16,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.028435,
+       "n": 133,
+       "observed": 0.0,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.108354,
+       "n": 216,
+       "observed": 0.0,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.29991,
+       "n": 115,
+       "observed": 0.069565,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.49567,
+       "n": 54,
+       "observed": 0.907407,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.674707,
+       "n": 90,
+       "observed": 0.966667,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.834642,
+       "n": 48,
+       "observed": 1.0,
+       "to": 0.95
+      }
+     ],
+     "verified": false
+    },
+    "top25": {
+     "after": {
+      "brier": 0.02627911,
+      "log_loss": 0.09240012,
+      "n": 6261
+     },
+     "before": {
+      "brier": 0.02702711,
+      "log_loss": 0.10545551,
+      "n": 6261
+     },
+     "cohort_places": null,
+     "reliability_after": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.001015,
+       "n": 4080,
+       "observed": 0.001225,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.00929,
+       "n": 22,
+       "observed": 0.090909,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.024859,
+       "n": 428,
+       "observed": 0.023364,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.142714,
+       "n": 460,
+       "observed": 0.141304,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.320617,
+       "n": 79,
+       "observed": 0.341772,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.526596,
+       "n": 42,
+       "observed": 0.666667,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.717882,
+       "n": 221,
+       "observed": 0.705882,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.908975,
+       "n": 155,
+       "observed": 0.877419,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.983247,
+       "n": 62,
+       "observed": 0.983871,
+       "to": 0.99
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.998528,
+       "n": 712,
+       "observed": 0.997191,
+       "to": 1.0
+      }
+     ],
+     "reliability_before": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.000139,
+       "n": 4337,
+       "observed": 0.002075,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.005762,
+       "n": 165,
+       "observed": 0.030303,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.023853,
+       "n": 224,
+       "observed": 0.111607,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.09942,
+       "n": 192,
+       "observed": 0.182292,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.291975,
+       "n": 143,
+       "observed": 0.216783,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.498379,
+       "n": 48,
+       "observed": 0.5,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.687551,
+       "n": 96,
+       "observed": 0.625,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.886207,
+       "n": 96,
+       "observed": 0.802083,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.975022,
+       "n": 89,
+       "observed": 0.831461,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.994904,
+       "n": 49,
+       "observed": 0.918367,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.999859,
+       "n": 822,
+       "observed": 0.991484,
+       "to": 1.0
+      }
+     ],
+     "verified": true
+    }
+   },
+   "tminus60": {
+    "rank12": {
+     "after": {
+      "brier": 0.04985864,
+      "log_loss": 0.17819481,
+      "n": 1008
+     },
+     "before": {
+      "brier": 0.05485101,
+      "log_loss": 0.19252068,
+      "n": 1008
+     },
+     "cohort_places": [
+      2,
+      22
+     ],
+     "near_in_bounds": false,
+     "near_values": {
+      "max": 0.99995,
+      "min": 0.0013510302856757472,
+      "n": 528
+     },
+     "reliability_after": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.001274,
+       "n": 106,
+       "observed": 0.009434,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.00626,
+       "n": 86,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.023856,
+       "n": 105,
+       "observed": 0.019048,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.112964,
+       "n": 121,
+       "observed": 0.107438,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.317019,
+       "n": 62,
+       "observed": 0.225806,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.567923,
+       "n": 48,
+       "observed": 0.625,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.775301,
+       "n": 47,
+       "observed": 0.914894,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.909099,
+       "n": 49,
+       "observed": 0.938776,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.971815,
+       "n": 48,
+       "observed": 0.895833,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.993076,
+       "n": 48,
+       "observed": 1.0,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.999713,
+       "n": 288,
+       "observed": 0.996528,
+       "to": 1.0
+      }
+     ],
+     "reliability_before": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.002233,
+       "n": 3,
+       "observed": 0.0,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.006518,
+       "n": 44,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.027477,
+       "n": 146,
+       "observed": 0.006849,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.114878,
+       "n": 191,
+       "observed": 0.04712,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.319146,
+       "n": 96,
+       "observed": 0.208333,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.510506,
+       "n": 48,
+       "observed": 0.625,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.718001,
+       "n": 89,
+       "observed": 0.921348,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.892234,
+       "n": 67,
+       "observed": 0.925373,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.970557,
+       "n": 84,
+       "observed": 0.988095,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.995035,
+       "n": 46,
+       "observed": 1.0,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.999625,
+       "n": 194,
+       "observed": 1.0,
+       "to": 1.0
+      }
+     ],
+     "verified": false
+    },
+    "rank4": {
+     "after": {
+      "brier": 0.02243684,
+      "log_loss": 0.08779203,
+      "n": 672
+     },
+     "before": {
+      "brier": 0.05471414,
+      "log_loss": 0.21188526,
+      "n": 672
+     },
+     "cohort_places": [
+      1,
+      14
+     ],
+     "near_in_bounds": false,
+     "near_values": {
+      "max": 0.99995,
+      "min": 5e-05,
+      "n": 432
+     },
+     "reliability_after": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.000277,
+       "n": 380,
+       "observed": 0.0,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.003111,
+       "n": 4,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.019198,
+       "n": 48,
+       "observed": 0.020833,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.180402,
+       "n": 29,
+       "observed": 0.172414,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.21501,
+       "n": 19,
+       "observed": 0.105263,
+       "to": 0.4
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.779742,
+       "n": 24,
+       "observed": 0.916667,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.813505,
+       "n": 24,
+       "observed": 0.875,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.986201,
+       "n": 32,
+       "observed": 1.0,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.992151,
+       "n": 16,
+       "observed": 0.8125,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.99975,
+       "n": 96,
+       "observed": 1.0,
+       "to": 1.0
+      }
+     ],
+     "reliability_before": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.0026,
+       "n": 1,
+       "observed": 0.0,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.006191,
+       "n": 35,
+       "observed": 0.0,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.026373,
+       "n": 156,
+       "observed": 0.0,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.111436,
+       "n": 192,
+       "observed": 0.0,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.311583,
+       "n": 96,
+       "observed": 0.083333,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.499308,
+       "n": 48,
+       "observed": 0.895833,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.712906,
+       "n": 95,
+       "observed": 0.968421,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.880857,
+       "n": 49,
+       "observed": 1.0,
+       "to": 0.95
+      }
+     ],
+     "verified": false
+    },
+    "top25": {
+     "after": {
+      "brier": 0.02379361,
+      "log_loss": 0.08149217,
+      "n": 6261
+     },
+     "before": {
+      "brier": 0.02420342,
+      "log_loss": 0.09366994,
+      "n": 6261
+     },
+     "cohort_places": null,
+     "reliability_after": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.000283,
+       "n": 3996,
+       "observed": 0.000751,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.00476,
+       "n": 335,
+       "observed": 0.002985,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.025877,
+       "n": 358,
+       "observed": 0.027933,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.138209,
+       "n": 225,
+       "observed": 0.151111,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.288784,
+       "n": 78,
+       "observed": 0.333333,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.478323,
+       "n": 111,
+       "observed": 0.45045,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.71892,
+       "n": 200,
+       "observed": 0.74,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.861591,
+       "n": 93,
+       "observed": 0.806452,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.961242,
+       "n": 99,
+       "observed": 0.939394,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.994415,
+       "n": 766,
+       "observed": 0.992167,
+       "to": 0.997
+      }
+     ],
+     "reliability_before": [
+      {
+       "from": 0.0,
+       "mean_forecast": 0.000125,
+       "n": 4426,
+       "observed": 0.00113,
+       "to": 0.003
+      },
+      {
+       "from": 0.003,
+       "mean_forecast": 0.005686,
+       "n": 148,
+       "observed": 0.027027,
+       "to": 0.01
+      },
+      {
+       "from": 0.01,
+       "mean_forecast": 0.024324,
+       "n": 200,
+       "observed": 0.06,
+       "to": 0.05
+      },
+      {
+       "from": 0.05,
+       "mean_forecast": 0.114759,
+       "n": 191,
+       "observed": 0.193717,
+       "to": 0.2
+      },
+      {
+       "from": 0.2,
+       "mean_forecast": 0.319707,
+       "n": 96,
+       "observed": 0.416667,
+       "to": 0.4
+      },
+      {
+       "from": 0.4,
+       "mean_forecast": 0.509869,
+       "n": 48,
+       "observed": 0.541667,
+       "to": 0.6
+      },
+      {
+       "from": 0.6,
+       "mean_forecast": 0.719299,
+       "n": 91,
+       "observed": 0.648352,
+       "to": 0.8
+      },
+      {
+       "from": 0.8,
+       "mean_forecast": 0.898627,
+       "n": 70,
+       "observed": 0.814286,
+       "to": 0.95
+      },
+      {
+       "from": 0.95,
+       "mean_forecast": 0.972,
+       "n": 79,
+       "observed": 0.78481,
+       "to": 0.99
+      },
+      {
+       "from": 0.99,
+       "mean_forecast": 0.994933,
+       "n": 45,
+       "observed": 0.911111,
+       "to": 0.997
+      },
+      {
+       "from": 0.997,
+       "mean_forecast": 0.999877,
+       "n": 867,
+       "observed": 0.988466,
+       "to": 1.0
+      }
+     ],
+     "verified": true
+    }
+   }
+  },
+  "criterion": "leave-one-season-out, temperature and map both fitted without the season: log loss lower than the raw column's and Brier score no higher; for rank <= 4 and rank <= 12, measured on teams within ten places of the rank in the prior release, with no value for a team within five places below 0.01 or above 0.99"
+ }
+}

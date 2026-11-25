@@ -655,3 +655,21 @@ Done under item 1 of the order of work:
 6. Title pairings: the field section stays refused until they are on file with sources.
 
 How the pass rule is applied (my reading, for John to correct): "within N places of the cutoff" means the team's place in the starting order (the prior CFP list, then the rest) is within N of 4 or of 12. The 0.01–0.99 bound is checked on every held-out calibrated value for teams within five places, and again on the values an issue is about to publish; if either fails the column is raw only. A calibrated value is published only for teams inside the ten-place cohort the map was fitted on.
+
+## 2026-11-25 — Calibrated column after the ruling: outcome (SC-05)
+
+- **P(top 25): published for Issues 1 and 2, as built.** The isotonic maps in the corrected file are identical to those in the first file (checked value for value).
+- **P(rank ≤ 4) and P(rank ≤ 12): raw only. The logistic maps failed the pass rule on its bound clause.** Leave-one-season-out on the near-rank cohort, log loss and Brier both fell in all four cells, but held-out values for teams within five places of the rank ran to 0.0001 and 1.0000, outside 0.01–0.99:
+
+| Cutoff | Quantity | Cohort n | Log loss raw → map | Brier raw → map | Slope | Held-out values within five places |
+|---|---|---|---|---|---|---|
+| sun0200 | rank ≤ 4 | 672 | 0.2365 → 0.0890 | 0.0622 → 0.0231 | 5.74 | 0.0001 to 1.0000 |
+| sun0200 | rank ≤ 12 | 1,008 | 0.2160 → 0.1983 | 0.0606 → 0.0535 | 1.64 | 0.0041 to 1.0000 |
+| tminus60 | rank ≤ 4 | 672 | 0.2119 → 0.0878 | 0.0547 → 0.0224 | 5.04 | 0.0001 to 1.0000 |
+| tminus60 | rank ≤ 12 | 1,008 | 0.1925 → 0.1782 | 0.0549 → 0.0499 | 1.59 | 0.0014 to 1.0000 |
+
+  The slope is steep because the top four almost never change without a loss: any smooth map that fits that is near 0 or 1 a few places from the rank. The rule was not adjusted. The issue document lists both columns as left out with these figures.
+- **Frozen:** `frozen/calibration_2026.c1.json`, SHA-256 `8586eb11d2b4e8faec2f340ff4e26282035e864ef69e447ae9f3388d730b9b98`, written from committed code as a numbered correction naming the first file and the reason. Calibration files now use the same numbered-correction chain as the rank-noise files (the loader checks every file in the chain).
+- **Report only, no refit: the frozen maps on the three 2026 weekly releases so far** (releases 2–4, 414 team-forecasts and 75 events a cutoff). P(top 25): log loss 0.1168 → 0.0895 (sun0200) and 0.0789 → 0.0693 (tminus60); Brier 0.0269 → 0.0248 and 0.0231 → 0.0221. The unpublished rank maps, on 42 and 63 forecasts: rank ≤ 4 was worse than raw (0.293 → 0.417 and 0.280 → 0.427); rank ≤ 12 was better (0.173 → 0.123 and 0.155 → 0.115).
+- **Reports** are in `docs/reports/`: the leave-one-season-out tables for the frozen file (`calibration_2026.txt`), the withdrawn all-isotonic run (`calibration_2026_isotonic_all_25nov.txt`), and the 2026 check with the four-team table (`calibration_2026_on_2026_releases_25nov.txt`).
+- `tests/unit/test_calibration.py::test_fit_calibration_command` covers the command: report writes nothing, an uncommitted tree is refused, one write, a correction is a new numbered file.

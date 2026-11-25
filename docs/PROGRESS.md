@@ -181,3 +181,9 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Done: three reviews (fixes, provenance, referee) and their fixes; rank noise c2 confirmed by John; `cfp.forecast.pl` with the spec-named tests; pairwise bubble probabilities; whole-issue field test; calibrated disclosure column fitted, verified leave-one-season-out (6 of 6 cells) and frozen (`frozen/calibration_2026.json`). 444 tests pass; cloud rehearsal 45705761200 passed at `c115582`. Hourly capture from the Mac confirmed (21:17 UTC run succeeded).
 - For John: look at the reliability tables (`cfp forecast fit-calibration --season 2026 --report`); the step behaviour of the calibrated rank ≤ 4 column (No. 6 and below at 0.0001).
 - Next: title pairings as they become official (Big Ten, SEC, Big 12 rows with source and first-public time); Friday timed dry run; scoring and promotion modules (VT-11, VT-12, VT-14).
+
+## 2026-11-25 (late) — calibrated column settled
+
+- Done: John's ruling applied. P(top 25) calibrated column is published for Issues 1 and 2; rank ≤ 4 and rank ≤ 12 are raw only (logistic maps failed the bound clause of the pass rule). Maps frozen as `calibration_2026.c1.json`. Command test added; reports in `docs/reports/`. 447 tests pass.
+- Candidates for after the pilot (promotion rule): nine-place regular-week drop; rank-dependent noise.
+- Next: Friday timed dry run; title pairings with sources as they become official.
