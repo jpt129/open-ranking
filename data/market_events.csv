@@ -1,0 +1,16 @@
+venue,ref,season,question,depth,note
+kalshi,KXNCAAFPLAYOFF,2026,make_playoff,yes,College Football Playoff Qualifiers
+kalshi,KXNCAAFTOPCFPPOLL,2026,poll_top,yes,Next CFP rankings: top 4 / 12 / 25
+kalshi,KXNCAAFCFPPOLL,2026,poll_rank,no,Next CFP rankings: team at an exact rank
+kalshi,KXNCAAFTOPSEED,2026,top4_seed,yes,Top 4 seeds (byes)
+kalshi,KXNCAAFSEED,2026,seed,no,Exact seed
+kalshi,KXNCAAFQF,2026,quarterfinal,no,
+kalshi,KXNCAAFSF,2026,semifinal,no,
+kalshi,KXNCAAFFINALIST,2026,finalist,no,
+kalshi,KXNCAAF,2026,champion,no,National championship winner
+polymarket,948140,2026,make_playoff,yes,Team to make College Football Playoffs
+polymarket,801843,2026,top4_seed,yes,CFB Playoff Top 4 Seeds
+polymarket,801879,2026,quarterfinal,no,
+polymarket,801906,2026,semifinal,no,
+polymarket,801515,2026,finalist,no,Team to Make National Championship
+polymarket,357914,2026,champion,no,2027 National Champion

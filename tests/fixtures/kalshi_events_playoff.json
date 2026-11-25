@@ -1,0 +1,83 @@
+{
+ "events": [
+  {
+   "event_ticker": "KXNCAAFPLAYOFF-26",
+   "series_ticker": "KXNCAAFPLAYOFF",
+   "title": "College Football Playoff Qualifiers",
+   "sub_title": "2026-27",
+   "markets": [
+    {
+     "ticker": "KXNCAAFPLAYOFF-26-OSU",
+     "title": "Will Ohio St. qualify for the College Football Playoffs?",
+     "yes_sub_title": "Ohio St.",
+     "status": "active",
+     "market_type": "binary",
+     "yes_bid_dollars": "0.0000",
+     "yes_ask_dollars": "0.0200",
+     "yes_bid_size_fp": "0.00",
+     "yes_ask_size_fp": "20946.86",
+     "last_price_dollars": "0.0200",
+     "close_time": "2026-12-29T15:00:00Z",
+     "result": ""
+    },
+    {
+     "ticker": "KXNCAAFPLAYOFF-26-TEX",
+     "title": "Will Texas qualify for the College Football Playoffs?",
+     "yes_sub_title": "Texas",
+     "status": "active",
+     "market_type": "binary",
+     "yes_bid_dollars": "0.9800",
+     "yes_ask_dollars": "1.0000",
+     "yes_bid_size_fp": "5001.23",
+     "yes_ask_size_fp": "0.00",
+     "last_price_dollars": "0.9800",
+     "close_time": "2026-12-29T15:00:00Z",
+     "result": ""
+    },
+    {
+     "ticker": "KXNCAAFPLAYOFF-26-ND",
+     "title": "Will Notre Dame qualify for the College Football Playoffs?",
+     "yes_sub_title": "Notre Dame",
+     "status": "active",
+     "market_type": "binary",
+     "yes_bid_dollars": "0.9800",
+     "yes_ask_dollars": "0.9900",
+     "yes_bid_size_fp": "4.08",
+     "yes_ask_size_fp": "21228.41",
+     "last_price_dollars": "0.9700",
+     "close_time": "2026-12-29T15:00:00Z",
+     "result": ""
+    },
+    {
+     "ticker": "KXNCAAFPLAYOFF-26-MIA",
+     "title": "Will Miami (FL) qualify for the College Football Playoffs?",
+     "yes_sub_title": "Miami (FL)",
+     "status": "active",
+     "market_type": "binary",
+     "yes_bid_dollars": "0.9700",
+     "yes_ask_dollars": "0.9900",
+     "yes_bid_size_fp": "101.28",
+     "yes_ask_size_fp": "104.35",
+     "last_price_dollars": "0.9700",
+     "close_time": "2026-12-29T15:00:00Z",
+     "result": ""
+    },
+    {
+     "ticker": "KXNCAAFPLAYOFF-26-MOH",
+     "title": "Will Miami (OH) qualify for the College Football Playoffs?",
+     "yes_sub_title": "Miami (OH)",
+     "status": "active",
+     "market_type": "binary",
+     "yes_bid_dollars": "0.0000",
+     "yes_ask_dollars": "0.0100",
+     "yes_bid_size_fp": "0.00",
+     "yes_ask_size_fp": "3099.99",
+     "last_price_dollars": "0.0200",
+     "close_time": "2026-12-29T15:00:00Z",
+     "result": ""
+    }
+   ]
+  }
+ ],
+ "cursor": ""
+}

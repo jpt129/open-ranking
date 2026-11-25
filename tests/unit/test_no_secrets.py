@@ -10,6 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 KEY_NAMES = ("CFBD_API_KEY", "ODDS_API_KEY")
 SHA256 = re.compile(r"\b[0-9a-f]{64}\b")
+# Polymarket token ids are public 256-bit integers printed in decimal; no key is 70+ decimal digits.
+TOKEN_ID = re.compile(r"(?<![A-Za-z0-9+/])\d{70,80}(?![A-Za-z0-9+/])")
 KEY_SHAPED = [
     re.compile(r"Bearer\s+[A-Za-z0-9+/=_\-.]{16,}"),
     re.compile(r"(?i)authorization\W{1,4}\w"),
@@ -22,7 +24,7 @@ EXEMPT = {"tests/unit/test_no_secrets.py", "tests/unit/test_ingest_http.py"}
 
 
 def key_shaped(text: str) -> list[str]:
-    text = SHA256.sub("", text)  # content digests are not secrets
+    text = TOKEN_ID.sub("", SHA256.sub("", text))  # content digests and public token ids are not secrets
     return [match.group(0)[:12] + "..." for pattern in KEY_SHAPED for match in pattern.finditer(text)]
 
 
@@ -31,6 +33,8 @@ def test_detector_recognises_key_shapes() -> None:
     assert key_shaped('{"apiKey": "0123456789abcdef0123456789abcdef"}')
     assert key_shaped("x" + "/" + "Ab3" * 21 + "==")
     assert not key_shaped("raw_hash " + "a" * 64 + " and a team named Georgia")
+    assert not key_shaped('"token_id": "' + "6211409107" * 7 + '1234567"')
+    assert key_shaped("6211409107" * 4 + "abcdefghij")  # digits mixed with letters still count
 
 
 def test_no_key_shaped_string_under_tests() -> None:

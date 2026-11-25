@@ -9,6 +9,8 @@ from pathlib import Path
 
 from cfp import __version__
 
+FIRST_SEASON = 2014
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cfp", description="Open Ranking command line.")
@@ -25,6 +27,18 @@ def build_parser() -> argparse.ArgumentParser:
     cfbd.add_argument("--season", type=int, nargs="+", required=True)
     cfbd.add_argument("--what", nargs="+", choices=("games", "rankings", "reference", "lines"), required=True)
     cfbd.add_argument("--stage", required=True, help="name for the call counter, e.g. season-2026")
+
+    identity = commands.add_parser("identity", help="team identity and conference membership")
+    identity.add_subparsers(dest="kind", metavar="<action>", required=True).add_parser(
+        "build", help="rebuild teams, aliases and membership from archived payloads"
+    )
+
+    markets = commands.add_parser("markets", help="read-only market capture (evaluation only)")
+    market_kinds = markets.add_subparsers(dest="kind", metavar="<action>", required=True)
+    snap = market_kinds.add_parser("snapshot", help="capture listings, best quotes and order books now")
+    snap.add_argument("--no-depth", action="store_true", help="skip the per-contract order books")
+    hist = market_kinds.add_parser("history", help="hourly venue history for the depth-flagged events")
+    hist.add_argument("--hours", type=int, default=48)
 
     commands.add_parser("budget", help="show API calls used this month")
     return parser
@@ -87,6 +101,63 @@ def _ingest_cfbd(args: argparse.Namespace) -> int:
     return 0
 
 
+def _markets(args: argparse.Namespace) -> int:
+    from cfp.ingest.run import public_fetcher
+    from cfp.markets.snapshot import (
+        KALSHI,
+        POLYMARKET_CLOB,
+        POLYMARKET_GAMMA,
+        Venues,
+        history,
+        load_events,
+        snapshot,
+    )
+    from cfp.store.lake import Lake
+
+    lake, data = Lake(args.lake), Path(args.data)
+    venues = Venues(
+        kalshi=public_fetcher(lake, "kalshi", KALSHI, rate=8.0),
+        gamma=public_fetcher(lake, "polymarket_gamma", POLYMARKET_GAMMA, rate=4.0),
+        clob=public_fetcher(lake, "polymarket_clob", POLYMARKET_CLOB, rate=8.0),
+    )
+    events = load_events(data / "market_events.csv")
+    if args.kind == "snapshot":
+        report = snapshot(lake, venues, events, data, depth=not args.no_depth)
+        print(
+            f"catalogue new={report.catalogue_new} changed={report.catalogue_changed}; quotes {report.quotes}"
+        )
+    else:
+        report = history(lake, venues, events, args.hours)
+        print(f"history rows: {report.quotes}")
+    if report.unmapped:
+        print(f"no team for {len(report.unmapped)} names: {sorted(report.unmapped)}")
+    if report.empty:
+        print(f"listed events that returned no contract: {report.empty}")
+    return 0 if report.clean else 1
+
+
+def _identity_build(args: argparse.Namespace) -> int:
+    from cfp.common.env import load_env
+    from cfp.common.timeutil import utc_now
+    from cfp.identity.run import build_identity
+    from cfp.ingest.cfbd import Cfbd
+    from cfp.ingest.run import ESPN, LIVE_SEASON, public_fetcher
+    from cfp.store.lake import Lake
+
+    load_env()
+    lake = Lake(args.lake)
+    cfbd = Cfbd.from_env(lake, utc_now())
+    espn = public_fetcher(lake, "espn", ESPN).get("/teams", {"limit": 1000, "groups": 80}, reuse=True)
+    seasons = list(range(FIRST_SEASON, LIVE_SEASON + 1))
+    report = build_identity(lake, cfbd, Path(args.data), seasons, espn)
+    for result in report.results:
+        if result.new or result.corrected:
+            print(f"  {result.table}: new={result.new} corrected={result.corrected}")
+    for line in report.unconfirmed_espn:
+        print(f"  ESPN id not confirmed, left empty: {line}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -96,6 +167,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ingest_releases(args)
     elif args.command == "ingest" and args.kind == "cfbd":
         return _ingest_cfbd(args)
+    elif args.command == "markets":
+        return _markets(args)
+    elif args.command == "identity":
+        return _identity_build(args)
     elif args.command == "budget":
         path = Path(args.lake) / "budget.json"
         print(json.dumps(json.loads(path.read_text()) if path.is_file() else {}, indent=2, sort_keys=True))

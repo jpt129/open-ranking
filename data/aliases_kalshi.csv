@@ -1,0 +1,78 @@
+alias,team_id,match
+Air Force,cfbd-2005,exact
+Alabama,cfbd-333,exact
+Arizona,cfbd-12,exact
+Arizona St.,cfbd-9,hand: Arizona State
+Arkansas,cfbd-8,exact
+Auburn,cfbd-2,exact
+BYU,cfbd-252,exact
+Baylor,cfbd-239,exact
+Boise St.,cfbd-68,hand: Boise State
+California,cfbd-25,exact
+Cincinnati,cfbd-2132,exact
+Clemson,cfbd-228,exact
+Colorado,cfbd-38,exact
+Duke,cfbd-150,exact
+Florida,cfbd-57,exact
+Florida St.,cfbd-52,hand: Florida State
+Georgia,cfbd-61,exact
+Georgia Tech,cfbd-59,exact
+Houston,cfbd-248,exact
+Illinois,cfbd-356,exact
+Indiana,cfbd-84,exact
+Iowa,cfbd-2294,exact
+James Madison,cfbd-256,exact
+Kansas,cfbd-2305,exact
+Kansas St.,cfbd-2306,hand: Kansas State
+Kentucky,cfbd-96,exact
+LSU,cfbd-99,exact
+Liberty,cfbd-2335,exact
+Louisiana Tech,cfbd-2348,exact
+Louisville,cfbd-97,exact
+Maryland,cfbd-120,exact
+Memphis,cfbd-235,exact
+Miami (FL),cfbd-2390,hand: Miami
+Miami (OH),cfbd-193,exact
+Michigan,cfbd-130,exact
+Mississippi St.,cfbd-344,hand: Mississippi State
+Missouri,cfbd-142,exact
+Nebraska,cfbd-158,exact
+New Mexico,cfbd-167,exact
+North Carolina,cfbd-153,exact
+North Carolina St.,cfbd-152,hand: NC State
+North Dakota St.,cfbd-2449,hand: North Dakota State
+North Texas,cfbd-249,exact
+Northwestern,cfbd-77,exact
+Notre Dame,cfbd-87,exact
+Ohio St.,cfbd-194,hand: Ohio State
+Oklahoma,cfbd-201,exact
+Oklahoma St.,cfbd-197,hand: Oklahoma State
+Ole Miss,cfbd-145,exact
+Oregon,cfbd-2483,exact
+Oregon St.,cfbd-204,hand: Oregon State
+Penn St.,cfbd-213,hand: Penn State
+Pittsburgh,cfbd-221,exact
+SMU,cfbd-2567,exact
+San Diego St.,cfbd-21,hand: San Diego State
+South Carolina,cfbd-2579,exact
+TCU,cfbd-2628,exact
+Tennessee,cfbd-2633,exact
+Texas,cfbd-251,exact
+Texas A&M,cfbd-245,exact
+Texas Tech,cfbd-2641,exact
+Toledo,cfbd-2649,exact
+Tulane,cfbd-2655,exact
+UCF,cfbd-2116,exact
+UCLA,cfbd-26,exact
+UMass,cfbd-113,hand: Massachusetts
+USC,cfbd-30,exact
+UTSA,cfbd-2636,exact
+Utah,cfbd-254,exact
+Vanderbilt,cfbd-238,exact
+Virginia,cfbd-258,exact
+Virginia Tech,cfbd-259,exact
+Wake Forest,cfbd-154,exact
+Washington,cfbd-264,exact
+Western Michigan,cfbd-2711,exact
+Wisconsin,cfbd-275,exact
+Wyoming,cfbd-2751,exact

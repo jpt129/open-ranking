@@ -202,11 +202,12 @@ TABLES: Final[dict[str, TableSpec]] = {
         ),
         _spec(
             "market_quotes",
-            ("venue", "ticker", "ts_utc"),
+            ("venue", "ticker", "ts_utc", "kind"),
             {
                 "venue": S,
                 "ticker": S,
                 "ts_utc": TS,
+                "kind": S,  # top (best quotes in a listing), book (order book) or candle (venue history)
                 "season": I32,
                 "bid": F64,
                 "ask": F64,
@@ -215,6 +216,23 @@ TABLES: Final[dict[str, TableSpec]] = {
                 "last": F64,
             },
             nullable=("bid", "ask", "bid_size", "ask_size", "last"),
+        ),
+        _spec(
+            "market_catalogue",
+            ("venue", "ticker"),
+            {
+                "venue": S,
+                "ticker": S,
+                "season": I32,
+                "event_ref": S,
+                "event_title": S,
+                "question": S,
+                "outcome_name": S,
+                "team_id": S,
+                "status": S,
+                "close_utc": TS,
+            },
+            nullable=("team_id", "close_utc"),
         ),
         _spec(
             "eligibility",

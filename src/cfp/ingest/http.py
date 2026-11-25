@@ -224,6 +224,14 @@ class Fetcher:
         ]
         return [value for value in values if len(value) >= 8]
 
+    def now(self) -> datetime:
+        """This fetcher's clock."""
+        return require_utc(self._clock(), "clock")
+
+    def public_url(self, path: str, params: Mapping[str, object] | None = None) -> str:
+        """The URL as it appears in the fetch log, with secrets redacted."""
+        return self._url(path, params or {}, {k: REDACTED for k in self._secret_params})
+
     def _scrub(self, text: str) -> str:
         for secret in self._secrets():
             text = text.replace(secret, REDACTED).replace(quote(secret, safe=""), REDACTED)

@@ -102,3 +102,9 @@ name = "The Open Ranking's door (cfp.store.views) cannot open the lake"
 type = "forbidden"
 source_modules = ["cfp.store.views", "cfp.store.types"]
 forbidden_modules = ["cfp.store.asof", "cfp.store.lake", "cfp.store.pit", "cfp.store.schemas"]
+
+[[tool.importlinter.contracts]]
+name = "Forecasts never import market code (prices are evaluation only)"
+type = "forbidden"
+source_modules = ["cfp.forecast"]
+forbidden_modules = ["cfp.markets"]

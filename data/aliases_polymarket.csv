@@ -1,0 +1,69 @@
+alias,team_id,match
+Alabama,cfbd-333,exact
+Alabama Crimson Tide,cfbd-333,espn display name
+Arizona,cfbd-12,exact
+Arizona St.,cfbd-9,hand: Arizona State
+Arkansas,cfbd-8,exact
+Auburn,cfbd-2,exact
+BYU,cfbd-252,exact
+Baylor,cfbd-239,exact
+California,cfbd-25,exact
+Clemson,cfbd-228,exact
+Florida,cfbd-57,exact
+Florida Gators,cfbd-57,espn display name
+Florida St.,cfbd-52,hand: Florida State
+Georgia,cfbd-61,exact
+Georgia Bulldogs,cfbd-61,espn display name
+Georgia Tech,cfbd-59,exact
+Houston,cfbd-248,exact
+Illinois,cfbd-356,exact
+Indiana,cfbd-84,exact
+Indiana Hoosiers,cfbd-84,espn display name
+Iowa,cfbd-2294,exact
+James Madison,cfbd-256,exact
+Kansas St.,cfbd-2306,hand: Kansas State
+Kentucky,cfbd-96,exact
+LSU,cfbd-99,exact
+LSU Tigers,cfbd-99,espn display name
+Louisville,cfbd-97,exact
+Miami (FL),cfbd-2390,hand: Miami
+Miami (OH),cfbd-193,exact
+Miami Hurricanes,cfbd-2390,espn display name
+Michigan,cfbd-130,exact
+Michigan Wolverines,cfbd-130,espn display name
+Mississippi Rebels,cfbd-145,hand
+Missouri,cfbd-142,exact
+North Carolina St.,cfbd-152,hand: NC State
+North Texas,cfbd-249,exact
+Notre Dame,cfbd-87,exact
+Notre Dame Fighting Irish,cfbd-87,espn display name
+Ohio St.,cfbd-194,hand: Ohio State
+Ohio State Buckeyes,cfbd-194,espn display name
+Oklahoma,cfbd-201,exact
+Oklahoma Sooners,cfbd-201,espn display name
+Oklahoma St.,cfbd-197,hand: Oklahoma State
+Ole Miss,cfbd-145,exact
+Oregon,cfbd-2483,exact
+Oregon Ducks,cfbd-2483,espn display name
+Penn St.,cfbd-213,hand: Penn State
+Pittsburgh,cfbd-221,exact
+SMU,cfbd-2567,exact
+South Carolina,cfbd-2579,exact
+TCU,cfbd-2628,exact
+Tennessee,cfbd-2633,exact
+Texas,cfbd-251,exact
+Texas A&M,cfbd-245,exact
+Texas A&M Aggies,cfbd-245,espn display name
+Texas Longhorns,cfbd-251,espn display name
+Texas Tech,cfbd-2641,exact
+Texas Tech Red Raiders,cfbd-2641,espn display name
+Tulane,cfbd-2655,exact
+UCLA Bruins,cfbd-26,espn display name
+USC,cfbd-30,exact
+USC Trojans,cfbd-30,espn display name
+Utah,cfbd-254,exact
+Utah Utes,cfbd-254,espn display name
+Vanderbilt,cfbd-238,exact
+Virginia,cfbd-258,exact
+Virginia Tech,cfbd-259,exact
+Washington,cfbd-264,exact

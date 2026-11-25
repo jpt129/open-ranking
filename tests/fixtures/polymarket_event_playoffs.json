@@ -1,0 +1,53 @@
+[
+ {
+  "id": "948140",
+  "slug": "ncaa-football-team-to-make-college-football-playoffs-20260803190433067",
+  "title": "NCAA Football: Team to make College Football Playoffs",
+  "closed": false,
+  "active": true,
+  "markets": [
+   {
+    "id": "4061139",
+    "question": "Will Notre Dame Make the 2026-27 CFB Playoffs?",
+    "groupItemTitle": "Notre Dame",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "clobTokenIds": "[\"62114091072138831244471139109132311412024028335938216863576747342572512750405\", \"83395783721788710917323776457565004823632114001093191868167588597839108858036\"]",
+    "bestBid": 0.963,
+    "bestAsk": 0.997,
+    "lastTradePrice": 0.982,
+    "enableOrderBook": true,
+    "active": true,
+    "closed": false,
+    "endDate": null
+   },
+   {
+    "id": "4061140",
+    "question": "Will Ohio St. Make the 2026-27 CFB Playoffs?",
+    "groupItemTitle": "Ohio St.",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "clobTokenIds": "[\"91237602486095371927094481560364522319520102388784521601673533166740683806177\", \"80628807142385997960051733664838246957920343882427907111295099483769379944836\"]",
+    "bestBid": 0.001,
+    "bestAsk": 0.037,
+    "lastTradePrice": 0.029,
+    "enableOrderBook": true,
+    "active": true,
+    "closed": false,
+    "endDate": null
+   },
+   {
+    "id": "4061142",
+    "question": "Will Miami (FL) Make the 2026-27 CFB Playoffs?",
+    "groupItemTitle": "Miami (FL)",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "clobTokenIds": "[\"33644397110030962136504275971902929228316217626473415394439136983329981413008\", \"32267533219196389589035652274048619983153917665070295212823545569487676199476\"]",
+    "bestBid": 0.955,
+    "bestAsk": 0.991,
+    "lastTradePrice": 0.926,
+    "enableOrderBook": true,
+    "active": true,
+    "closed": false,
+    "endDate": null
+   }
+  ]
+ }
+]

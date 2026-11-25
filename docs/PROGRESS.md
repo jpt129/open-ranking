@@ -77,3 +77,23 @@ Open
 - 2019 releases (CFBD lacks one); three confirmations from John (Selection Day edition, narrower "live" label, Selection Day public time).
 
 Next prompt: P03 (team identity and membership), then P04, P15, P23.
+
+## 2026-11-25 — P03 (identity and membership) and P02d (Kalshi and Polymarket readers)
+
+Decisions: John approved ESPN for 2019, confirmed the Selection Day edition (cutoff Sun 6 Dec 02:00 ET) and the show-start public time, and left the "live" label to Claude (kept narrow). 2019 releases are in: 76 releases, 2014–2026.
+
+Done
+- `cfp.identity`: builder, exact-match resolver, dated membership lookup, `cfp identity build`. In the lake: 777 teams, 2,334 aliases, 5,985 membership rows (2014–2026). Every team ID in games, polls and releases resolves; FBS counts match the sourced figures (138 in 2026).
+- `cfp.markets`: read-only Kalshi and Polymarket parsers, `cfp markets snapshot` and `cfp markets history`. First snapshot 25 Nov 17:01 UTC: 1,582 contracts, 1,999 quotes including 417 order books.
+- New tables `market_catalogue`; `market_quotes` keyed with `kind`. Fifth import contract: forecasts cannot import market code.
+- spec-guardian review: twelve findings fixed (DECISIONS.md).
+
+Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src` (36 files), `uv run lint-imports` (5 kept), `uv run pytest -q` (243 passed), `cfp identity build`, `cfp markets snapshot`, `cfp markets history --hours 720`.
+
+Open
+- Snapshots run only by hand; a schedule around each issue time is still to set up.
+- John: are North Dakota State and Sacramento State ordinary FBS opponents in 2026? John: Odds API plan and tier, for P02c.
+- P04 carry-overs: title-game list for 2014–21, forfeit list, left-out games, `data/transitioning.csv`.
+
+Next prompt: P04 (canonical games), P02c once John's plan is known, then P15, P23.
+

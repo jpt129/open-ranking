@@ -189,3 +189,36 @@ Verified on recorded responses: CFBD's week-1 poll is the preseason poll, and it
 - **Selection Day edition (OR-07a):** confirmed. Cutoff Sun 6 Dec 2026 02:00 ET (07:00 UTC), published before 11:00 ET.
 - **Selection Day public time:** stays at the scheduled show start, like every other release.
 - **"live" label:** John left the choice to Claude. Kept: a row is "live" only when the live system captured it within seven days of its public time; the catch-up of earlier 2026 games and polls is "reconstructed". Reason: the label should mean we held the record when it was fresh, which is what a scorecard reader will assume.
+
+## 2026-11-25 — P03 team identity and membership (plan approved by John; rules by Claude; DS-04, OR-12, BR-*)
+
+- **Canonical team ID stays `cfbd-<id>`.** `teams.espn_id` is filled only where ESPN lists the same number under the same school name, or the pair is on the hand-checked list `data/espn_id_matches.csv`. An FBS team that ESPN does not confirm stops the build; all pass. One non-FBS pair is left unconfirmed (cfbd-108358).
+- **Built from archived /games payloads**, which name each side's classification and conference per season. No CFBD calls. A team whose name, classification or conference changes within a season stops the build (none does, 2014–2026).
+- **Membership is one row per team per season**, valid 1 Aug to 31 Jul, treated as public on 20 Aug of the season: after conference moves are settled and after the August 2020 opt-outs, before any season's first game.
+- **FBS counts are checked** against `data/fbs_counts.csv` (sourced by a research pass, reviewed by Claude). The check uses teams that played: 127 in 2020, when three of 130 members sat out. 2026 is 138: North Dakota State and Sacramento State joined.
+- **`cfp_group`** comes from `data/conference_groups.csv`: power / non_power by season, and "independent" for FBS Independents (the research file said non_power with a note on Notre Dame; Claude changed the label so no rule can mistake Notre Dame for a non-power conference member). For 2024–25 the CFP had no formal split; those labels are common usage and are flagged in the file. Bracket rules (P15) read the rule text, not this label.
+- **Names resolve by exact match within a source.** An unknown name raises. A name ESPN prints for two schools is left out of the alias list. CFBD prints "Charlotte" for two teams in 2014; the second (cfbd-3253, unclassified, one game) is renamed in `data/team_name_overrides.csv`; ESPN lists that id as "Charlotte Saints", short name "Faith NC".
+- **`data/transitioning.csv`** (programs moving up to FBS, with NCAA status and CFP eligibility by season) is stored as sourced data for P04 and the eligibility table; nothing reads it yet.
+
+## 2026-11-25 — P02d Kalshi and Polymarket readers (approved by John; MK-01, RL-06, DS-04)
+
+- **Reading only.** Public, unauthenticated GET endpoints; a test fails if order, account or signing code appears in `cfp.markets`.
+- **What is captured** is listed in `data/market_events.csv`: playoff qualifiers, top-four seeds, exact seeds, later rounds, champion, and Kalshi's markets on the next committee rankings. Order books are fetched for qualifiers, top-four seeds and Kalshi's top-4/12/25 ranking markets; the rest store the best quotes carried by the listing.
+- **Prices are the Yes probability, 0..1.** A side with nothing resting is null, never 0 or 1. On Kalshi both sides of the book are bids, so the Yes ask is 1 minus the best No bid.
+- **Time rule:** a listing or book quote is public at our capture time. Venue history rows (Kalshi hourly candles, Polymarket price series) are public at their own period time and are always vintage "reconstructed"; only quotes we captured ourselves are live. A period the venue later revises is a correction public when we saw it.
+- **`market_quotes` gained `kind`** (top, book, candle) in its key; **`market_catalogue`** is new and maps each contract to an event, a question and a team. Both are refused by the Open Ranking's view, and a test scans the predictor packages for their names.
+- **Team mapping** uses hand-checked alias files per venue. An unmapped name is stored with no team and reported. Polymarket's closed "Team X" placeholders are stored and not reported.
+- **Full depth** is kept in the archived raw payload; the table holds the best bid and ask with sizes.
+
+## 2026-11-25 — P03/P02d review round (spec-guardian)
+
+Twelve findings confirmed; fixed with tests unless noted.
+- **False offers.** An ask of 1 (and a bid of 0) is the venues' way of printing an empty side; both are now null. 92 stored Polymarket rows were corrected.
+- **Revised candles** were backdated to the period time; they are now public when observed.
+- **An event that returns no contract** is reported and the command exits 1. So does an unmapped active name.
+- **ESPN ids** are confirmed by name (above). **Alias rows** cite their own source and payload.
+- **Forecasts may not import `cfp.markets`** (fifth import contract, with planted-violation tests).
+- **Closed contracts** get no quote row.
+- **Rows written earlier the same day by the faulty code were removed and rebuilt** (identity tables, venue history). They were hours old, unpublished and fully derived from archived payloads. This is not a precedent: from the first published edition on, the lake changes by correction only.
+- **Not changed:** history is hourly, which cannot meet MK-01's 30-minute matching on its own; matched quotes for the contest come from live snapshots, and history is a price path for context. Kalshi's listing is asked for open events only, so a contract's settlement is not yet recorded; that arrives with the contest scoring step. `data/transitioning.csv` is still read by no code (P04).
+

@@ -15,7 +15,7 @@ OUT = Path("tests/fixtures")
 
 def latest(lake: Lake, source: str, needle: str) -> bytes:
     log = [json.loads(line) for line in (lake.root / "fetch_log.jsonl").read_text().splitlines()]
-    found = [e for e in log if e["source"] == source and needle in e["url"]]
+    found = [e for e in log if e["source"] == source and e["url"].endswith(needle)]
     if not found:
         raise SystemExit(f"nothing archived for {source} {needle}")
     return lake.get_raw(found[-1]["raw_hash"])
@@ -42,10 +42,13 @@ def main() -> None:
     def dump(name: str, value: Any) -> None:
         (OUT / name).write_text(json.dumps(value, indent=1, ensure_ascii=False) + "\n")
 
-    dump("cfp_site_rankings_2026.json", trim_site(json.loads(latest(lake, "cfp_site", "year=2026"))))
-    dump("cfp_site_rankings_2025_first.json", trim_site(json.loads(latest(lake, "cfp_site", "year=2025")), 1))
+    dump("cfp_site_rankings_2026.json", trim_site(json.loads(latest(lake, "cfp_site", "rankings?year=2026"))))
+    dump(
+        "cfp_site_rankings_2025_first.json",
+        trim_site(json.loads(latest(lake, "cfp_site", "rankings?year=2025")), 1),
+    )
     for week in (10, 11, 12, 13):
-        espn = json.loads(latest(lake, "espn", f"weeks={week}"))
+        espn = json.loads(latest(lake, "espn", f"rankings?seasons=2026&types=2&weeks={week}"))
         committee = [r for r in espn["rankings"] if r["type"] == "cfp"]
         trimmed = [
             {
@@ -63,7 +66,13 @@ def main() -> None:
             for r in committee
         ]
         dump(f"espn_rankings_2026_w{week}.json", {"rankings": trimmed})
-    page = decode(latest(lake, "wayback", "20251105073639id_"))
+    page = decode(
+        latest(
+            lake,
+            "wayback",
+            "20251105073639id_/https://collegefootballplayoff.com/news/2025/11/4/cfp-rankings.aspx",
+        )
+    )
     article = re.search(r"(?is)<article\b.*?</article>", page)
     if article is None:
         raise SystemExit("no <article> in the archived press release")
@@ -81,6 +90,8 @@ def main() -> None:
         "homeId",
         "homeTeam",
         "homeClassification",
+        "homeConference",
+        "awayConference",
         "homePoints",
         "awayId",
         "awayTeam",
@@ -88,16 +99,16 @@ def main() -> None:
         "awayPoints",
         "notes",
     ]
-    week15 = json.loads(latest(lake, "cfbd", "week=15"))
+    week15 = json.loads(latest(lake, "cfbd", "games?seasonType=regular&week=15&year=2025"))
     fbs = [g for g in week15 if g["homeClassification"] == "fbs"]
     others = [g for g in week15 if g["homeClassification"] != "fbs"][:3]
     dump("cfbd_games_2025_w15.json", [{k: g.get(k) for k in game_fields} for g in fbs + others])
-    week1 = json.loads(latest(lake, "cfbd", "games?seasonType=regular&week=1&"))
+    week1 = json.loads(latest(lake, "cfbd", "games?seasonType=regular&week=1&year=2025"))
     odd = [g for g in week1 if g.get("notes") and g["homeClassification"] == "fbs"][:4]
     odd += [g for g in week1 if g["awayClassification"] is None][:1]
     dump("cfbd_games_2025_w1_sample.json", [{k: g.get(k) for k in game_fields} for g in odd])
     for week in (1, 11):
-        item = json.loads(latest(lake, "cfbd", f"rankings?seasonType=regular&week={week}&"))[0]
+        item = json.loads(latest(lake, "cfbd", f"rankings?seasonType=regular&week={week}&year=2025"))[0]
         keep = ("AP Top 25", "Coaches Poll", "Playoff Committee Rankings")
         polls = [
             {"poll": p["poll"], "ranks": sorted(p["ranks"], key=lambda r: r["rank"])}
@@ -108,7 +119,7 @@ def main() -> None:
             f"cfbd_rankings_2025_w{week}.json",
             [{**{k: item[k] for k in ("season", "seasonType", "week")}, "polls": polls}],
         )
-    lines = json.loads(latest(lake, "cfbd", "lines?"))[:2]
+    lines = json.loads(latest(lake, "cfbd", "lines?seasonType=regular&week=1&year=2025"))[:2]
     dump(
         "cfbd_lines_2025_w1_sample.json",
         [{k: g[k] for k in ("id", "season", "week", "startDate", "lines")} for g in lines],
