@@ -1,0 +1,22 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.swp
+
+# data lake (manifests are committed separately)
+lake/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# node
+node_modules/
+
+.DS_Store
