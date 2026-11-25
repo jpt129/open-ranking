@@ -396,3 +396,18 @@ Left open:
 **Numerics review of P05–P08 (25 Nov).** No high findings. Measured: worst condition number on the calibration grid 5.9e3; `solve` agrees with Cholesky to 2.5e-13; solver noise moves p·10⁴ by under 3e-9 against a 1e-6 boundary flag; over 22,170 real rows the closest approach to a rounding half was 2.6e-5; four reruns under different hash seeds and thread counts gave identical bits. Fixed: a fit with a condition number of 1e12 or more is refused (two existing tests use near-zero penalties on purpose, at 1.4e8); the boundary flag is always a plain bool. Left open: nothing acts on the boundary flag yet (the release step should print it); band strength and home advantage are floats and must stay out of hashed bytes; no near-tie flag at the band edge.
 
 **Frozen (25 Nov).** John approved the freeze and the week-8 start. `cfp calibrate freeze --season 2026` wrote the 2026 parameters: λ_c = 4, λ_u = 4, t = 5.75, cap 24, status provisional, SHA-256 `c25944752a640cce1c3340293f0a1364a1689b636080751b7a0fa3fd87261566`, at code `4b235dd`.
+
+## 2026-11-25 — Open Ranking release step (OR-08, RL-01a, RL-02)
+
+John asked for the release step after the freeze.
+
+- **One document per edition**, canonical JSON, built by `cfp.open_ranking.release.build_edition` and written once by `cfp open-ranking build --season --cutoff [--mode live|replay] [--revision N] [--previous ID|none]`.
+- **Edition ID:** `or-<season>-<cutoff as YYYYMMDDtHHMMz>[-replay]-e<revision>`. Revision N supersedes N−1, which must exist.
+- **Manifest:** snapshot hash, lists hash, frozen-parameters hash and values, formula hash, draw hash, code hash, rule version, band ranks, game count, omissions by reason, rows on a rounding boundary, and "second implementation: not run" (RL-01a).
+- **Formula hash:** SHA-256 over the rule version, the frozen-parameters hash, the field size and band, the 2500 window, the FCS points, the scale, and the source bytes of `strength.py`, `band.py`, `link.py`, `ledger.py`, `ordering.py`. Any edit to those files changes it.
+- **Content:** every team in final order with total, raw rank, group, head-to-head decision, open rank, order, record, band members, rule version and its rows. Everything computed is an integer. The only floats are the three frozen parameter values, copied from their file. Band strength and home advantage are left out.
+- **Revision since last edition:** measured against `--previous`, or by default the latest earlier edition of the same kind (live or replay) in the editions folder.
+- **Refusals:** a cutoff in the future; a live edition from uncommitted code; parameters from another season or rule version; an edition ID that already exists (exit 17).
+- **Not built:** the full gate (`cfp gate`, RL-01), the public post, a signed tag or timestamp for Open Ranking editions, team display names in the document, the rendered page.
+
+End-to-end check on a scratch copy of the lake (replay, cutoffs 22 Nov 07:00 and 25 Nov 12:00 UTC): both editions built; the second measured revisions against the first; a repeat exited 17. With the committee, poll, line and market tables deleted from the copy, both editions were byte-identical (OR-12). A live-mode edition with a cutoff one minute in the past also built. The real `lake/editions` was not touched.

@@ -154,9 +154,10 @@ Calibration on 2015–2025 chose λ_c = 4, λ_u = 4, t = 5.75; frozen for 2026 o
 
 Waiting on John:
 - Ruling on the "losses since" rule in Baseline 2 (still Claude's reading).
-- Delete `~/issuer_key` (the private key) from this machine if it is still there.
 - 2026 title-game pairings in `data/title_games.csv` after 28 Nov, before Issue 3.
 
-Next: review fixes from spec-guardian and numerics-reviewer; Open Ranking release step (edition, manifest hashes); wire open points into the forecast (SC-04a).
+Open Ranking release step built (`cfp open-ranking build`); 359 tests pass. No Open Ranking edition has been written to the real lake yet.
+
+Next: wire open points into the forecast (SC-04a); the gate (RL-01); the ledger page.
 
 Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).
