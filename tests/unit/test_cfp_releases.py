@@ -386,3 +386,33 @@ def test_old_seasons_cannot_be_ingested_without_cfbd(tmp_path: Path, monkeypatch
     monkeypatch.setattr(run, "public_fetcher", lambda *a, **k: Site())
     with pytest.raises(ValueError, match="CFBD cross-check"):
         run.ingest_releases(lake, 2025, ROOT / "data", None)
+
+
+def test_parse_cfbd_drops_a_postseason_copy_of_the_final_release() -> None:
+    def week(season_type: str, number: int, first: int) -> dict[str, Any]:
+        ranks = [{"rank": r, "teamId": first + r} for r in range(1, 26)]
+        polls = [{"poll": "Playoff Committee Rankings", "ranks": ranks}]
+        return {"season": 2014, "seasonType": season_type, "week": number, "polls": polls}
+
+    copied = parse_cfbd([week("regular", 15, 100), week("regular", 16, 200), week("postseason", 1, 200)])
+    assert [ids[0] for ids in copied] == ["cfbd-101", "cfbd-201"]
+    distinct = parse_cfbd([week("regular", 15, 100), week("postseason", 1, 200)])
+    assert [ids[0] for ids in distinct] == ["cfbd-101", "cfbd-201"]
+
+
+def test_parse_espn_core() -> None:
+    from cfp.ingest.cfp_releases import parse_espn_core
+
+    base = "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2023/teams"
+    ranks = [
+        {"current": r, "team": {"$ref": f"{base}/{1000 + r}?lang=en&region=us"}} for r in range(25, 0, -1)
+    ]
+    payload = {"type": "cfp", "date": "2023-10-31T07:00Z", "ranks": ranks}
+    day, ids = parse_espn_core(payload)
+    assert day == date(2023, 10, 31)
+    assert ids[:2] == ["cfbd-1001", "cfbd-1002"]
+    assert len(ids) == 25
+    with pytest.raises(SourceError):
+        parse_espn_core(payload | {"type": "ap"})
+    with pytest.raises(SourceError):
+        parse_espn_core(payload | {"ranks": ranks[:24]})

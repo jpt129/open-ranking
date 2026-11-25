@@ -176,3 +176,10 @@ The reviewer confirmed sixteen defects in the first P02 commit. All are fixed wi
 Verified on recorded responses: CFBD's week-1 poll is the preseason poll, and its week-11 committee ranking equals the CFP site's first 2025 release, so "the week-N poll follows week N-1's games" holds. Every alias ID equals the CFBD ID of a 2025 FBS school.
 
 **To raise with John:** his ruling makes a release public at the scheduled show start. On Selection Day the full top 25 was read well after the start in some years (about 14:30 ET against a noon start in 2016). That errs early for those releases. Options: keep the show start (current), or use a later sourced time for Selection Day.
+
+## 2026-11-25 — Release cross-check exceptions (DS-06)
+
+- **2023 is checked against ESPN, not CFBD** (John, 2026-11-25: "use ESPN as the second source for 2023 if we need to"). CFBD's copy repeats a rank in two 2023 releases. The exception is a named list in code (`ESPN_SEASONS`); no command-line switch changes the check. Past seasons are read from ESPN's core API, which keeps history; its site API holds only the current season.
+- **A postseason entry in CFBD that is identical to the final regular-season release is treated as a copy, not a release** (Claude). Seen in 2014. Alternative: fail the season.
+- **2019 is not ingested.** CFBD lacks the 26 Nov 2019 release. Awaiting John's decision on ESPN for 2019.
+- **A Wayback outage fails the season's ingest** rather than marking its releases reconstructed, because vintage is fixed at first write. Rerunning fixes it (2017 needed one rerun).

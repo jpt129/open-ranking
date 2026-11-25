@@ -12,7 +12,7 @@ import polars as pl
 from cfp.ingest import cfbd_normalize as norm
 from cfp.ingest import cfp_releases as rel
 from cfp.ingest.cfbd import Cfbd
-from cfp.ingest.errors import CrossCheckFailed
+from cfp.ingest.errors import CrossCheckFailed, SourceError
 from cfp.ingest.http import Budget, Fetcher, TokenBucket
 from cfp.ingest.upsert import CorrectionPublic, UpsertResult, upsert
 from cfp.store.lake import Lake
@@ -20,9 +20,14 @@ from cfp.store.lake import Lake
 # A plain client name; no contact details are sent to third parties.
 AGENT = {"User-Agent": "Mozilla/5.0 (compatible; research-client)", "Accept": "*/*"}
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/football/college-football"
-ESPN_REGULAR_WEEKS = range(8, 17)
+ESPN_CORE = "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football"
+ESPN_CORE_COMMITTEE = 21
+ESPN_REGULAR_WEEKS = range(8, 18)
 UNMETERED = 100_000
 LIVE_SEASON = 2026
+# Past seasons checked against ESPN instead of CFBD, each approved by John. 2023: CFBD's copy repeats a
+# rank in two releases (week 15 and the final), so it cannot confirm their order (2026-11-25).
+ESPN_SEASONS = frozenset({2023})
 # Calls per season: games (regular, postseason), rankings; reference payloads; lines (regular, postseason).
 CALLS = {"games": 2, "rankings": 1, "reference": 3, "lines": 2}
 
@@ -47,7 +52,7 @@ def public_fetcher(lake: Lake, source: str, base_url: str, rate: float = 1.0) ->
 
 
 def espn_committee(espn: Fetcher, season: int) -> dict[date, list[str]]:
-    """ESPN's copy of each committee release in a season, by date."""
+    """ESPN's copy of each committee release in the live season, by date."""
     out: dict[date, list[str]] = {}
     queries = [{"seasons": season, "types": 2, "weeks": week} for week in ESPN_REGULAR_WEEKS]
     queries.append({"seasons": season, "types": 3, "weeks": 1})
@@ -55,6 +60,21 @@ def espn_committee(espn: Fetcher, season: int) -> dict[date, list[str]]:
         parsed = rel.parse_espn(espn.get("/rankings", query).json())
         if parsed is not None:
             out[parsed[0]] = parsed[1]
+    return out
+
+
+def espn_core_committee(core: Fetcher, season: int) -> dict[date, list[str]]:
+    """ESPN's copy of each committee release in a past season, by date (its site API holds only this year)."""
+    out: dict[date, list[str]] = {}
+    slots = [(2, week) for week in ESPN_REGULAR_WEEKS] + [(3, 1)]
+    for kind, week in slots:
+        path = f"/seasons/{season}/types/{kind}/weeks/{week}/rankings/{ESPN_CORE_COMMITTEE}"
+        try:
+            got = core.get(path, reuse=True)
+        except SourceError:
+            continue  # no committee ranking that week
+        day, ids = rel.parse_espn_core(got.json())
+        out[day] = ids
     return out
 
 
@@ -72,7 +92,7 @@ def ingest_releases(lake: Lake, season: int, data_dir: Path, cfbd: Cfbd | None =
     """Fetch one season's releases, cross-check each one, look for archived copies, write.
 
     John, 2026-11-25: 2014-25 are checked against CFBD, the live season against a second source (ESPN).
-    There is no way to choose a weaker check.
+    The only exceptions are the seasons in ESPN_SEASONS; no command-line switch changes the check.
     """
     schedule = rel.load_schedule(data_dir / "cfp_reveals.csv")
     aliases = rel.load_aliases(data_dir / "aliases_cfp_site.csv")
@@ -80,6 +100,8 @@ def ingest_releases(lake: Lake, season: int, data_dir: Path, cfbd: Cfbd | None =
     releases = rel.parse_site(site.json(), season)
     if season >= LIVE_SEASON:
         second, other = "espn", espn_committee(public_fetcher(lake, "espn", ESPN), season)
+    elif season in ESPN_SEASONS:
+        second, other = "espn", espn_core_committee(public_fetcher(lake, "espn_core", ESPN_CORE), season)
     elif cfbd is not None:
         second, other = "cfbd", cfbd_committee(cfbd, season, releases)
     else:

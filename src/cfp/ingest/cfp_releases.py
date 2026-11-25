@@ -150,6 +150,23 @@ def parse_espn(payload: Any) -> tuple[date, list[str]] | None:
     return None
 
 
+def parse_espn_core(payload: Any) -> tuple[date, list[str]]:
+    """One committee ranking from ESPN's core API (used for past seasons): (date, team_ids in rank order)."""
+    if payload.get("type") != ESPN_COMMITTEE:
+        raise SourceError(f"espn: expected the committee ranking, got {payload.get('type')!r}")
+    rows = sorted(payload["ranks"], key=lambda r: int(r["current"]))
+    if [int(r["current"]) for r in rows] != list(range(1, ROWS + 1)):
+        raise SourceError("espn: committee ranking does not have ranks 1..25")
+    ids = []
+    for row in rows:
+        found = re.search(r"/teams/(\d+)", str(row["team"]["$ref"]))
+        if found is None:
+            raise SourceError("espn: a ranked team has no id")
+        ids.append(f"cfbd-{int(found.group(1))}")
+    day = datetime.fromisoformat(str(payload["date"]).replace("Z", "+00:00")).date()
+    return day, ids
+
+
 def parse_cfbd(weeks: Sequence[Any]) -> list[list[str]]:
     """CFBD's committee rankings for one season, in release order (regular weeks, then postseason)."""
     order = {"regular": 0, "postseason": 1}
@@ -163,7 +180,11 @@ def parse_cfbd(weeks: Sequence[Any]) -> list[list[str]]:
                 raise SourceError(
                     f"cfbd: committee ranking {week['season']} week {week['week']} is not 1..25"
                 )
-            out.append([f"cfbd-{int(r['teamId'])}" for r in rows])
+            ids = [f"cfbd-{int(r['teamId'])}" for r in rows]
+            # CFBD sometimes files the final release again under the postseason; that copy is not a release
+            if week["seasonType"] == "postseason" and out and out[-1] == ids:
+                continue
+            out.append(ids)
     return out
 
 

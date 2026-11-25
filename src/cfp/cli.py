@@ -34,18 +34,28 @@ def _ingest_releases(args: argparse.Namespace) -> int:
     from cfp.common.env import load_env
     from cfp.common.timeutil import utc_now
     from cfp.ingest.cfbd import Cfbd
+    from cfp.ingest.errors import SourceError
     from cfp.ingest.run import LIVE_SEASON, ingest_releases
     from cfp.store.lake import Lake
 
     load_env()
     lake = Lake(args.lake)
+    failed: list[int] = []
     for season in args.season:
         cfbd = None
         if season < LIVE_SEASON:
             cfbd = Cfbd.from_env(lake, utc_now())
             cfbd.sync_budget()
-        result = ingest_releases(lake, season, Path(args.data), cfbd)
+        try:
+            result = ingest_releases(lake, season, Path(args.data), cfbd)
+        except SourceError as error:  # one season's failure is reported and does not stop the others
+            failed.append(season)
+            print(f"{season}: FAILED, nothing written: {error}")
+            continue
         print(f"{season}: new={result.new} corrected={result.corrected} unchanged={result.unchanged}")
+    if failed:
+        print(f"failed seasons: {failed}")
+        return 1
     return 0
 
 
