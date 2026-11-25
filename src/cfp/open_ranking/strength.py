@@ -22,6 +22,7 @@ import numpy as np
 import polars as pl
 
 INDEPENDENT: Final = "fbs-independents"
+MAX_CONDITION: Final = 1e8  # real seasons on the calibration grid stay under 1e4
 IndependentPenalty = Literal["combined", "team"]
 
 
@@ -132,6 +133,9 @@ class Engine:
             gram[:, 0] = 0.0
             gram[0, 0] = 1.0
             rhs[0] = 0.0
+        condition = float(np.linalg.cond(gram))
+        if not condition < MAX_CONDITION:
+            raise StrengthError(f"the fit is ill-conditioned (condition number {condition:.3g})")
         beta = np.linalg.solve(gram, rhs)
         conference = {league: float(beta[col]) for league, col in self._league_col.items()}
         deviation = {team: float(beta[col]) for team, col in self._team_col.items() if team != exclude}

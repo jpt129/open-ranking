@@ -34,4 +34,4 @@ def quantize(p: float) -> tuple[int, bool]:
         raise ValueError(f"not a probability: {p}")
     scaled = p * SCALE
     boundary = abs(scaled - (math.floor(scaled) + 0.5)) < BOUNDARY
-    return round(scaled), boundary  # Python rounds halves to the even neighbour
+    return round(scaled), bool(boundary)  # Python rounds halves to the even neighbour

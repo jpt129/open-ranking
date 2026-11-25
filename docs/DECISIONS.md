@@ -392,3 +392,5 @@ Left open:
 - A forfeit against an FCS team is labelled `fcs_win` or `fcs_loss`, not `forfeit`.
 - A conflicting conference on a row outside the fit is not checked.
 - Calibration orders games by week number, not kickoff time. The reviewer found no scored game in 2015–2025 with a later kickoff in its fit.
+
+**Numerics review of P05–P08 (25 Nov).** No high findings. Measured: worst condition number on the calibration grid 5.9e3; `solve` agrees with Cholesky to 2.5e-13; solver noise moves p·10⁴ by under 3e-9 against a 1e-6 boundary flag; over 22,170 real rows the closest approach to a rounding half was 2.6e-5; four reruns under different hash seeds and thread counts gave identical bits. Fixed: a fit with a condition number of 1e8 or more is refused; the boundary flag is always a plain bool. Left open: nothing acts on the boundary flag yet (the release step should print it); band strength and home advantage are floats and must stay out of hashed bytes; no near-tie flag at the band edge.
