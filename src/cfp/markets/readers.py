@@ -98,7 +98,7 @@ def kalshi_listing(payload: Any) -> list[Contract]:
             ticker = market["ticker"]
             if market.get("market_type") != "binary":
                 raise SourceError(f"kalshi {ticker}: not a binary market")
-            # the size fields are read with [] on purpose: without them a quote cannot be told from an empty side
+            # sizes are read with [] on purpose: without them a quote cannot be told from an empty side
             bid, bid_size = _sided(_bid(market["yes_bid_dollars"], ticker), _size(market["yes_bid_size_fp"]))
             ask, ask_size = _sided(_ask(market["yes_ask_dollars"], ticker), _size(market["yes_ask_size_fp"]))
             last = _price(market.get("last_price_dollars"), ticker)
