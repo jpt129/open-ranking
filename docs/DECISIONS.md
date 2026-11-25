@@ -326,3 +326,19 @@ Known and not fixed:
 
 Rehearsal on Actions (25 Nov 18:16 UTC, replay mode, temporary copy): inputs refreshed, edition built and hashed, timestamp token granted. Two steps did not run because their credentials are not there yet: the CFBD results pull (`CFBD_API_KEY` secret) and the signed tag (`ISSUER_KEY` secret; Claude was not permitted to create a write-access key and John must do it).
 
+## 2026-11-25 — P05 (strength engine, OR-02)
+
+John approved the ledger plan (P05, P06, P11-lite, P07, P08) with two scope cuts: plain full refits instead of Woodbury downdates, and no closing-line comparison in calibration for now.
+
+- **Model.** Capped margin = θ_home − θ_away + h·(not neutral); θ = league effect + team deviation. Minimises squared error plus λ_c·Σ(league effects)² + λ_u·Σ(team deviations)². The penalties are on the squared-error scale (noise variance over prior variance). h is not penalised.
+- **Independents (OR-02a).** One individual effect each, no league effect, penalty 1/(1/λ_c + 1/λ_u) by default; `independent_penalty="team"` gives the λ_u-only alternative for Notre Dame's second ledger. Independents are the teams whose conference is `fbs-independents`.
+- **Evaluated team removed.** `fit(exclude=A)` drops every game involving A and returns no strength for A. `fit_all` gives one such fold per FBS team.
+- **Which games.** Snapshot rows with `ordinary_fbs` true and `margin_excluded` false: FBS v FBS, title games included, forfeits out. The site term follows the row's neutral flag.
+- **No home games in a fold:** h is set to zero, since nothing estimates it.
+- **Order independence.** Rows are sorted by game ID before any arithmetic, so input order cannot change a result. Tests compare for exact equality.
+- **Numerics.** Each fold rebuilds and solves the normal equations with numpy (LAPACK). 138 folds on the real 2026 snapshot take 0.04 s. Results are deterministic on one machine; a different machine may differ in the last bits. That is why the ledger will carry only integer centipoints plus the boundary flag (OR-01a), and no floats, in anything that is hashed.
+- **Not done:** Woodbury downdates and their equality proof (full track).
+- Process note: the tests were written first, but the code was written before a failing run was shown.
+
+Real-data check with placeholder penalties (not calibrated): 697 games, home advantage 2.2 points, SEC the strongest league. The numbers mean nothing until P11-lite sets the penalties.
+
