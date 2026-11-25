@@ -623,3 +623,24 @@ Done under item 1 of the order of work:
 - **Pairwise bubble probabilities** (`rank_noise.pairwise` in the issue document). The bubble is fixed before sampling, as VT-12 defines it: the teams within five Baseline 2 places of the last at-large team in the field as it stands today under the season's rules (stand-in champions for undecided titles). For each pair: paths on which the row team is ranked ahead of the column team, and the probability. If the field today cannot be worked out the pairs are left out and `pairwise_error` gives the reason.
 - Tests added for the duplicate-conference refusal and for field inputs being recorded only when the section is built. `tests/unit/test_issue_field.py` builds a whole issue with a field forecast from a store (four title games, two past seasons of lines) and checks field and bye sums, the six-conference place on every path, recorded inputs and byte-identical rebuilds.
 - The hourly capture job fired at 21:17:07 UTC on 25 Nov and its run succeeded.
+
+## 2026-11-25 — The calibrated disclosure column (SC-05; John's ruling)
+
+- **What it is.** `cfp.forecast.calibration`: for each cutoff (sun0200, tminus60) and each of P(top 25), P(rank ≤ 4), P(rank ≤ 12), an isotonic map from the raw published probability to the frequency observed on the 2014–25 weekly releases (6,261 team-forecasts a cell). In the issue document each Baseline 2 row gains `calibrated`; `rank_noise.calibration` carries the label ("a disclosure column, not a promoted model. Both columns are scored."), the file hash and the before and after scores. The raw column is unchanged and a test asserts it.
+- **Verification, fixed before the real run.** Leave-one-season-out with the temperature and the map both fitted without the held-out season. A map is published only if held-out log loss is lower than the raw column's and the Brier score no higher. All six cells passed:
+
+| Cutoff | Quantity | Log loss raw → calibrated | Brier raw → calibrated |
+|---|---|---|---|
+| sun0200 | top 25 | 0.10546 → 0.09240 | 0.02703 → 0.02628 |
+| sun0200 | rank ≤ 4 | 0.02585 → 0.01051 | 0.00668 → 0.00244 |
+| sun0200 | rank ≤ 12 | 0.03589 → 0.03286 | 0.00991 → 0.00850 |
+| tminus60 | top 25 | 0.09367 → 0.08149 | 0.02420 → 0.02379 |
+| tminus60 | rank ≤ 4 | 0.02302 → 0.01067 | 0.00587 → 0.00262 |
+| tminus60 | rank ≤ 12 | 0.03190 → 0.03129 | 0.00899 → 0.00823 |
+
+  Reliability before and after, per cutoff, is in the frozen file (`verification.cells.*.reliability_before/after`) and printed by `cfp forecast fit-calibration --season 2026 --report`. Example, sun0200 top 25: raw forecasts averaging 0.975 came in at 0.83 and 0.024 at 0.11; calibrated forecasts averaging 0.983 came in at 0.984 and 0.025 at 0.023.
+- **Frozen.** `frozen/calibration_2026.json`, SHA-256 `63adf3ea18cc03f4561af74d2b6dab1b913824b45b5a4520cea39a2da632a467`, written once by the CLI from committed code (the command refuses a dirty tree). It records the rank-noise file it was fitted with (c2), the seasons, and the check. The final maps use the frozen weekly temperatures.
+- **Weekly releases only.** The maps were fitted on weekly releases, so an issue that forecasts the opening or the final release publishes the raw column alone and says why. That covers Issues 3 and 4 (Selection Day). No map for field probabilities.
+- **End steps.** Plain isotonic regression gives 0 or 1 to a step in which the event never or always happened. Such a step is set half an event short instead (0.5/(n+1)), then order is restored. Published values are also held half a path inside the edges like the raw column.
+- **Known behaviour, disclosed in the document.** The map is a step function. On today's data it gives Tennessee (No. 5) 0.08 for rank ≤ 4 and every team from No. 6 down 0.0001, because across 2014–25 a team whose raw value was below about 0.3 never moved into the top four the next week. The 0.0001 is the pooled rate over thousands of forecasts, most of them teams far down the list; it overstates certainty for a team just past the step. The calibrated column sums to 25.28 teams, not 25.
+- Not tested: the `fit-calibration` command itself (its functions are); the maps on 2026's four releases so far.

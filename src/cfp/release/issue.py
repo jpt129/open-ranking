@@ -136,7 +136,14 @@ def _calibrate(
             q: {k: maps.document["verification"]["cells"][issue][q][k] for k in ("before", "after")}
             for q in published
         },
-        "note": "Each value is mapped on its own, so the calibrated column need not add up to 25 teams.",
+        "notes": [
+            "Each value is mapped on its own, so the calibrated column need not add up to 25 teams.",
+            "The map is a step function of the raw value: teams with nearby raw values can share one "
+            "calibrated value, and a small change in the raw value can cross a step.",
+            "The lowest and highest steps pool every past forecast in which the event never, or always, "
+            "happened. Their values (near 0.0001 and 0.998) say how rare an exception was across all such "
+            "forecasts, not for a team just past the step.",
+        ],
     }
 
 
