@@ -30,3 +30,11 @@ John accepted all twelve. These are tagged [S] in SPEC.md.
 ## 2026-11-25 — Sources available
 
 - CFBD API key: available. Odds API key: available. Both live in `.env` (git-ignored).
+
+## 2026-11-25 — Trading policy
+
+- John confirmed that nobody on the project trades the covered markets (playoff qualifier, seed and related futures on the venues the project benchmarks against).
+
+## 2026-11-25 — Hash-proof signing
+
+- Edition tags are signed with an SSH key (git `gpg.format ssh`), configured per-repo. The public key must also be registered on GitHub as a signing key so tags show as verified.
