@@ -169,3 +169,9 @@ Rank noise fitted and written once; the weekly issue now publishes probabilities
 Next: the field edition (document, command, workflow), title pairings with first-public times and scenarios, strength estimate for unquoted games, issue trigger (one command, local job primary), Friday dry run; rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
 
 Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).
+
+## 2026-11-25 (evening) — field forecast in the issue; reviews; poll re-dating
+
+- Done: `final_field` section in the issue document (schema 4): pairings with sources and scenarios, strength fallback, conditionals, today's field. Spec review and leakage audit run and their fixes pushed. 2025 polls re-dated; rank noise corrected as `rank_noise_2026.c1.json`. Hourly capture started from the Mac. 433 tests pass; cloud rehearsal 45698608906 passed at `2c516d2`.
+- For John: confirm the corrected rank-noise file; add Big Ten, SEC and Big 12 title pairings to `data/title_games.csv` (source and first-public time) once official, or the field section is refused on Sunday unless CFBD's schedule supplies them.
+- Next: Friday timed dry run; check the first :17 hourly capture; AP "others receiving votes" capture before Tuesday; scoring and promotion modules (VT-12, VT-14) so the promotion test reruns from the repo; rerun the 2024/2025 rehearsal on the re-dated polls; SC-05 pairwise probabilities.
