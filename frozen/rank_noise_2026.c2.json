@@ -1,0 +1,128 @@
+{
+ "code_hash": "0b8e219280eace035b62a280b4ca8f63537bd691",
+ "correction": 2,
+ "correction_reason": "Same data and values as correction 1, refitted from committed code so the recorded code hash names a commit (correction 1 was fitted from an uncommitted tree).",
+ "examples": 144,
+ "model": "orders drawn one team at a time with chance proportional to exp(-place / tau)",
+ "problems": [
+  "2020 release 1 sun0200: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 1 tminus60: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 2 sun0200: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 2 tminus60: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30",
+  "2020 release 3 sun0200: LedgerError: cfbd-9 has no game with a usable margin outside its games with cfbd-30"
+ ],
+ "season": 2026,
+ "supersedes_sha256": "b7663e7843c3935a48076a8d1fd993c9b14213fe38dbf277bd466d607cb427f5",
+ "temperatures": {
+  "baseline1": {
+   "sun0200": {
+    "final": {
+     "log_likelihood": -724.5928989832178,
+     "picks": 300,
+     "releases": 12,
+     "tau": 4.616091482890254
+    },
+    "opening": {
+     "log_likelihood": -897.5964860976167,
+     "picks": 300,
+     "releases": 12,
+     "tau": 8.215529556992607
+    },
+    "weekly": {
+     "log_likelihood": -3782.745678359851,
+     "picks": 1200,
+     "releases": 48,
+     "tau": 9.317690623536892
+    }
+   },
+   "tminus60": {
+    "final": {
+     "log_likelihood": -724.5928989832178,
+     "picks": 300,
+     "releases": 12,
+     "tau": 4.616091482890254
+    },
+    "opening": {
+     "log_likelihood": -701.9228479938763,
+     "picks": 300,
+     "releases": 12,
+     "tau": 4.279329706963289
+    },
+    "weekly": {
+     "log_likelihood": -2885.4819917975765,
+     "picks": 1200,
+     "releases": 48,
+     "tau": 4.446451576229036
+    }
+   }
+  },
+  "baseline2": {
+   "sun0200": {
+    "final": {
+     "log_likelihood": -341.4336695885673,
+     "picks": 300,
+     "releases": 12,
+     "tau": 1.3049099481519915
+    },
+    "final_two_back": {
+     "log_likelihood": -556.2068556843873,
+     "picks": 300,
+     "releases": 12,
+     "tau": 2.893766142598682
+    },
+    "opening": {
+     "log_likelihood": -657.2961544112189,
+     "picks": 300,
+     "releases": 12,
+     "tau": 4.072547308402228
+    },
+    "weekly": {
+     "log_likelihood": -2259.2946057523973,
+     "picks": 1200,
+     "releases": 48,
+     "tau": 2.9160262790812754
+    }
+   },
+   "tminus60": {
+    "final": {
+     "log_likelihood": -341.4336695885673,
+     "picks": 300,
+     "releases": 12,
+     "tau": 1.3049099481519915
+    },
+    "final_two_back": {
+     "log_likelihood": -537.2568788100589,
+     "picks": 300,
+     "releases": 12,
+     "tau": 2.7366646438207116
+    },
+    "opening": {
+     "log_likelihood": -537.98735223078,
+     "picks": 300,
+     "releases": 12,
+     "tau": 2.7072970574515303
+    },
+    "weekly": {
+     "log_likelihood": -2079.3020200002015,
+     "picks": 1200,
+     "releases": 48,
+     "tau": 2.5489813458025985
+    }
+   }
+  }
+ },
+ "trained_on": [
+  2014,
+  2015,
+  2016,
+  2017,
+  2018,
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ]
+}
