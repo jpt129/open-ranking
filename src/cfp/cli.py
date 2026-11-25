@@ -84,6 +84,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="issue even if games that should be final are still scheduled, and list them in the edition",
     )
 
+    calibrate = commands.add_parser(
+        "calibrate", help="Open Ranking link scale and penalties (game results only)"
+    )
+    calibrate_kinds = calibrate.add_subparsers(dest="kind", metavar="<action>", required=True)
+    for name, text in (
+        ("report", "search the grid on earlier seasons and print the result (writes nothing)"),
+        ("freeze", "search, then write the season's frozen parameters once"),
+    ):
+        action = calibrate_kinds.add_parser(name, help=text)
+        action.add_argument("--season", type=int, required=True, help="the season the parameters are for")
+        action.add_argument("--first-training-season", type=int, default=2015)
+        action.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
+
     commands.add_parser("budget", help="show API calls used this month")
     return parser
 
@@ -434,6 +447,94 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
     return 3 if problems else 0
 
 
+def _calibrate(args: argparse.Namespace) -> int:
+    from datetime import UTC
+
+    from cfp.open_ranking import RULE_VERSION_ID
+    from cfp.open_ranking.calibration import DEFAULT_GRID, FIRST_WEEK, report, search, venue_only
+    from cfp.open_ranking.frozen import FrozenError, write_frozen
+    from cfp.snapshot.build import build_snapshot
+    from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+    from cfp.store.lake import Lake
+
+    data, lake = Path(args.data), Lake(args.lake)
+    years = list(range(args.first_training_season, args.season))
+    if len(years) < 3:
+        print("refused: calibration needs at least three earlier seasons", file=sys.stderr)
+        return 1
+    titles = load_title_games(data / "title_games.csv")
+    forfeits = load_forfeits(data / "forfeits.csv")
+    unplayed = load_unplayed(data / "unplayed_games.csv")
+    games, hashes = {}, {}
+    for year in years:  # each finished season as it stood on 1 Feb of the next year
+        view = lake.open_ranking_view(datetime(year + 1, 2, 1, 5, 0, tzinfo=UTC), "replay")
+        snapshot = build_snapshot(view, year, title_games=titles, forfeits=forfeits, unplayed=unplayed)
+        games[year], hashes[str(year)] = snapshot.games, snapshot.snapshot_hash
+    found = search(games, DEFAULT_GRID, FIRST_WEEK)
+    choice = found.choose(years)
+    flat_ll, flat_brier = venue_only(found.predictions(choice.params, years))
+    rolling = report(found, years[3:])
+    print(
+        f"calibration for {args.season} on {years[0]}-{years[-1]}, games from week {FIRST_WEEK}, n={choice.n}"
+    )
+    print(f"  lambda_c={choice.params.lambda_c}  lambda_u={choice.params.lambda_u}  t={choice.t}")
+    print(f"  log loss {choice.log_loss:.4f} (venue only {flat_ll:.4f})")
+    print(f"  Brier {choice.brier:.4f} (venue only {flat_brier:.4f})")
+    if choice.at_grid_edge:
+        print(f"  WARNING: on the edge of the grid: {', '.join(choice.at_grid_edge)}")
+    print("  out of sample (parameters chosen on earlier seasons only):")
+    for row in rolling["rolling"]:
+        print(
+            f"    {row['season']}: n={row['n']} log loss {row['log_loss']:.4f} "
+            f"(venue only {row['venue_only_log_loss']:.4f}) t={row['t']}"
+        )
+    print("  reliability, out of sample (predicted -> observed home win rate):")
+    for row in rolling["reliability"]:
+        if row["n"]:
+            print(f"    {row['bin']}: n={row['n']} {row['mean_predicted']:.3f} -> {row['home_win_rate']:.3f}")
+    if args.kind != "freeze":
+        return 0
+    if choice.at_grid_edge:
+        print("refused: the chosen point is on the edge of the grid; widen the grid first", file=sys.stderr)
+        return 1
+
+    def tidy(value: object) -> object:
+        return round(value, 6) if isinstance(value, float) else value
+
+    document = {
+        "season": args.season,
+        "status": "provisional",
+        "rule_version_id": RULE_VERSION_ID,
+        "lambda_c": choice.params.lambda_c,
+        "lambda_u": choice.params.lambda_u,
+        "t": choice.t,
+        "cap": choice.params.cap,
+        "independent_penalty": choice.params.independent_penalty,
+        "objective": "pooled log loss of rolling pregame predictions of FBS-v-FBS results",
+        "inputs_used": "game results only; no committee ranking, poll or betting line",
+        "trained_on": years,
+        "first_week": FIRST_WEEK,
+        "n_games": choice.n,
+        "log_loss": tidy(choice.log_loss),
+        "brier": tidy(choice.brier),
+        "venue_only_log_loss": tidy(flat_ll),
+        "venue_only_brier": tidy(flat_brier),
+        "grid": {"lambda_c": DEFAULT_GRID.lambda_c, "lambda_u": DEFAULT_GRID.lambda_u, "t": DEFAULT_GRID.t},
+        "out_of_sample": [{k: tidy(v) for k, v in row.items()} for row in rolling["rolling"]],
+        "reliability": [{k: tidy(v) for k, v in row.items()} for row in rolling["reliability"]],
+        "snapshot_hashes": hashes,
+        "code_hash": _code_hash(),
+        "not_done": ["closing-line comparison", "leave-one-game-out diagnostic", "public adoption review"],
+    }
+    try:
+        path, digest = write_frozen(args.frozen, args.season, document)
+    except FrozenError as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    print(f"frozen: {path}  sha256 {digest}")
+    return 0
+
+
 def _snapshot(args: argparse.Namespace) -> int:
     from datetime import UTC, datetime
 
@@ -542,6 +643,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _forecast_issue(args)
     elif args.command == "ingest" and args.kind == "cfbd":
         return _ingest_cfbd(args)
+    elif args.command == "calibrate":
+        return _calibrate(args)
     elif args.command == "snapshot":
         return _snapshot(args)
     elif args.command == "markets":

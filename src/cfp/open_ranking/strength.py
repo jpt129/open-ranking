@@ -14,6 +14,7 @@ Rows are put in game-id order before any arithmetic, so the order of the input n
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import Final, Literal
 
@@ -93,14 +94,28 @@ class Engine:
         self._x = x
         self._y = margin.cast(pl.Float64).to_numpy()
         self._home, self._away = home_ids, away_ids
+        self._league_col = league_col
+        self._penalty = self._penalties(params)
+
+    def _penalties(self, params: Params) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
+        if params.lambda_c <= 0 or params.lambda_u <= 0:
+            raise StrengthError("penalties must be positive")
         combined = 1.0 / (1.0 / params.lambda_c + 1.0 / params.lambda_u)
         lone = combined if params.independent_penalty == "combined" else params.lambda_u
-        penalty = np.zeros(width)
-        penalty[1 : 1 + n_leagues] = params.lambda_c
+        penalty = np.zeros(self._x.shape[1])
+        penalty[1 : 1 + len(self.leagues)] = params.lambda_c
         for team, col in self._team_col.items():
-            penalty[col] = lone if conf[team] == INDEPENDENT else params.lambda_u
-        self._penalty = penalty
-        self._league_col = league_col
+            penalty[col] = lone if self.conf[team] == INDEPENDENT else params.lambda_u
+        return penalty
+
+    def with_penalties(self, params: Params) -> Engine:
+        """The same games under different penalties (same cap), without rebuilding the design."""
+        if params.cap != self.params.cap:
+            raise StrengthError("the cap is part of the design; build a new engine to change it")
+        other = copy.copy(self)
+        other.params = params
+        other._penalty = self._penalties(params)
+        return other
 
     def fit(self, exclude: str | None = None) -> Fit:
         keep = np.array([exclude not in pair for pair in zip(self._home, self._away, strict=True)])
