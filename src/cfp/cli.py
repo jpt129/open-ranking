@@ -62,6 +62,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     forecast = commands.add_parser("forecast", help="Open Ranking Models: forecast issues")
     forecast_kinds = forecast.add_subparsers(dest="kind", metavar="<action>", required=True)
+    fit_maps = forecast_kinds.add_parser(
+        "fit-calibration", help="fit and verify the calibrated column's maps on earlier seasons"
+    )
+    fit_maps.add_argument("--season", type=int, required=True)
+    fit_maps.add_argument("--first-season", type=int, default=2014)
+    fit_maps.add_argument("--frozen", default="frozen")
+    fit_maps.add_argument("--report", action="store_true", help="print the tables and write nothing")
     fit_noise = forecast_kinds.add_parser("fit-noise", help="fit rank-noise temperatures on earlier seasons")
     fit_noise.add_argument("--season", type=int, required=True)
     fit_noise.add_argument("--first-season", type=int, default=2014)
@@ -284,6 +291,82 @@ EXIT_UNRESOLVED = 18  # results look stale: games that should be final are still
 TOKEN_ATTEMPTS = 3
 
 
+def _forecast_fit_calibration(args: argparse.Namespace) -> int:
+    """Fit the calibrated column's maps on the weekly releases before --season, verify them leave-one-
+    season-out, print the reliability tables before and after, and write the maps once."""
+    from cfp.common.timeutil import utc_now
+    from cfp.forecast.calibration import (
+        ISSUES,
+        QUANTITIES,
+        CalibrationError,
+        fit_calibration,
+        write_calibration,
+    )
+    from cfp.forecast.noise_params import NoiseError, load_noise
+    from cfp.open_ranking.frozen import load_frozen
+    from cfp.release.history import past_examples
+    from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+    from cfp.store.lake import Lake
+
+    data = Path(args.data)
+    lists = {
+        "title_games": load_title_games(data / "title_games.csv"),
+        "forfeits": load_forfeits(data / "forfeits.csv"),
+        "unplayed": load_unplayed(data / "unplayed_games.csv"),
+    }
+    try:
+        noise = load_noise(args.frozen, args.season)
+        taus = {issue: noise.tau("baseline2", issue, "weekly") for issue in ISSUES}
+        examples, problems = past_examples(
+            Lake(args.lake),
+            data,
+            list(range(args.first_season, args.season)),
+            utc_now(),
+            frozen=load_frozen(args.frozen, args.season),
+            lists=lists,
+        )
+        document = fit_calibration(examples, args.season, taus=taus) | {
+            "rank_noise_sha256": noise.sha256,
+            "problems": problems,
+            "code_hash": _code_hash(),
+        }
+    except (CalibrationError, NoiseError) as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    cells = document["verification"]["cells"]
+    for issue in ISSUES:
+        for quantity in QUANTITIES:
+            cell = cells[issue][quantity]
+            b, a = cell["before"], cell["after"]
+            print(
+                f"\n{issue} {quantity}: n {b['n']}; log loss {b['log_loss']:.5f} -> {a['log_loss']:.5f}; "
+                f"Brier {b['brier']:.5f} -> {a['brier']:.5f}; "
+                + ("VERIFIED" if cell["verified"] else "not verified")
+            )
+            for label, table in (
+                ("raw", cell["reliability_before"]),
+                ("calibrated", cell["reliability_after"]),
+            ):
+                print(f"  {label}: published range, forecasts, mean published, observed")
+                for row in table:
+                    print(
+                        f"    {row['from']:.3f}-{row['to']:.3f} {row['n']:6d} "
+                        f"{row['mean_forecast']:.4f} {row['observed']:.4f}"
+                    )
+    if args.report:
+        return 0
+    if str(document["code_hash"]).endswith("-dirty") or document["code_hash"] == "unknown":
+        print("refused: the maps are frozen from committed code only; commit first", file=sys.stderr)
+        return 1
+    try:
+        path, digest = write_calibration(args.frozen, args.season, document)
+    except CalibrationError as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    print(f"{path}: sha256 {digest}")
+    return 0
+
+
 def _forecast_fit_noise(args: argparse.Namespace) -> int:
     """Fit rank-noise temperatures on the seasons before --season and write them once."""
     from cfp.common.timeutil import utc_now
@@ -417,6 +500,13 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
         noise = load_noise(args.frozen, args.season)
     except (NoiseError, OSError, ValueError) as error:
         print(f"WARNING: no rank-noise parameters: {error}", file=sys.stderr)
+    calibration = None
+    try:  # the calibrated disclosure column; without verified maps only the raw column is published
+        from cfp.forecast.calibration import CalibrationError, load_calibration
+
+        calibration = load_calibration(args.frozen, args.season)
+    except CalibrationError as error:
+        print(f"note: no calibrated column: {error}", file=sys.stderr)
     try:
         built = build_issue(
             lake,
@@ -435,6 +525,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             lists=lists,
             open_points_note=note,
             noise=noise,
+            calibration=calibration,
             designations=designations,
             pairing_files=(data / "title_games.csv", data / "title_scenarios.csv"),
         )
@@ -875,6 +966,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ingest_odds(args)
     elif args.command == "ingest" and args.kind == "ap-others":
         return _ingest_ap_others(args)
+    elif args.command == "forecast" and args.kind == "fit-calibration":
+        return _forecast_fit_calibration(args)
     elif args.command == "forecast" and args.kind == "fit-noise":
         return _forecast_fit_noise(args)
     elif args.command == "forecast" and args.kind == "draw":

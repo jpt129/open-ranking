@@ -17,6 +17,8 @@ import polars as pl
 from cfp.common.hashing import sha256_hex
 from cfp.common.timeutil import require_utc
 from cfp.forecast.baselines import FINAL_LAG, ap_order, baseline1, baseline2, initial_order, losses_since
+from cfp.forecast.calibration import CUT as CALIBRATED_CUTS
+from cfp.forecast.calibration import Calibration
 from cfp.forecast.cutoffs import ET, ISSUES, issue_time
 from cfp.forecast.designations import Designations, designated_for, needs_designation
 from cfp.forecast.final_field import FieldError, Setup, field_today
@@ -91,6 +93,53 @@ class Issue:
     reveal: datetime
 
 
+def _calibrate(
+    maps: Calibration | None, season: int, issue: str, kind: str, rows: Sequence[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Add the labelled calibrated column to Baseline 2's rows where a verified map exists.
+
+    The maps are fitted on weekly releases, so an opening or final forecast gets none. The raw values are
+    never changed.
+    """
+    if maps is None:
+        return None
+    if maps.season != season:
+        raise ValueError(f"the calibration maps are for {maps.season}, not {season}")
+    block: dict[str, Any] = {
+        "sha256": maps.sha256,
+        "label": maps.document["label"],
+        "trained_on": list(maps.document["trained_on"]),
+        "criterion": maps.document["verification"]["criterion"],
+    }
+    fitted_on = str(maps.document["fitted_on_kind"])
+    if kind != fitted_on:
+        return block | {
+            "published": [],
+            "left_out": f"the maps are fitted on {fitted_on} releases only; this issue forecasts "
+            f"the {kind} release, so only the raw column is published",
+        }
+    published = [q for q in CALIBRATED_CUTS if maps.verified(issue, q)]
+    for row in rows:
+        column: dict[str, Any] = {}
+        if "top25" in published:
+            column["p_top25"] = maps.value(issue, "top25", row["p_top25"])
+        column["p_rank_at_most"] = {
+            str(CALIBRATED_CUTS[q]): maps.value(issue, q, row["p_rank_at_most"][str(CALIBRATED_CUTS[q])])
+            for q in published
+            if q != "top25"
+        }
+        row["calibrated"] = column
+    return block | {
+        "published": published,
+        "left_out": ", ".join(q for q in CALIBRATED_CUTS if q not in published) or None,
+        "scores": {
+            q: {k: maps.document["verification"]["cells"][issue][q][k] for k in ("before", "after")}
+            for q in published
+        },
+        "note": "Each value is mapped on its own, so the calibrated column need not add up to 25 teams.",
+    }
+
+
 def _bubble_pairs(
     season: int, rows: Sequence[Mapping[str, Any]], membership: pl.DataFrame, orders: Ints
 ) -> tuple[dict[str, Any] | None, str | None]:
@@ -153,6 +202,7 @@ def build_issue(
     noise: Noise | None = None,
     designations: Designations | None = None,
     pairing_files: tuple[Path, Path] | None = None,
+    calibration: Calibration | None = None,
 ) -> Issue:
     """The forecast for the committee release revealed at `reveal`, from inputs public at the issue cutoff.
 
@@ -324,6 +374,7 @@ def build_issue(
         for place, row in enumerate(second):
             row.update(rank_summary([int(c) for c in counts2[place]], PATHS, CUTS, RANKED))
         pairwise, pairwise_error = _bubble_pairs(season, second, read["membership"], orders2)
+        calibrated = _calibrate(calibration, season, issue, release, second)
         sampled = {
             "model": MODEL,
             "kind": release,
@@ -335,6 +386,7 @@ def build_issue(
             "trained_on": list(noise.document["trained_on"]),
             "notes": list(CALIBRATION_NOTES),
             "pairwise": pairwise,
+            "calibration": calibrated,
             "pairwise_error": pairwise_error,
             "note": "A count of no paths or every path is published half a path short of 0 or 1.",
         }
@@ -396,6 +448,8 @@ def build_issue(
     if field_error is not None:
         field_section = None
     inputs.extend(field_inputs if field_section is not None else [])
+    if calibration is not None and noise is not None:
+        inputs.append(f"calibration:{calibration.sha256}")
     inputs.append(f"draw:{len(draw)}:{sha256_hex(canonical(dict(sorted(draw.items()))))}")
     if noise is not None:
         inputs.append(f"rank-noise:{noise.sha256}")

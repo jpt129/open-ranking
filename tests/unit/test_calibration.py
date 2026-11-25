@@ -1,143 +1,194 @@
-"""Calibration (P11-lite; OR-04, OR-12, VT-07): rolling pregame predictions, grid search, frozen file."""
+"""The calibrated disclosure column (SC-05): monotone maps from published probability to frequency."""
 
 from __future__ import annotations
 
-import json
-import random
+import itertools
+from datetime import timedelta
 from pathlib import Path
-from typing import Any
 
-import polars as pl
+import numpy as np
 import pytest
 
-from cfp.common.hashing import sha256_hex
-from cfp.open_ranking.calibration import Grid, brier, log_loss, pregame, report, search, venue_only
-from cfp.open_ranking.frozen import FrozenError, load_frozen, write_frozen
-from cfp.open_ranking.strength import Params, fit
+from cfp.forecast.calibration import (
+    QUANTITIES,
+    CalibrationError,
+    apply_map,
+    fit_calibration,
+    fit_map,
+    forecast_rows,
+    leave_one_season_out,
+    load_calibration,
+    reliability,
+    scores,
+    write_calibration,
+)
+from cfp.forecast.noise_params import Example, fit_noise, load_noise, release_kind, write_noise
+from cfp.forecast.rank_noise import sample_orders
 
-GRID = Grid(lambda_c=(0.5, 2.0, 8.0), lambda_u=(0.5, 2.0, 8.0), t=tuple(4.0 + 0.5 * i for i in range(33)))
-PARAMS = Params(lambda_c=2.0, lambda_u=2.0)
+from .test_issue import PRIOR, REVEAL, issue, world
+from .test_noise import examples as noise_examples
 
-
-def make_season(seed: int, weeks: int = 13, noise: float = 12.0) -> pl.DataFrame:
-    """24 teams in three leagues; 12 games a week; margins from true strengths plus noise."""
-    rng = random.Random(seed)
-    teams = [f"T{i:02d}" for i in range(24)]
-    conf = {team: f"c{i % 3}" for i, team in enumerate(teams)}
-    league = {"c0": 6.0, "c1": 0.0, "c2": -6.0}
-    true = {team: league[conf[team]] + rng.gauss(0, 6) for team in teams}
-    rows: list[dict[str, Any]] = []
-    for week in range(1, weeks + 1):
-        order = teams[:]
-        rng.shuffle(order)
-        for k in range(12):
-            home, away = order[2 * k], order[2 * k + 1]
-            neutral = week == weeks and k == 0
-            margin = round(true[home] - true[away] + (0 if neutral else 2.5) + rng.gauss(0, noise)) or 1
-            rows.append(
-                {
-                    "game_id": f"s{seed}-w{week:02d}-{k:02d}",
-                    "week": week,
-                    "home_id": home,
-                    "away_id": away,
-                    "home_pts": 30 + margin,
-                    "away_pts": 30,
-                    "winner_id": home if margin > 0 else away,
-                    "neutral": neutral,
-                    "home_div": "fbs",
-                    "away_div": "fbs",
-                    "home_conf": conf[home],
-                    "away_conf": conf[away],
-                    "ordinary_fbs": True,
-                    "margin_excluded": False,
-                }
-            )
-    return pl.DataFrame(rows, schema_overrides={"week": pl.Int32, "home_pts": pl.Int32, "away_pts": pl.Int32})
+FLOOR = 0.5 / 10_000
+TEAMS = [f"T{k:03d}" for k in range(60)]
+SEASONS = (2019, 2020, 2021, 2022, 2023, 2024, 2025)
+TAUS = {"sun0200": 2.0, "tminus60": 2.0}
 
 
-def test_calibration_rolling_pregame_only() -> None:
-    games = make_season(1)
-    base = {p.game_id: p for p in pregame(games, PARAMS, 2021, first_week=8)}
-    assert len(base) == 6 * 12  # weeks 8 to 13
-    assert {p.week for p in base.values()} == set(range(8, 14))
-    # rewrite every result from week 10 on: predictions for weeks 8 to 10 must not move at all
-    later = pl.col("week") >= 10
-    changed = games.with_columns(
-        home_pts=pl.when(later).then(pl.col("away_pts") - 17).otherwise(pl.col("home_pts")).cast(pl.Int32),
-        winner_id=pl.when(later).then(pl.col("away_id")).otherwise(pl.col("winner_id")),
-    )
-    again = {p.game_id: p for p in pregame(changed, PARAMS, 2021, first_week=8)}
-    for game_id, p in base.items():
-        if p.week <= 10:
-            assert again[game_id].d == p.d
-    assert any(again[g].d != p.d for g, p in base.items() if p.week >= 11)
-    assert all(not p.home_won for p in again.values() if p.week >= 10)
-    assert pregame(games.reverse(), PARAMS, 2021, first_week=8) == pregame(games, PARAMS, 2021, first_week=8)
+def test_isotonic_fit_pools_violators_and_is_monotone() -> None:
+    found = fit_map([0.1, 0.2, 0.3, 0.4], [0, 1, 0, 1])
+    got = [round(apply_map(found, p, FLOOR), 6) for p in (0.1, 0.2, 0.3, 0.4)]
+    assert got == [0.25, 0.5, 0.5, 0.75]  # a lone miss or hit is half an event short of 0 or 1
+    rng = np.random.default_rng(3)
+    p = rng.uniform(0, 1, 5000)
+    y = (rng.uniform(0, 1, 5000) < p**2).astype(int)  # published probabilities that run too high
+    learned = fit_map(p.tolist(), y.tolist())
+    out = [apply_map(learned, float(g), FLOOR) for g in np.linspace(0, 1, 501)]
+    assert all(b >= a for a, b in itertools.pairwise(out))  # never decreasing
+    assert all(FLOOR <= v <= 1 - FLOOR for v in out)  # never 0 or 1
+    assert abs(apply_map(learned, 0.5, FLOOR) - 0.25) < 0.08
+    assert abs(apply_map(learned, 0.9, FLOOR) - 0.81) < 0.08
+    with pytest.raises(CalibrationError):
+        fit_map([], [])
+    with pytest.raises(CalibrationError):
+        fit_map([0.2, 1.2], [0, 1])
 
 
-def test_a_team_with_no_earlier_games_gets_its_league_effect() -> None:
-    games = make_season(2)
-    without = (pl.col("home_id") != "T00") & (pl.col("away_id") != "T00")
-    late = games.filter((pl.col("week") >= 9) | without)  # T00 first plays in week 9
-    first = next(p for p in pregame(late, PARAMS, 2020, first_week=9) if p.week == 9 and "T00" in p.teams)
-    earlier = fit(late.filter(pl.col("week") < 9), PARAMS)
-    assert "T00" not in earlier.theta
-    home, away = first.teams
-    side = {team: earlier.theta.get(team, earlier.conference["c0"]) for team in first.teams}  # T00 is in c0
-    expected = side[home] - side[away] + (0.0 if first.neutral else earlier.home_adv)
-    assert first.d == pytest.approx(expected, abs=1e-12)
-    assert earlier.conference["c0"] != 0.0
+def test_equal_probabilities_share_one_value_and_gaps_are_interpolated() -> None:
+    found = fit_map([0.2, 0.2, 0.2, 0.2, 0.8, 0.8], [0, 0, 0, 1, 1, 1])
+    top = 1 - 0.5 / 3  # two hits out of two: half an event short of certain
+    assert apply_map(found, 0.2, FLOOR) == pytest.approx(0.25)
+    assert apply_map(found, 0.8, FLOOR) == pytest.approx(top)
+    assert apply_map(found, 0.5, FLOOR) == pytest.approx((0.25 + top) / 2)  # halfway across the gap
+    assert apply_map(found, 0.0, FLOOR) == pytest.approx(0.25)  # outside the fitted range: the end value
+    assert apply_map(found, 1.0, FLOOR) == pytest.approx(top)
 
 
-def test_scores() -> None:
-    preds = pregame(make_season(3), PARAMS, 2021, first_week=8)
-    assert log_loss(preds, 7.0) > 0
-    assert 0 < brier(preds, 7.0) < 0.5
-    assert log_loss(preds, 1e6) == pytest.approx(0.6931, abs=1e-3)  # a huge scale predicts 50-50
-    flat_ll, flat_brier = venue_only(preds)
-    assert 0.5 < flat_ll < 0.75
-    assert 0.15 < flat_brier < 0.27
+def test_reliability_table_and_scores() -> None:
+    table = reliability([0.1, 0.1, 0.9, 0.9], [0, 1, 1, 1], edges=(0.0, 0.5, 1.0))
+    assert [(r["n"], r["mean_forecast"], r["observed"]) for r in table] == [(2, 0.1, 0.5), (2, 0.9, 1.0)]
+    found = scores([0.5, 0.5], [1, 0])
+    assert found["brier"] == pytest.approx(0.25)
+    assert found["log_loss"] == pytest.approx(0.6931, abs=1e-4)
+    assert found["n"] == 2
 
 
-def test_calibration_report() -> None:
-    seasons = {2015 + i: make_season(100 + i) for i in range(6)}
-    found = search(seasons, GRID, first_week=8)
-    years = sorted(seasons)
-    choice = found.choose(years)
-    assert choice.n == 6 * 6 * 12
-    assert choice.params.lambda_c in GRID.lambda_c
-    assert choice.params.lambda_u in GRID.lambda_u
-    assert 5.0 <= choice.t <= 16.0  # noise sd 12 is a logistic scale near 7; estimation error widens it
-    assert choice.log_loss < venue_only(found.predictions(choice.params, years))[0]
-    assert choice.log_loss == min(row["log_loss"] for row in found.table(years))
-    out = report(found, targets=[2018, 2019, 2020])
-    assert [row["season"] for row in out["rolling"]] == [2018, 2019, 2020]
-    first = out["rolling"][0]
-    assert first["trained_on"] == [2015, 2016, 2017]  # parameters for a season come from earlier seasons only
-    assert set(first) >= {"log_loss", "brier", "venue_only_log_loss", "venue_only_brier", "n", "t"}
-    assert len(out["reliability"]) == 10
-    assert sum(row["n"] for row in out["reliability"]) == sum(row["n"] for row in out["rolling"])
-    assert found.choose([2015, 2016]).n == 2 * 6 * 12
-    with pytest.raises(ValueError, match="no seasons"):
-        found.choose([])
+def past(shaken: bool = True) -> list[Example]:
+    """Past releases against a baseline that is plain order TEAMS.
+
+    With `shaken`, six of the baseline's top 25 fall ten places before a little noise is added, as ranked
+    teams that lose do: no single temperature describes that, so the raw probabilities are off. Without it
+    the committee is the baseline plus noise, and the raw probabilities are already right.
+    """
+    out = []
+    for season in SEASONS:
+        for number in range(1, 7):
+            for which in ("sun0200", "tminus60"):
+                seed = season * 100 + number + (which == "sun0200")
+                base = list(range(60))
+                if shaken:
+                    rng = np.random.default_rng(seed)
+                    fallen = set(rng.choice(25, size=6, replace=False).tolist())
+                    base = sorted(base, key=lambda k, fallen=fallen: k + 10.5 if k in fallen else k)
+                drawn = sample_orders(60, 1.5 if shaken else 2.0, 1, seed=seed)[0]
+                actual = [TEAMS[base[i]] for i in drawn[:25]]
+                out.append(Example(season, number, which, release_kind(number, 6), TEAMS, TEAMS, actual))
+    return out
 
 
-def test_frozen_hash(tmp_path: Path) -> None:
-    doc: dict[str, Any] = {"season": 2026, "lambda_c": 2.0, "lambda_u": 0.5, "t": 7.25, "cap": 24}
-    doc |= {"independent_penalty": "combined", "status": "provisional", "rule_version_id": "or-test"}
-    root = tmp_path / "frozen_params"
-    path, digest = write_frozen(root, 2026, doc)
-    assert path.name == "params_2026.json"
-    assert digest == sha256_hex(path.read_bytes())
-    assert (root / "params_2026.sha256").read_text().split()[0] == digest
-    frozen = load_frozen(root, 2026)
-    assert (frozen.params, frozen.t, frozen.sha256) == (Params(2.0, 0.5), 7.25, digest)
-    assert frozen.rule_version_id == "or-test"
-    with pytest.raises(FrozenError, match="already frozen"):
-        write_frozen(root, 2026, doc)
+def test_forecast_rows_cover_weekly_releases_only_with_recorded_seeds() -> None:
+    rows = forecast_rows(past(), TAUS, paths=2000)
+    weekly = len(SEASONS) * 4  # six releases a season: one opening, four weekly, one final
+    assert len(rows) == weekly * 2 * 60 * len(QUANTITIES)
+    assert {r.quantity for r in rows} == set(QUANTITIES)
+    assert rows == forecast_rows(past(), TAUS, paths=2000)  # seeded
+    top = [r for r in rows if r.quantity == "top25" and r.issue == "sun0200"]
+    assert sum(r.y for r in top) == weekly * 25
+    assert all(0 < r.p < 1 for r in rows)
+
+
+def test_leave_one_season_out_never_fits_a_season_on_itself() -> None:
+    data = past()
+    report = leave_one_season_out(data, paths=2000)
+    cell = report["cells"]["sun0200"]["top25"]
+    assert cell["after"]["log_loss"] < cell["before"]["log_loss"]  # the map repairs a misshapen forecast
+    assert cell["after"]["brier"] <= cell["before"]["brier"]
+    assert cell["verified"] is True
+    assert report["seasons"] == list(SEASONS)
+    assert sum(r["n"] for r in cell["reliability_before"]) == cell["before"]["n"]
+    assert sum(r["n"] for r in cell["reliability_after"]) == cell["after"]["n"]
+    # change one season's outcomes: its own calibrated values must not move; another season's do
+    spoiled = [
+        Example(e.season, e.release_no, e.issue, e.kind, e.baseline1, e.baseline2, TEAMS[::-1][:25])
+        if e.season == 2022
+        else e
+        for e in data
+    ]
+    again = leave_one_season_out(spoiled, paths=2000)
+    assert again["held_out"][2022] == report["held_out"][2022]
+    assert again["held_out"][2023] != report["held_out"][2023]
+
+
+def test_a_map_that_does_not_help_is_not_verified() -> None:
+    # forecasts that are already right: a map has nothing to repair, and fitting one only adds noise
+    cells = leave_one_season_out(past(shaken=False), paths=2000)["cells"]
+    flags = [cells[i][q]["verified"] for i in cells for q in cells[i]]
+    assert all(isinstance(flag, bool) for flag in flags)
+    assert not all(flags)
+
+
+def test_calibration_file_is_written_once_and_checked(tmp_path: Path) -> None:
+    doc = fit_calibration(past(), 2026, taus=TAUS, paths=2000)
+    assert doc["trained_on"] == list(SEASONS)
+    assert "held_out" not in doc["verification"]
+    with pytest.raises(CalibrationError, match="earlier season"):
+        fit_calibration(past(), 2025, taus=TAUS, paths=2000)
+    path, digest = write_calibration(tmp_path, 2026, doc)
+    loaded = load_calibration(tmp_path, 2026)
+    assert loaded.sha256 == digest
+    assert loaded.verified("sun0200", "top25")
+    assert not loaded.verified("sun0200", "nothing")
+    assert 0 < loaded.value("sun0200", "top25", 0.5) < 1
+    with pytest.raises(CalibrationError, match="no map"):
+        loaded.value("sun0200", "nothing", 0.5)
+    with pytest.raises(CalibrationError, match="never rewritten"):
+        write_calibration(tmp_path, 2026, doc)
     path.chmod(0o644)
-    path.write_text(json.dumps(doc | {"t": 9.0}))
-    with pytest.raises(FrozenError, match="does not match"):
-        load_frozen(root, 2026)
-    with pytest.raises(FrozenError, match="not frozen"):
-        load_frozen(root, 2027)
+    path.write_text(path.read_text() + " ")
+    with pytest.raises(CalibrationError, match="recorded hash"):
+        load_calibration(tmp_path, 2026)
+    with pytest.raises(CalibrationError, match="no calibration"):
+        load_calibration(tmp_path / "none", 2026)
+
+
+def test_issue_carries_a_labelled_calibrated_column_for_weekly_forecasts_only(tmp_path: Path) -> None:
+    write_noise(tmp_path / "p", 2026, fit_noise(noise_examples(), 2026))
+    noise = load_noise(tmp_path / "p", 2026)
+    write_calibration(tmp_path / "p", 2026, fit_calibration(past(), 2026, taus=TAUS, paths=2000))
+    maps = load_calibration(tmp_path / "p", 2026)
+    plain = issue(world(tmp_path / "a"), noise=noise).doc
+    assert plain["rank_noise"]["calibration"] is None
+    assert "calibrated" not in plain["forecasts"]["baseline2"]["rows"][0]
+    # the test world's issue forecasts the season's last release: the maps are for weekly releases only
+    final = issue(world(tmp_path / "b"), noise=noise, calibration=maps).doc
+    assert final["rank_noise"]["kind"] == "final"
+    assert "calibrated" not in final["forecasts"]["baseline2"]["rows"][0]
+    assert "weekly" in final["rank_noise"]["calibration"]["left_out"]
+    assert final["rank_noise"]["calibration"]["published"] == []
+    # with a later reveal on the schedule the same issue is a weekly one
+    reveals = [PRIOR, REVEAL, REVEAL + timedelta(days=5)]
+    doc = issue(world(tmp_path / "c"), noise=noise, calibration=maps, reveals=reveals).doc
+    assert doc["rank_noise"]["kind"] == "weekly"
+    block = doc["rank_noise"]["calibration"]
+    assert block["sha256"] == maps.sha256
+    assert "not a promoted model" in block["label"]
+    assert "top25" in block["published"]
+    row = doc["forecasts"]["baseline2"]["rows"][0]
+    assert row["calibrated"]["p_top25"] == maps.value("sun0200", "top25", row["p_top25"])
+    assert set(row["calibrated"]["p_rank_at_most"]) <= {"4", "12"}
+    assert f"calibration:{maps.sha256}" in doc["inputs"]
+    raw = issue(world(tmp_path / "d"), noise=noise, reveals=reveals).doc["forecasts"]["baseline2"]["rows"][0]
+    assert {k: v for k, v in row.items() if k != "calibrated"} == raw  # the raw column is untouched
+    other = fit_calibration(past(), 2027, taus=TAUS, paths=2000)
+    write_calibration(tmp_path / "q", 2027, other)
+    with pytest.raises(ValueError, match="2027, not 2026"):
+        issue(world(tmp_path / "e"), noise=noise, calibration=load_calibration(tmp_path / "q", 2027))
