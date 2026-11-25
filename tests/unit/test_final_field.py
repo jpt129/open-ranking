@@ -159,3 +159,10 @@ def test_path_recomputes_open_points() -> None:
     flipped = [game("sim-1", "T01", "T02", 17, 31), extra[1]]
     other = open_points_on_path(frame(played), frame(flipped), PARAMS, T, 2026)
     assert after["T01"] - other["T01"] == 10000  # an ordinary flip moves a total by exactly 10000
+
+
+def test_field_today_in_the_champions_era_ignores_independents_and_unknown_leagues() -> None:
+    members = league() | {"R40": None}  # type: ignore[dict-item]
+    today = field_today(setup(season=2025, conference_of=members), load_rules(2025))
+    assert "fbs-independents" not in today.stand_ins
+    assert len([e for e in today.entries if e.qualifier]) == 12

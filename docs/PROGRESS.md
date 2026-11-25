@@ -164,6 +164,8 @@ P09 rules engine built with season files for 2014–2027 and fixtures checked ag
 
 P17 simulator built (probabilities from lines, correlated draws, scores, fits on 2014–2025); not yet wired into an issue. Mac fallback for issue triggers installed and tested.
 
-Next: P18 (standings, title pairings, final field) using the simulator and rules engine; P16 (Plackett–Luce) if time allows; rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
+Rank noise fitted and written once; the weekly issue now publishes probabilities; designated six-conference team (Boise State, 24 Nov) placed 26th; field-forecast core built and rehearsed on 2024 and 2025; the specified title-week model failed promotion.
+
+Next: the field edition (document, command, workflow), title pairings with first-public times and scenarios, strength estimate for unquoted games, issue trigger (one command, local job primary), Friday dry run; rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
 
 Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).

@@ -24,7 +24,7 @@ import polars as pl
 
 from cfp.forecast.simulator import Paths
 from cfp.open_ranking.ledger import build_ledgers
-from cfp.open_ranking.strength import Params
+from cfp.open_ranking.strength import INDEPENDENT, Params
 from cfp.rules.engine import Entry, RulesError, SeasonRules, select_field
 
 RANKED = 25
@@ -245,7 +245,8 @@ def field_today(setup: Setup, rules: SeasonRules) -> Today:
     order = list(setup.initial)
     champions = dict(setup.champions)
     stand_ins: dict[str, str] = {}
-    wanted = list(rules.named) or (sorted(set(setup.conference_of.values())) if rules.champion_count else [])
+    leagues = sorted({c for c in setup.conference_of.values() if c and c != INDEPENDENT})
+    wanted = list(rules.named) or (leagues if rules.champion_count else [])
     for conference in wanted:
         if conference in champions:
             continue

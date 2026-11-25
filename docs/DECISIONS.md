@@ -507,3 +507,42 @@ John approved the plan and the order (simulator before the fitted ranking model)
 - Tests renamed to the spec's names (`test_sim_win_rates_within_mc_error`, `test_within_team_dependence_vs_residuals`, `test_seed_recorded_and_reproducible`) and `test_futures_prices_not_in_predictor` added. The dependence test uses simulated seasons; the measurement on real residuals is the figure above, not a test.
 
 Noted, not changed: a = 0.034 is below what this estimator returns on average when the truth is zero (0.057 in the reviewer's simulation), so it is read as no measurable dependence. A quote's age is not checked. Draws for one game change when another game is added to the slate, so two runs with different slates are not comparable path by path. The 10,000-path floor for public forecasts is enforced where an edition is built, not here. An empty slate is returned as empty; the caller decides whether that is an error.
+
+## 2026-11-25 — John's rulings on the simulator, rank noise, the group bid and the field forecast
+
+John accepted the simulator as built and ruled on the plan for P18 and P19. What was built against each ruling, and what the data showed:
+
+**Simulator.** The per-game three-standard-error test is replaced by one pooled chi-square test over 40 independent games, three weights and three fixed seeds (p > 0.001 both tails). Moneylines stay first. **Open question for the 2027 freeze:** on 3,771 past games with both, the spread curve scored 0.5446 against 0.5475 for moneylines.
+
+**Rank noise (SC-03, SC-05).** `cfp.forecast.rank_noise`, `cfp.forecast.noise_params`, `cfp.release.history`; `cfp forecast fit-noise`.
+- Model: orders are drawn one team at a time with chance proportional to exp(−place/τ), place being the baseline's own. τ is fitted by likelihood on the committee's actual 25 picks with the whole field in the denominator.
+- Training examples are past issues rebuilt by the live issue code in replay at each cutoff, 2014–2025 (144 issues). Past orders are: prior CFP list plus losses; then AP top-25 standing; then open points at that cutoff (the 2026 frozen parameters applied to each season); then a draw from the same hash rule. Five 2020 issues had no open points (a ledger could not be built that early) and fall to the draw.
+- Fitted on 2014–2025, written once to `frozen/rank_noise_2026.json` (SHA-256 `4dec5ead…8578`): Baseline 2 weekly 2.995 (Sunday cutoff) and 2.629 (hour before the reveal); **final release 1.305**; opening 4.647 and 3.443; final seen from two releases back 3.004 and 2.845. Baseline 1: 7.1 to 11.5.
+- Forward-chained 2017–2025 the weekly value moved between 3.4 and 3.0 and the final between 1.30 and 1.38.
+- Held-out calibration of P(top 25), weekly, hour-before cutoff: forecasts near 0.50 came in at 0.49 and near 0.19 at 0.22, but 0.95 came in at 0.80 and 0.002 at 0.021. The tail is too thin because past "others receiving votes" are missing (DATA_GAPS); the top is too sure because a loss costs more than five places (below).
+- A known shape problem: this noise can move the first team only down, so the No. 1 team's median rank prints as 2.
+- **Never 0 or 1:** a count of no paths or every path is published half a path short of the edge (0.00005 and 0.99995 at 10,000 paths), with the count beside it. Sums are checked on counts.
+- The weekly issue (schema 3) now carries, per team, rank counts for places 1–25 and outside, P(top 25), the median rank category and P(rank ≤ 4, 8, 12, 25); the seed is derived from the edition ID and recorded.
+
+**The six-conference bid (BR-2026).** `cfp.forecast.designations`, `data/committee_designations.csv`.
+- The CFP's 24 Nov release page says: "The CFP selection committee selected Boise State as the best team from the remaining conferences." Verified on collegefootballplayoff.com by the rules-verifier. The rankings feed has no such field. Earlier 2026 releases had Boise State ranked. 2024 and 2025 release pages carry no equivalent sentence.
+- **Position-26 rule, for John to confirm:** the designated team starts 26th in Baseline 2, ahead of every other unranked team. Reason: the committee has ranked it above every other team of the six conferences, and says nothing about where it stands against unranked teams from elsewhere.
+- The row is dated by when we read it (25 Nov 20:15 UTC), because no archived copy proves the sentence was there at publication.
+- A release with no group team in its 25 and no designation on file is listed in the issue as a missing input.
+- AP "others receiving votes" for the 24 Nov poll are in the lake; the next poll's must be captured before Tuesday's issue.
+
+**Losses and the pilot model (FF-04, VT-14).**
+- The baseline counts real losses since the last release as well as simulated ones, five places each, and is labelled "baseline".
+- Measured on 2014–2025: in regular weeks the best single drop is **9 places** (likelihood gain of 194 over five; 118 of 310 ranked one-loss teams fell out of the 25 altogether). In title week it is **4 places** (gain of 8 over five; 70 ranked losers, 5 fell out, mean drop of those still ranked 2.0).
+- **Promotion test, held-out Selection Days 2017–2025, issued at the Sunday cutoff:** baseline field log loss 27.59, bubble Brier 0.1046 (85 team-seasons). The pilot model as specified, title-week drop shrunk toward the weekly drop (weight n/(n+10) on its own estimate), scored 28.53 and 0.1075: **it fails**, because the weekly drop is larger, not smaller, than the title-week drop, so shrinking toward it moves the wrong way. Not promoted. The field forecast publishes the baseline alone and says that it drops title-game losers five places.
+- Not adopted, reported only: the same model without shrinkage scored 24.90 and 0.0939. It was looked at after the specified model failed, so it is not a clean test.
+- Not tested yet: a nine-place regular-week drop for the weekly forecast (held-out likelihood −1531 against −1656 for five). It needs the weekly rank score (VT-11) before any promotion.
+
+**Field forecast core (FF-03 to FF-05).** `cfp.forecast.final_field`: per path, simulated results, drops, a sampled order, the season's rules; counts for field, bye, host by round, seed and route; P(field | win) and P(field | lose) with path counts; "field if the season ended today" with each undecided league's best-placed team standing in as champion, shown as an assumption. A named conference with neither a champion nor a simulated title game stops the run. Open points are not recomputed per path (John's ruling); `open_points_on_path` does it and is under test.
+
+**Rehearsal, 2024 and 2025 Selection Days from the release before each** (closing lines from CFBD, not as-of; temperature in-sample; unscored). The rules engine returns both official fields from the official final orders. ΣP(field) = 12 and ΣP(bye) = 4 on both. Teams within three places of the cut:
+- 2024 (cut at No. 11 Alabama): SMU 0.620 (in), Indiana 0.948 (in), Boise State 0.636 (in), Alabama 0.584 (out), Miami 0.288 (out), Ole Miss 0.103 (out), South Carolina 0.049 (out). Also Arizona State 0.504 (in), Clemson 0.442 (in).
+- 2025 (cut at No. 10 Notre Dame): Texas A&M 0.997 (in), Oklahoma 0.955 (in), Alabama 0.522 (in), Notre Dame 0.677 (out), BYU 0.202 (out), Miami 0.394 (in), Texas 0.190 (out). Also Tulane 0.448 (in), James Madison 0.429 (in).
+- The baseline's weakness shows in both: SMU (2024) and Alabama (2025) lost title games and stayed in; the baseline gave them 617 of 4,422 and 734 of 5,517 losing paths.
+
+**Not built yet:** the field edition itself (document, command, workflow step); title pairings with first-public times, scenarios and manifest hash; the strength estimate for unquoted games; the issue-trigger changes (item 7).
