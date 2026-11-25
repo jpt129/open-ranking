@@ -162,6 +162,8 @@ Release-step review fixes applied (corrections, crash repair, published snapshot
 
 P09 rules engine built with season files for 2014–2027 and fixtures checked against CFP pages; 382 tests pass.
 
-Next: P16 (Plackett–Luce) and P17 (title-game simulator) per the pilot order; rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
+P17 simulator built (probabilities from lines, correlated draws, scores, fits on 2014–2025); not yet wired into an issue. Mac fallback for issue triggers installed and tested.
+
+Next: P18 (standings, title pairings, final field) using the simulator and rules engine; P16 (Plackett–Luce) if time allows; rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
 
 Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).

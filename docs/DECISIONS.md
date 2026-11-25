@@ -481,3 +481,20 @@ Left open: a waiver overrides any ineligibility, though the CFP's waiver covers 
 ## 2026-11-25 — Mac fallback for issue triggers
 
 No scheduled run had started in the data repository by 19:38 UTC (capture slots at 18:17 and 19:17 produced nothing); hand-triggered runs work. John chose a fallback on his Mac. A launchd job hand-triggers the `issue` workflow three times before each cutoff, and a second job keeps the Mac from idle-sleeping. Files and removal steps: `scripts/mac_fallback/`. Tested with a one-off job that started a capture run at 19:42 UTC. The old local cron entries (failing hourly since macOS blocks cron from the Desktop folder) were removed. Limits: the Mac must be on, online, lid open, and logged in.
+
+## 2026-11-25 — P17 (simulator, FF-02, VT-13)
+
+John approved the plan and the order (simulator before the fitted ranking model).
+
+- **Modules.** `cfp.forecast.simulator` (probabilities, draws, scores, fits) and `cfp.forecast.sim_inputs` (stored lines to probabilities; fits on past seasons; the slate of games still to play). Not yet called by any issue: the final-field step (P18) will call it.
+- **Game probability**, in the spec's order: both moneylines with the margin removed in proportion; else the spread through the fitted curve; else a strength estimate handed in by the caller. Each book's latest quote counts and the median across books is used. A moneyline below 100 in size is dropped and counted. A game with none of the three stops the run.
+- **Spread curve.** P(home) = Phi(-spread / scale), scale fitted by likelihood on the seasons before the one forecast. On 9,085 FBS games 2014–2025: 14.65 (2014–19: 14.23; 2020–25: 15.11). Refitted at each issue from what the store shows at the cutoff; nothing is saved.
+- **Draws.** x = a(z_home − z_away)/√2 + √(1 − a²)e, home wins when Phi(x) > 1 − p. One generator from the recorded seed; games sorted by id, so input order does not matter.
+- **Dependence weight a = 0.034** on 2014–2025 (97,892 pairs of games sharing one team; resampling seasons gives 0 to 0.16 as the 5–95% range; 2014–19 alone 0, 2020–25 alone 0.16). It is fitted by matching the signed product of residuals over those pairs. One number for all teams, as planned.
+  - It is measured against closing lines, which already contain everything known about a team at kickoff. Used for games weeks ahead it is a floor, not an estimate: the lake holds only closing lines for past seasons, so the dependence at longer horizons cannot be fitted (DATA_GAPS).
+  - In the pilot this has no effect: after 28 Nov the games left are title games and no team plays twice.
+- **Scores.** Drawn from past games with the same winning side and the same tenth of pregame probability (a pilot simplification of "conditional on win and expected strength"). Whole numbers, never tied, always agreeing with the simulated winner.
+- **Past lines.** History uses each closing line's own quote time; the store marks those lines public four hours after kickoff so a replay cannot see them early, and that rule is unchanged for the forecast season.
+- **Finding, no action.** On the 3,771 past games with both, the spread curve scored slightly better than the moneylines (log loss 0.5446 against 0.5475). The spec's order (moneylines first) is kept.
+- **Real-data check (25 Nov, 20:00 UTC cutoff).** 71 games left; 70 priced from moneylines; the Conference USA title game (placeholder pairing, no quote) is refused until it has a quote or a strength estimate. 10,000 paths with scores take 0.04 s. Over eight seeds of 200,000 paths the largest gap between a simulated win rate and its input was 2.9 standard errors across 71 games, as chance predicts.
+- **Not built:** the strength estimate for unquoted games (P18 has the snapshot it needs); standings and title-game pairings (P18).
