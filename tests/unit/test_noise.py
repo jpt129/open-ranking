@@ -184,3 +184,10 @@ def test_noise_fitted_for_another_season_is_refused(tmp_path: Path) -> None:
     write_noise(tmp_path / "p", 2027, fit_noise(examples(), 2027))
     with pytest.raises(ValueError, match="2027, not 2026"):
         issue(world(tmp_path), noise=load_noise(tmp_path / "p", 2027))
+
+
+def test_the_issue_says_where_its_probabilities_are_known_to_be_off(tmp_path: Path) -> None:
+    write_noise(tmp_path / "p", 2026, fit_noise(examples(), 2026))
+    notes = issue(world(tmp_path), noise=load_noise(tmp_path / "p", 2026)).doc["rank_noise"]["notes"]
+    assert any("too confident" in note for note in notes)
+    assert any("sampling precision" in note for note in notes)

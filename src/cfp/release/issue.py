@@ -48,6 +48,15 @@ RULE_VERSION = "sc-baselines-1"
 STALE_WINDOW = timedelta(days=7)
 TABLES = ("teams", "membership", "eligibility", "committee_releases", "polls", "games")
 PATHS = 10_000  # sampled orders per public forecast (SC-05)
+# Measured leave-one-season-out on the 2014-2025 weekly releases (docs/DECISIONS.md, 25 Nov 2026).
+CALIBRATION_NOTES = (
+    "The path counts show sampling precision, not model error.",
+    "P(top 25) is too confident near the ends: on 2014-2025, forecasts near 0.95 came in near 0.77, "
+    "forecasts near 0.998 near 0.93, and forecasts near 0.002 near 0.02.",
+    "P(rank at most 4 or 12) errs the other way: the committee moves its top teams less than one "
+    "temperature allows, so middling probabilities there understate the favourite.",
+    "The main cause is the fixed five-place drop for a loss; ranked teams that lose usually fall further.",
+)
 CUTS = (4, 8, 12, 25)  # bye, first-round host, field size by rank alone, the published list
 
 
@@ -286,6 +295,7 @@ def build_issue(
             "seeds": {"baseline1": seed, "baseline2": seed + 1},
             "params_sha256": noise.sha256,
             "trained_on": list(noise.document["trained_on"]),
+            "notes": list(CALIBRATION_NOTES),
             "note": "A count of no paths or every path is published half a path short of 0 or 1.",
         }
     inputs = [input_id(name, read[name], lake.spec(name).key) for name in TABLES]

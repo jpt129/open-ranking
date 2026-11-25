@@ -245,7 +245,13 @@ def build_field(
         runs.append(one(decided, label))
     notes = [
         f"Baseline only: every loss, including a title-game loss, costs {LOSS_STEP} places. "
-        "A fitted title-week drop was tested on 2017-2025 and did not pass the promotion rule.",
+        "The fitted title-week drop the plan specified (shrunk toward the weekly value) scored worse than "
+        "the baseline on 2017-2025 and was not promoted. An unshrunk version scored better, but it was "
+        "looked at only afterwards and rests on three team-seasons, so it is not published.",
+        "On 2017-2025 the baseline's small field probabilities were too small: forecasts near 0.09 came "
+        "in near 0.19 (5 of 27).",
+        "The order among teams outside the committee's 25 is never observed, so the noise applied to the "
+        "six-conference place is not validated.",
         "The six-conference place carries the widest uncertainty: its teams are mostly outside the "
         "committee's 25, where the starting order rests on AP votes and open points.",
         "Open points are computed at the cutoff for the starting order and are not recomputed on each path.",

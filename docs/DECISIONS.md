@@ -533,10 +533,10 @@ John accepted the simulator as built and ruled on the plan for P18 and P19. What
 
 **Losses and the pilot model (FF-04, VT-14).**
 - The baseline counts real losses since the last release as well as simulated ones, five places each, and is labelled "baseline".
-- Measured on 2014–2025: in regular weeks the best single drop is **9 places** (likelihood gain of 194 over five; 118 of 310 ranked one-loss teams fell out of the 25 altogether). In title week it is **4 places** (gain of 8 over five; 70 ranked losers, 5 fell out, mean drop of those still ranked 2.0).
+- Measured on 2014–2025: in regular weeks the best single drop is **9 places** (likelihood gain of 194 over five, 206.9 after the 2025 polls were re-dated; 118 of 310 ranked one-loss teams fell out of the 25 altogether). In title week it is **4 places** (gain of 8 over five; 70 ranked losers, 5 fell out, mean drop of those still ranked 2.0).
 - **Promotion test, held-out Selection Days 2017–2025, issued at the Sunday cutoff:** baseline field log loss 27.59, bubble Brier 0.1046 (85 team-seasons). The pilot model as specified, title-week drop shrunk toward the weekly drop (weight n/(n+10) on its own estimate), scored 28.53 and 0.1075: **it fails**, because the weekly drop is larger, not smaller, than the title-week drop, so shrinking toward it moves the wrong way. Not promoted. The field forecast publishes the baseline alone and says that it drops title-game losers five places.
 - Not adopted, reported only: the same model without shrinkage scored 24.90 and 0.0939. It was looked at after the specified model failed, so it is not a clean test.
-- Not tested yet: a nine-place regular-week drop for the weekly forecast (held-out likelihood −1531 against −1656 for five). It needs the weekly rank score (VT-11) before any promotion.
+- Not tested yet: a nine-place regular-week drop for the weekly forecast (held-out likelihood −1531 against −1656 for five; −1480.3 against −1617.5 after the 2025 polls were re-dated, positive in 8 of 9 seasons). It needs the weekly rank score (VT-11) before any promotion.
 
 **Field forecast core (FF-03 to FF-05).** `cfp.forecast.final_field`: per path, simulated results, drops, a sampled order, the season's rules; counts for field, bye, host by round, seed and route; P(field | win) and P(field | lose) with path counts; "field if the season ended today" with each undecided league's best-placed team standing in as champion, shown as an assumption. A named conference with neither a champion nor a simulated title game stops the run. Open points are not recomputed per path (John's ruling); `open_points_on_path` does it and is under test.
 
@@ -587,3 +587,25 @@ Open, recorded not fixed:
 - A replay cannot see a past game before its result (one final row per game), so games in progress at a past cutoff and future title games are absent; a two-back field replay of a past season is refused. Live issues are not affected.
 - Open points in the training issues use the 2026 parameters, which were calibrated on the same seasons. The temperatures roughly double without open points, so the "held-out" label on 2017–2025 figures is not clean.
 - The import contract and the futures test cover `cfp.forecast` but not `cfp.release`.
+
+## 2026-11-25 — Reviews of the fixes, the re-dating and the rank noise (SC-05, DS-03, DS-07, VT-14)
+
+Three reviews: spec check of the fixes, provenance of the poll re-dating, forecasting referee on the temperatures and the promotion claim. No leak and no High finding.
+
+**Audit trail for the re-dating (added after the provenance review).** 1,100 poll rows got a version 1: 750 for 2025, 100 for 2019 (50 for week 13, 50 preseason), 50 each for the 2014, 2015, 2017, 2020 and 2024 preseason polls. Version 1 differs from version 0 in `event_time`, `first_public_time` and `ingest_time` only; version 0 rows remain in the store, which is not in git. The run made one CFBD `/info` call (stage "default"), not none. Baseline 1 changes not listed above: final 7.395 → 4.616; opening 10.50 → 8.22 (sun0200) and 7.08 → 4.28 (tminus60). The first correction file (c1) was fitted from an uncommitted tree and its `code_hash` ends `-dirty`; a second correction (c2) with the same values is written from the committed code so the hash names a commit.
+
+**Fixed after the spec review.** The loader checks every rank-noise file in the chain (gap or changed file stops it). `--report` with `--correct` is refused. A season game with no kickoff time and a tied final title game are refused. `redate` only puts right a record dated too late: one dated too early stays visible at its old version between the two dates (six preseason polls, by a few days, in windows with no issue). Scenarios share a seed, which lines the draws up only when the scenarios have the same number of teams and games.
+
+**Referee: temperatures.** One temperature per cell is sound: leave-one-season-out ranges are narrow (Baseline 2 weekly 2.81–3.00 at sun0200, 2.42–2.61 at tminus60; final 1.28–1.33) and move a published probability by under 0.02 in the cells 2026 still uses. Open points in the training issues are not a material leak: forward-chained Open Ranking parameters give 2.916 and 2.551, under 2% from the frozen values. 2024–25 against 2014–23 is within ordinary season variation.
+
+**Referee: calibration, a concern.** Leave-one-season-out on weekly releases, 6,261 team-forecasts per cutoff:
+- P(top 25) near 0.95 came in at 0.76–0.77; 0.986–0.988 at 0.92 and 0.81; 0.998 at 0.94 and 0.92. Teams published at 0.99995 stayed in 710 of 712 and 766 of 768.
+- 0.002 came in at 0.022 and 0.014; 0.05 at 0.15 and 0.125.
+- P(rank ≤ 12) and P(rank ≤ 4) err the other way: 0.60 came in at 0.85 and 0.94.
+- Cause: 77 of the 105 baseline top-25 teams the committee dropped had lost that week; five places is too few.
+- Field (2017–25): 0.09 came in at 0.19 (5 of 27).
+The issue document now carries these as notes (`rank_noise.notes`, field notes). **For John:** whether to bound published P(top 25) to about 0.003–0.997. Not done: it changes what is published.
+
+**Referee: promotion.** Protocol sound; figures reproduce after the re-dating (27.59 / 28.53 / 24.90). Specified pilot against baseline: +0.94 (season-bootstrap 90% +0.18 to +1.71), bubble Brier +0.0029: not promoted. Unshrunk: −2.68 (−4.55 to −0.86), but examined after the failure, resting on three team-seasons, and outside FF-03's shrinkage: not published. The field note now says this plainly. A nine-place regular-week drop gains 137.3 forward-chained, positive in 8 of 9 seasons; it waits for VT-11 scoring.
+
+Open: `cfp.forecast.pl` and SC-05's named tests (`test_pl_sample_seed_reproducible`, `test_rank_dist_outputs`) do not exist under those names; tests for the duplicate-conference refusal and for field inputs recorded only on success; the 2026 preseason poll is dated from a non-FBS game (27 Aug, live row, still later than the real release).
