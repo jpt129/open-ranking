@@ -271,3 +271,11 @@ Accepted, not changed:
 - Credit counting over-counts slightly on refused or retried requests; that errs safe.
 - **For P16:** the hourly job does not ingest CFBD results. The issue pipeline must run the CFBD games ingest immediately before each cutoff (SC-04a), within the CFBD call budget.
 
+## 2026-11-25 — Captures that do not need John's Mac (John approved)
+
+- **Second copy on GitHub Actions.** A private repository, `jpt129/open-ranking-data`, holds a copy of the lake and a workflow (`capture`) that runs `cfp markets snapshot` and, when the `ODDS_API_KEY` secret is set, `cfp ingest odds`, then commits the new files. It runs hourly at :17 and twice in the 40 minutes before each pilot cutoff, because GitHub starts scheduled runs late. It is separate from this repository because this one goes public and the captured data is not ours to republish.
+- **Access.** The workflow fetches this repository's code with a read-only deploy key ("open-ranking-data capture (read-only)") while it is private. The key can be deleted once the repository is public. The private half exists only as the `CODE_DEPLOY_KEY` secret.
+- **Two independent copies, not one store.** The cloud lake and the local lake each version their own corrections and keep their own request log and credit ledger. Raw payloads and quote rows can be copied across to fill a gap; the tables that carry correction versions (`market_catalogue`) must not be merged file by file. Each copy applies the 50,000-credit monthly cap on its own, so the combined ceiling is 100,000; actual use is about 2,200 a month each.
+- **Issue runs (P16/P17).** The issue pipeline is to be built to run on Actions as well as locally: scheduled ahead of the cutoff, with the cutoff enforced by the store's `as_of`, never by when the job starts. A job that starts late must fail loudly, not issue late.
+- John keeps the Mac awake as the primary (`pmset`), since the local copy also holds CFBD data.
+

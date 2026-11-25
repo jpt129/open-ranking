@@ -112,7 +112,7 @@ Done
 Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src` (39 files), `uv run lint-imports` (5 kept), `uv run pytest -q` (272 passed), `cfp identity build`, `cfp snapshot build` for 2014–2026, `cfp ingest odds` (twice).
 
 Open
-- Captures need John's Mac awake; a GitHub Actions copy needs a private data repository and John's go-ahead.
+- Cloud captures run hourly from the private `jpt129/open-ranking-data` repository (first run 17:46 UTC 25 Nov, 1,908 quotes). Odds lines there wait for John to add the `ODDS_API_KEY` secret.
 - Fill in the 2026 title pairings after 28 Nov.
 - P07 carry-over: `test_loss_to_first_year_fbs_member_scores_minus_q`. P16: CFBD ingest immediately before each cutoff.
 - Odds API historical snapshots wait for John's plan.
