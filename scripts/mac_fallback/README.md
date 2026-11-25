@@ -23,3 +23,8 @@ Remove after 6 Dec:
 
 By hand at any time: `scripts/issue_now.sh` starts the issue that is due; `scripts/issue_now.sh rehearsal`
 runs the whole thing in replay on a temporary copy and writes no edition.
+
+`com.openranking.capture-hourly.plist` starts the `capture` workflow at 17 minutes past every hour, because
+GitHub's scheduler missed every hourly slot on 25 Nov. If GitHub's own schedule starts working the two will
+both run; the workflow takes one writer at a time, so the only cost is a second set of quotes. Remove it with
+the others after 6 Dec.

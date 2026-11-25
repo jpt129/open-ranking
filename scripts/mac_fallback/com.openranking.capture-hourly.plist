@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.openranking.capture-hourly</string>
+<key>ProgramArguments</key><array><string>~/Library/Application Support/OpenRanking/trigger_workflow.sh</string><string>capture</string></array>
+<key>StartCalendarInterval</key><dict><key>Minute</key><integer>17</integer></dict>
+<key>StandardErrorPath</key><string>~/Library/Logs/OpenRanking/launchd.err</string>
+<key>StandardOutPath</key><string>~/Library/Logs/OpenRanking/launchd.out</string>
+</dict></plist>
