@@ -44,3 +44,22 @@ Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src`, 
 Still to build for DS-04: `test_open_ranking_runs_without_forbidden_tables` (needs editions, P14).
 
 Next prompt: P02a (CFBD client), P02b (CFP releases).
+
+## 2026-11-25 — P02a (CFBD) and P02b (CFP releases)
+
+Decisions: John ruled on SC-04a, forfeits and replay/ingest time, and set conditions for P02 (DECISIONS.md). SPEC.md updated; no [OPEN] items remain. One proposal awaits John: a Selection Day Open Ranking edition with cutoff Sun 6 Dec 02:00 ET.
+
+Done
+- `cfp.ingest.http`: one fetch path with token bucket, monthly budget and stage limits (written before each call), retries with jitter, raw archive, fetch log, key scrubbing.
+- `cfp.ingest.public_time`, `cfp.ingest.upsert`: err-late first-public rules (kickoff + 4.5 h) and change-only appends.
+- `cfp.ingest.cfp_releases` + `cfp ingest releases`: parse, sourced show time, alias resolution, cross-check, Wayback verification, vintage.
+- **The four 2026 releases are in the lake** (100 rows), each identical to ESPN's copy. Vintage: release 1 archived_authentic, 2 and 3 reconstructed, 4 live.
+- `cfp.ingest.cfbd`, `cfbd_normalize`, `cfp ingest cfbd`: client, parsers and staged season ingest, written against CFBD's published schema.
+- Tests: no key-shaped string under tests/, and configured keys appear in no tracked file.
+
+Blocked
+- **CFBD rejects the key (HTTP 401).** Three calls were attempted; none succeeded. No games, polls or lines yet, and 2014–25 releases wait on the CFBD cross-check. See DATA_GAPS.md.
+
+Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src` (31 files), `uv run lint-imports` (4 kept), `uv run pytest -q` (180 passed), `uv run cfp ingest releases --season 2026` (new=100).
+
+Next: once the key works — `scripts/cfbd_fixture_calls.py`, then `cfp ingest cfbd --season 2026 --what reference games rankings --stage season-2026`, then 2014–25 rankings and games, `cfp ingest releases --season 2014..2025`, lines last. Then P03.

@@ -45,7 +45,7 @@ Defined terms [S-e]:
 - (a) The first table is released after Week 7, using completed games through the announced cutoff.
 - (b) Each game stores game ID, opponents, final score, official site, home designation, FBS/FCS status and conference membership on the game date.
 - (c) Canceled games, no-contests and postseason playoff or bowl games are omitted.
-- (d) A forfeit uses the certified result; its administrative margin is omitted from strength fitting. [K, interpretation] In the ledger a forfeit is scored as a win or loss at its reference probability like any other game and carries the policy exception "forfeit". Because a forfeit is not an ordinary FBS game, VT-01 is not asserted for it.
+- (d) A forfeit uses the certified result; its administrative margin is omitted from strength fitting. [S, ruling 2026-11-25] A forfeit is scored as a normal win or loss at the scheduled site at its reference probability, labelled "forfeit", with no special arithmetic. It is outside the ordinary-FBS population VT-01 is required for. An unplayed forfeit is not a meeting for head-to-head (TB-03). Vacated wins are not forfeits; a ruling made public after a cutoff is a later correction, invisible to replay at that cutoff. Forfeits are a hand-verified list kept as data; a game that looks like a forfeit and is not on the list blocks the snapshot and is logged in DATA_GAPS.md.
 - (e) [K] A game that ends after the cutoff is excluded. Omissions are logged with reasons.
 
 **OR-08 [P] Ledger.** One row per game: opponent, venue, result, reference probability, points, policy exception, revision since last week. Per team: total, raw rank, head-to-head decision, final open rank, rule-version ID. Old wins are recalculated as evidence about opponents changes. Each edition publishes its input snapshot and formula hash.
@@ -123,7 +123,7 @@ Defined terms [S-e]:
 
 **SC-04 [P] Plackett–Luce.** Each team gets a weighted score from available AP vote share, prior CFP position and unranked flag, losses, open points, and the latest result adjusted for opponent, site and capped margin. Features are standardized on prior training seasons. The model is a regularized Plackett–Luce: draw one team at a time with chance proportional to exp(score) among remaining teams, fitted against the observed first 25 picks. On the opening week the prior-CFP feature is omitted.
 
-**SC-04a [OPEN] Open-points vintage.** The Open Ranking cutoff is Monday 06:00 ET, but the Sunday 02:00 ET issue uses open points as a feature. Proposed: each forecast issue computes open points itself from the as-of snapshot at its own cutoff with the frozen formula, records it as a feature build (not a published edition), and names the snapshot in its input IDs. Alternative: use the latest published Open Ranking edition, which would lag Saturday's games.
+**SC-04a [S, ruling 2026-11-25] Open points as a feature build.** Each forecast issue (sun0200, tminus60) computes open points at its own cutoff by calling the Open Ranking package's public entry point on a snapshot at that cutoff, with the same frozen parameters and rule_version_id; forecast code holds no copy of the formula. The build reads through OpenRankingView only, and the forbidden-tables test covers feature builds. The forecast manifest's immutable inputs record snapshot hash, frozen-parameters hash, rule_version_id and feature_build_id. A feature build is never published or labelled as an edition; the Committee Gap's open rank comes only from the published edition frozen before the reveal. When a feature build and a published edition share a snapshot hash, their ledgers are byte-identical. Replay and simulation build the feature the same way. Live issues ingest immediately before the cutoff, then freeze; a game that goes final after the cutoff waits for the next edition.
 
 **SC-05 [P] Distribution.** Sample 10,000 ordered lists with a recorded random seed. Count each team's rank frequencies, grouping lower ranks as "outside 25". If a team's median is outside the published list, print that category. Produce pairwise probabilities for bubble comparisons. Any sampling temperature is calibrated on earlier validation folds. Public outputs: median rank category, probability of entering the top 25, and probabilities at the bye and hosting cutoffs.
 
@@ -187,7 +187,7 @@ Defined terms [S-e]:
 
 **DS-02 [P] Vintage.** Authentic archived snapshots are tagged separately from reconstructed records. Unknown-vintage inputs are excluded from the scored test, or that forecast is suppressed and the missing coverage disclosed.
 
-**DS-03 [P] Point-in-time query.** A forecast query requires first-public time at or before issue time, and a record actually available to the live system then.
+**DS-03 [P] Point-in-time query.** A forecast query requires first-public time at or before issue time, and a record actually available to the live system then. [S, ruling 2026-11-25] Live requires first_public_time <= t and ingest_time <= t; replay requires first_public_time <= t only. Each correction version carries its own first-public time, and "latest" means latest among those public by t. Estimated first-public times err late: a game with no recorded end time is public at kickoff + 4.5 h. Vintage travels to every scorecard row; reconstructed is reported separately from authentic. Replay output is never labelled prospective; only live issues count toward the pilot and the market contest. Reproducing a published live edition uses the manifest's pinned input IDs, not replay mode.
 
 **DS-04 [P] Boundary.** Both products read the same dated game records and bracket rules. The forecast can use the public résumé score. Open Ranking weights and policy settings are chosen independently of committee rankings, poll votes and betting odds (OR-12). [K] Enforcement: `cfp.open_ranking` reads only games, teams and membership through `OpenRankingView`, which refuses committee releases, polls, lines, market tables and chair remarks; an edition built with those tables deleted is byte-identical.
 
@@ -259,7 +259,7 @@ Test names are the planned acceptance tests; each build prompt creates them befo
 | SC-01 | `test_observation_denominator`, `test_eligibility_flag` | `cfp.forecast.observations` |
 | SC-02, SC-02a | `test_cutoffs_sun0200_tminus60`, `test_leaked_label_ineligible`, `test_dst_sunday` | `cfp.forecast.observations`, `cfp.release` |
 | SC-03 | `test_baseline1_latest_ap`, `test_baseline2_two_losses_move_ten`, `test_baseline_tiebreak_draw` | `cfp.forecast.baselines` |
-| SC-04a | pending decision | `cfp.forecast.observations` |
+| SC-04a | `test_feature_build_matches_edition_on_same_snapshot`, `test_feature_build_without_forbidden_tables`, `test_forecast_manifest_records_feature_build` | `cfp.forecast.observations`, `cfp.open_ranking` |
 | SC-04 | `test_pl_gradient`, `test_pl_recovers_weights`, `test_opening_week_drops_prior_cfp` | `cfp.forecast.pl` |
 | SC-05 | `test_pl_sample_seed_reproducible`, `test_rank_dist_outputs` | `cfp.forecast.pl` |
 | SC-06 | `test_remarks_eligible_next_issue` | `cfp.forecast` |
@@ -279,7 +279,7 @@ Test names are the planned acceptance tests; each build prompt creates them befo
 | CG-02 | `test_consequence_flags`, `test_provisional_before_selection_day` | `cfp.gap` |
 | CG-03, CG-04 | `test_gap_reasons_present`, `test_gap_aggregation_coverage` | `cfp.gap` |
 | DS-01, DS-02 | `test_schema_has_provenance`, `test_scored_mode_drops_unknown_vintage` | `cfp.store.schemas`, `cfp.store.asof` |
-| DS-03 | `test_row_public_after_t_invisible`, `test_late_correction_invisible_live` | `cfp.store.asof` |
+| DS-03 | `test_row_public_after_t_invisible`, `test_late_correction_invisible_live`, `test_late_saturday_kickoff_invisible_at_sunday_cutoff` | `cfp.store.asof`, `cfp.ingest.public_time` |
 | DS-05 | `test_issues_stored_apart_from_scorecards`, `test_approximation_matches_exact_near_cutoff` | `cfp.release`, `cfp.forecast.final_field` |
 | DS-06 | `test_manifest_records_sources`, `test_release_cross_checked`, `test_score_conflict_blocks` | `cfp.release`, `cfp.ingest` |
 | DS-07 | `test_seed_recorded_and_reproducible` | `cfp.common` |

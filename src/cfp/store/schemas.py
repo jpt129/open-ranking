@@ -164,7 +164,11 @@ TABLES: Final[dict[str, TableSpec]] = {
                 "release_no": I32,
                 "reveal_utc": TS,
                 "team_id": S,
+                "source_name": S,
+                "archive_capture_utc": TS,
+                "archive_raw_hash": S,
             },
+            nullable=("archive_capture_utc", "archive_raw_hash"),
         ),
         _spec(
             "polls",

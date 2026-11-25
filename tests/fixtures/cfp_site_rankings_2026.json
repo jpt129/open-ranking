@@ -1,0 +1,534 @@
+[
+ {
+  "id": 86,
+  "year": 2026,
+  "week": "1",
+  "releaseDate": "2026-11-03T00:00:00",
+  "teams": [
+   {
+    "rank": 1,
+    "team": "Miami",
+    "record": "8-0"
+   },
+   {
+    "rank": 2,
+    "team": "Georgia",
+    "record": "7-1"
+   },
+   {
+    "rank": 3,
+    "team": "Utah",
+    "record": "8-0"
+   },
+   {
+    "rank": 4,
+    "team": "Indiana",
+    "record": "8-1"
+   },
+   {
+    "rank": 5,
+    "team": "Alabama",
+    "record": "6-2"
+   },
+   {
+    "rank": 6,
+    "team": "Kentucky",
+    "record": "7-1"
+   },
+   {
+    "rank": 7,
+    "team": "Texas",
+    "record": "6-2"
+   },
+   {
+    "rank": 8,
+    "team": "UCLA",
+    "record": "8-0"
+   },
+   {
+    "rank": 9,
+    "team": "BYU",
+    "record": "7-1"
+   },
+   {
+    "rank": 10,
+    "team": "Ole Miss",
+    "record": "6-2"
+   },
+   {
+    "rank": 11,
+    "team": "Notre Dame",
+    "record": "7-1"
+   },
+   {
+    "rank": 12,
+    "team": "Ohio State",
+    "record": "6-2"
+   },
+   {
+    "rank": 13,
+    "team": "Tennessee",
+    "record": "6-2"
+   },
+   {
+    "rank": 14,
+    "team": "LSU",
+    "record": "6-2"
+   },
+   {
+    "rank": 15,
+    "team": "Texas Tech",
+    "record": "7-1"
+   },
+   {
+    "rank": 16,
+    "team": "Wake Forest",
+    "record": "7-1"
+   },
+   {
+    "rank": 17,
+    "team": "Houston",
+    "record": "6-2"
+   },
+   {
+    "rank": 18,
+    "team": "Missouri",
+    "record": "6-2"
+   },
+   {
+    "rank": 19,
+    "team": "Iowa",
+    "record": "6-2"
+   },
+   {
+    "rank": 20,
+    "team": "Southern California",
+    "record": "7-2"
+   },
+   {
+    "rank": 21,
+    "team": "South Carolina",
+    "record": "5-3"
+   },
+   {
+    "rank": 22,
+    "team": "Arizona",
+    "record": "6-2"
+   },
+   {
+    "rank": 23,
+    "team": "Oregon",
+    "record": "5-3"
+   },
+   {
+    "rank": 24,
+    "team": "Florida",
+    "record": "5-3"
+   },
+   {
+    "rank": 25,
+    "team": "Boise State",
+    "record": "7-1"
+   }
+  ]
+ },
+ {
+  "id": 87,
+  "year": 2026,
+  "week": "2",
+  "releaseDate": "2026-11-10T00:00:00",
+  "teams": [
+   {
+    "rank": 1,
+    "team": "Georgia",
+    "record": "8-1"
+   },
+   {
+    "rank": 2,
+    "team": "Utah",
+    "record": "9-0"
+   },
+   {
+    "rank": 3,
+    "team": "Alabama",
+    "record": "7-2"
+   },
+   {
+    "rank": 4,
+    "team": "UCLA",
+    "record": "9-0"
+   },
+   {
+    "rank": 5,
+    "team": "Notre Dame",
+    "record": "8-1"
+   },
+   {
+    "rank": 6,
+    "team": "Texas",
+    "record": "7-2"
+   },
+   {
+    "rank": 7,
+    "team": "Miami",
+    "record": "8-1"
+   },
+   {
+    "rank": 8,
+    "team": "Tennessee",
+    "record": "7-2"
+   },
+   {
+    "rank": 9,
+    "team": "Indiana",
+    "record": "8-1"
+   },
+   {
+    "rank": 10,
+    "team": "BYU",
+    "record": "7-2"
+   },
+   {
+    "rank": 11,
+    "team": "Kentucky",
+    "record": "7-2"
+   },
+   {
+    "rank": 12,
+    "team": "Texas Tech",
+    "record": "8-1"
+   },
+   {
+    "rank": 13,
+    "team": "Wake Forest",
+    "record": "8-1"
+   },
+   {
+    "rank": 14,
+    "team": "Houston",
+    "record": "7-2"
+   },
+   {
+    "rank": 15,
+    "team": "Iowa",
+    "record": "7-2"
+   },
+   {
+    "rank": 16,
+    "team": "Oregon",
+    "record": "6-3"
+   },
+   {
+    "rank": 17,
+    "team": "South Carolina",
+    "record": "6-3"
+   },
+   {
+    "rank": 18,
+    "team": "Southern California",
+    "record": "7-2"
+   },
+   {
+    "rank": 19,
+    "team": "Ole Miss",
+    "record": "6-3"
+   },
+   {
+    "rank": 20,
+    "team": "Ohio State",
+    "record": "6-3"
+   },
+   {
+    "rank": 21,
+    "team": "LSU",
+    "record": "6-3"
+   },
+   {
+    "rank": 22,
+    "team": "Missouri",
+    "record": "6-3"
+   },
+   {
+    "rank": 23,
+    "team": "Arizona",
+    "record": "7-2"
+   },
+   {
+    "rank": 24,
+    "team": "Boise State",
+    "record": "8-1"
+   },
+   {
+    "rank": 25,
+    "team": "Oklahoma State",
+    "record": "6-3"
+   }
+  ]
+ },
+ {
+  "id": 88,
+  "year": 2026,
+  "week": "3",
+  "releaseDate": "2026-11-17T00:00:00",
+  "teams": [
+   {
+    "rank": 1,
+    "team": "Georgia",
+    "record": "9-1"
+   },
+   {
+    "rank": 2,
+    "team": "Utah",
+    "record": "10-0"
+   },
+   {
+    "rank": 3,
+    "team": "Alabama",
+    "record": "8-2"
+   },
+   {
+    "rank": 4,
+    "team": "UCLA",
+    "record": "10-0"
+   },
+   {
+    "rank": 5,
+    "team": "Texas",
+    "record": "8-2"
+   },
+   {
+    "rank": 6,
+    "team": "Notre Dame",
+    "record": "9-1"
+   },
+   {
+    "rank": 7,
+    "team": "Miami",
+    "record": "9-1"
+   },
+   {
+    "rank": 8,
+    "team": "Indiana",
+    "record": "9-1"
+   },
+   {
+    "rank": 9,
+    "team": "Tennessee",
+    "record": "8-2"
+   },
+   {
+    "rank": 10,
+    "team": "BYU",
+    "record": "8-2"
+   },
+   {
+    "rank": 11,
+    "team": "Wake Forest",
+    "record": "9-1"
+   },
+   {
+    "rank": 12,
+    "team": "Texas Tech",
+    "record": "9-1"
+   },
+   {
+    "rank": 13,
+    "team": "Oregon",
+    "record": "7-3"
+   },
+   {
+    "rank": 14,
+    "team": "Ohio State",
+    "record": "7-3"
+   },
+   {
+    "rank": 15,
+    "team": "Iowa",
+    "record": "8-2"
+   },
+   {
+    "rank": 16,
+    "team": "Kentucky",
+    "record": "7-3"
+   },
+   {
+    "rank": 17,
+    "team": "Boise State",
+    "record": "9-1"
+   },
+   {
+    "rank": 18,
+    "team": "Southern California",
+    "record": "7-3"
+   },
+   {
+    "rank": 19,
+    "team": "Arizona",
+    "record": "7-3"
+   },
+   {
+    "rank": 20,
+    "team": "Houston",
+    "record": "7-3"
+   },
+   {
+    "rank": 21,
+    "team": "South Carolina",
+    "record": "6-4"
+   },
+   {
+    "rank": 22,
+    "team": "Oklahoma",
+    "record": "6-4"
+   },
+   {
+    "rank": 23,
+    "team": "Louisville",
+    "record": "7-3"
+   },
+   {
+    "rank": 24,
+    "team": "Florida",
+    "record": "6-4"
+   },
+   {
+    "rank": 25,
+    "team": "Ole Miss",
+    "record": "6-4"
+   }
+  ]
+ },
+ {
+  "id": 89,
+  "year": 2026,
+  "week": "4",
+  "releaseDate": "2026-11-24T00:00:00",
+  "teams": [
+   {
+    "rank": 1,
+    "team": "Georgia",
+    "record": "10-1"
+   },
+   {
+    "rank": 2,
+    "team": "Utah",
+    "record": "11-0"
+   },
+   {
+    "rank": 3,
+    "team": "Texas",
+    "record": "9-2"
+   },
+   {
+    "rank": 4,
+    "team": "Notre Dame",
+    "record": "10-1"
+   },
+   {
+    "rank": 5,
+    "team": "Tennessee",
+    "record": "9-2"
+   },
+   {
+    "rank": 6,
+    "team": "Alabama",
+    "record": "9-2"
+   },
+   {
+    "rank": 7,
+    "team": "Miami",
+    "record": "10-1"
+   },
+   {
+    "rank": 8,
+    "team": "Wake Forest",
+    "record": "10-1"
+   },
+   {
+    "rank": 9,
+    "team": "UCLA",
+    "record": "10-1"
+   },
+   {
+    "rank": 10,
+    "team": "BYU",
+    "record": "9-2"
+   },
+   {
+    "rank": 11,
+    "team": "Texas Tech",
+    "record": "10-1"
+   },
+   {
+    "rank": 12,
+    "team": "Oregon",
+    "record": "8-3"
+   },
+   {
+    "rank": 13,
+    "team": "Iowa",
+    "record": "9-2"
+   },
+   {
+    "rank": 14,
+    "team": "Indiana",
+    "record": "9-2"
+   },
+   {
+    "rank": 15,
+    "team": "Southern California",
+    "record": "8-3"
+   },
+   {
+    "rank": 16,
+    "team": "Arizona",
+    "record": "8-3"
+   },
+   {
+    "rank": 17,
+    "team": "Oklahoma",
+    "record": "7-4"
+   },
+   {
+    "rank": 18,
+    "team": "Houston",
+    "record": "8-3"
+   },
+   {
+    "rank": 19,
+    "team": "Louisville",
+    "record": "8-3"
+   },
+   {
+    "rank": 20,
+    "team": "Florida",
+    "record": "7-4"
+   },
+   {
+    "rank": 21,
+    "team": "Ohio State",
+    "record": "7-4"
+   },
+   {
+    "rank": 22,
+    "team": "Ole Miss",
+    "record": "7-4"
+   },
+   {
+    "rank": 23,
+    "team": "Missouri",
+    "record": "7-4"
+   },
+   {
+    "rank": 24,
+    "team": "Washington",
+    "record": "7-4"
+   },
+   {
+    "rank": 25,
+    "team": "Nebraska",
+    "record": "7-4"
+   }
+  ]
+ }
+]

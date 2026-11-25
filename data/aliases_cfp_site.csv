@@ -1,0 +1,99 @@
+alias,team_id,espn_display_name,match
+Air Force,cfbd-2005,Air Force Falcons,exact
+Alabama,cfbd-333,Alabama Crimson Tide,exact
+Appalachian State,cfbd-2026,App State Mountaineers,hand
+Arizona,cfbd-12,Arizona Wildcats,exact
+Arizona State,cfbd-9,Arizona State Sun Devils,exact
+Arkansas,cfbd-8,Arkansas Razorbacks,exact
+Army,cfbd-349,Army Black Knights,exact
+Auburn,cfbd-2,Auburn Tigers,exact
+BYU,cfbd-252,BYU Cougars,exact
+Baylor,cfbd-239,Baylor Bears,exact
+Baylor University,cfbd-239,Baylor Bears,hand
+Boise State,cfbd-68,Boise State Broncos,exact
+Boston College,cfbd-103,Boston College Eagles,exact
+Cincinnati,cfbd-2132,Cincinnati Bearcats,exact
+Clemson,cfbd-228,Clemson Tigers,exact
+Coastal Carolina,cfbd-324,Coastal Carolina Chanticleers,exact
+Colorado,cfbd-38,Colorado Buffaloes,exact
+Duke,cfbd-150,Duke Blue Devils,exact
+East Carolina,cfbd-151,East Carolina Pirates,exact
+Florida,cfbd-57,Florida Gators,exact
+Florida State,cfbd-52,Florida State Seminoles,exact
+Fresno State,cfbd-278,Fresno State Bulldogs,exact
+Georgia,cfbd-61,Georgia Bulldogs,exact
+Georgia Tech,cfbd-59,Georgia Tech Yellow Jackets,exact
+Houston,cfbd-248,Houston Cougars,exact
+Illinois,cfbd-356,Illinois Fighting Illini,exact
+Indiana,cfbd-84,Indiana Hoosiers,exact
+Iowa,cfbd-2294,Iowa Hawkeyes,exact
+Iowa State,cfbd-66,Iowa State Cyclones,exact
+James Madison,cfbd-256,James Madison Dukes,exact
+Kansas,cfbd-2305,Kansas Jayhawks,exact
+Kansas State,cfbd-2306,Kansas State Wildcats,exact
+Kentucky,cfbd-96,Kentucky Wildcats,exact
+LSU,cfbd-99,LSU Tigers,exact
+Liberty,cfbd-2335,Liberty Flames,exact
+Louisiana,cfbd-309,Louisiana Ragin' Cajuns,exact
+Louisville,cfbd-97,Louisville Cardinals,exact
+Marshall,cfbd-276,Marshall Thundering Herd,exact
+Memphis,cfbd-235,Memphis Tigers,exact
+Miami,cfbd-2390,Miami Hurricanes,exact
+Michigan,cfbd-130,Michigan Wolverines,exact
+Michigan State,cfbd-127,Michigan State Spartans,exact
+Minnesota,cfbd-135,Minnesota Golden Gophers,exact
+Mississippi,cfbd-145,Ole Miss Rebels,hand
+Mississippi State,cfbd-344,Mississippi State Bulldogs,exact
+Missouri,cfbd-142,Missouri Tigers,exact
+NC State,cfbd-152,NC State Wolfpack,exact
+Navy,cfbd-2426,Navy Midshipmen,exact
+Nebraska,cfbd-158,Nebraska Cornhuskers,exact
+North Carolina,cfbd-153,North Carolina Tar Heels,exact
+North Texas,cfbd-249,North Texas Mean Green,exact
+Northwestern,cfbd-77,Northwestern Wildcats,exact
+Northwestern University,cfbd-77,Northwestern Wildcats,hand
+Notre Dame,cfbd-87,Notre Dame Fighting Irish,exact
+Ohio State,cfbd-194,Ohio State Buckeyes,exact
+Oklahoma,cfbd-201,Oklahoma Sooners,exact
+Oklahoma State,cfbd-197,Oklahoma State Cowboys,exact
+Oklahoma State University,cfbd-197,Oklahoma State Cowboys,hand
+Ole Miss,cfbd-145,Ole Miss Rebels,exact
+Oregon,cfbd-2483,Oregon Ducks,exact
+Oregon State,cfbd-204,Oregon State Beavers,exact
+Penn State,cfbd-213,Penn State Nittany Lions,exact
+Pittsburgh,cfbd-221,Pittsburgh Panthers,exact
+Purdue,cfbd-2509,Purdue Boilermakers,exact
+SMU,cfbd-2567,SMU Mustangs,exact
+San Diego State,cfbd-21,San Diego State Aztecs,exact
+San Jose State,cfbd-23,San José State Spartans,hand
+San Jose State University,cfbd-23,San José State Spartans,hand
+South Carolina,cfbd-2579,South Carolina Gamecocks,exact
+South Florida,cfbd-58,South Florida Bulls,exact
+Southern California,cfbd-30,USC Trojans,hand
+Stanford,cfbd-24,Stanford Cardinal,exact
+Syracuse,cfbd-183,Syracuse Orange,exact
+TCU,cfbd-2628,TCU Horned Frogs,exact
+Temple,cfbd-218,Temple Owls,exact
+Tennessee,cfbd-2633,Tennessee Volunteers,exact
+Texas,cfbd-251,Texas Longhorns,exact
+Texas A&M,cfbd-245,Texas A&M Aggies,exact
+Texas Tech,cfbd-2641,Texas Tech Red Raiders,exact
+Toledo,cfbd-2649,Toledo Rockets,exact
+Troy,cfbd-2653,Troy Trojans,hand
+Tulane,cfbd-2655,Tulane Green Wave,exact
+Tulsa,cfbd-202,Tulsa Golden Hurricane,exact
+UCF,cfbd-2116,UCF Knights,exact
+UCLA,cfbd-26,UCLA Bruins,exact
+UNLV,cfbd-2439,UNLV Rebels,exact
+UTSA,cfbd-2636,UTSA Roadrunners,exact
+Utah,cfbd-254,Utah Utes,exact
+Utah State,cfbd-328,Utah State Aggies,exact
+Vanderbilt,cfbd-238,Vanderbilt Commodores,exact
+Virginia,cfbd-258,Virginia Cavaliers,exact
+Virginia Tech,cfbd-259,Virginia Tech Hokies,exact
+Wake Forest,cfbd-154,Wake Forest Demon Deacons,exact
+Washington,cfbd-264,Washington Huskies,exact
+Washington State,cfbd-265,Washington State Cougars,exact
+West Virginia,cfbd-277,West Virginia Mountaineers,exact
+Western Michigan,cfbd-2711,Western Michigan Broncos,exact
+Wisconsin,cfbd-275,Wisconsin Badgers,exact

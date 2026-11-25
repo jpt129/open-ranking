@@ -1,0 +1,186 @@
+{
+ "rankings": [
+  {
+   "type": "cfp",
+   "name": "Playoff Committee Rankings",
+   "date": "2026-11-10T08:00Z",
+   "ranks": [
+    {
+     "current": 1,
+     "team": {
+      "id": "61",
+      "location": "Georgia"
+     }
+    },
+    {
+     "current": 2,
+     "team": {
+      "id": "254",
+      "location": "Utah"
+     }
+    },
+    {
+     "current": 3,
+     "team": {
+      "id": "333",
+      "location": "Alabama"
+     }
+    },
+    {
+     "current": 4,
+     "team": {
+      "id": "26",
+      "location": "UCLA"
+     }
+    },
+    {
+     "current": 5,
+     "team": {
+      "id": "87",
+      "location": "Notre Dame"
+     }
+    },
+    {
+     "current": 6,
+     "team": {
+      "id": "251",
+      "location": "Texas"
+     }
+    },
+    {
+     "current": 7,
+     "team": {
+      "id": "2390",
+      "location": "Miami"
+     }
+    },
+    {
+     "current": 8,
+     "team": {
+      "id": "2633",
+      "location": "Tennessee"
+     }
+    },
+    {
+     "current": 9,
+     "team": {
+      "id": "84",
+      "location": "Indiana"
+     }
+    },
+    {
+     "current": 10,
+     "team": {
+      "id": "252",
+      "location": "BYU"
+     }
+    },
+    {
+     "current": 11,
+     "team": {
+      "id": "96",
+      "location": "Kentucky"
+     }
+    },
+    {
+     "current": 12,
+     "team": {
+      "id": "2641",
+      "location": "Texas Tech"
+     }
+    },
+    {
+     "current": 13,
+     "team": {
+      "id": "154",
+      "location": "Wake Forest"
+     }
+    },
+    {
+     "current": 14,
+     "team": {
+      "id": "248",
+      "location": "Houston"
+     }
+    },
+    {
+     "current": 15,
+     "team": {
+      "id": "2294",
+      "location": "Iowa"
+     }
+    },
+    {
+     "current": 16,
+     "team": {
+      "id": "2483",
+      "location": "Oregon"
+     }
+    },
+    {
+     "current": 17,
+     "team": {
+      "id": "2579",
+      "location": "South Carolina"
+     }
+    },
+    {
+     "current": 18,
+     "team": {
+      "id": "30",
+      "location": "USC"
+     }
+    },
+    {
+     "current": 19,
+     "team": {
+      "id": "145",
+      "location": "Ole Miss"
+     }
+    },
+    {
+     "current": 20,
+     "team": {
+      "id": "194",
+      "location": "Ohio State"
+     }
+    },
+    {
+     "current": 21,
+     "team": {
+      "id": "99",
+      "location": "LSU"
+     }
+    },
+    {
+     "current": 22,
+     "team": {
+      "id": "142",
+      "location": "Missouri"
+     }
+    },
+    {
+     "current": 23,
+     "team": {
+      "id": "12",
+      "location": "Arizona"
+     }
+    },
+    {
+     "current": 24,
+     "team": {
+      "id": "68",
+      "location": "Boise State"
+     }
+    },
+    {
+     "current": 25,
+     "team": {
+      "id": "197",
+      "location": "Oklahoma State"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,135 @@
+[
+ {
+  "id": 80,
+  "year": 2025,
+  "week": "10",
+  "releaseDate": "2025-11-04T00:00:00",
+  "teams": [
+   {
+    "rank": 1,
+    "team": "Ohio State",
+    "record": "8-0"
+   },
+   {
+    "rank": 2,
+    "team": "Indiana",
+    "record": "9-0"
+   },
+   {
+    "rank": 3,
+    "team": "Texas A&M",
+    "record": "8-0"
+   },
+   {
+    "rank": 4,
+    "team": "Alabama",
+    "record": "7-1"
+   },
+   {
+    "rank": 5,
+    "team": "Georgia",
+    "record": "7-1"
+   },
+   {
+    "rank": 6,
+    "team": "Ole Miss",
+    "record": "8-1"
+   },
+   {
+    "rank": 7,
+    "team": "BYU",
+    "record": "8-0"
+   },
+   {
+    "rank": 8,
+    "team": "Texas Tech",
+    "record": "8-1"
+   },
+   {
+    "rank": 9,
+    "team": "Oregon",
+    "record": "7-1"
+   },
+   {
+    "rank": 10,
+    "team": "Notre Dame",
+    "record": "6-2"
+   },
+   {
+    "rank": 11,
+    "team": "Texas",
+    "record": "7-2"
+   },
+   {
+    "rank": 12,
+    "team": "Oklahoma",
+    "record": "7-2"
+   },
+   {
+    "rank": 13,
+    "team": "Utah",
+    "record": "7-2"
+   },
+   {
+    "rank": 14,
+    "team": "Virginia",
+    "record": "8-1"
+   },
+   {
+    "rank": 15,
+    "team": "Louisville",
+    "record": "7-1"
+   },
+   {
+    "rank": 16,
+    "team": "Vanderbilt",
+    "record": "7-2"
+   },
+   {
+    "rank": 17,
+    "team": "Georgia Tech",
+    "record": "8-1"
+   },
+   {
+    "rank": 18,
+    "team": "Miami",
+    "record": "6-2"
+   },
+   {
+    "rank": 19,
+    "team": "Southern California",
+    "record": "6-2"
+   },
+   {
+    "rank": 20,
+    "team": "Iowa",
+    "record": "6-2"
+   },
+   {
+    "rank": 21,
+    "team": "Michigan",
+    "record": "7-2"
+   },
+   {
+    "rank": 22,
+    "team": "Missouri",
+    "record": "6-2"
+   },
+   {
+    "rank": 23,
+    "team": "Washington",
+    "record": "6-2"
+   },
+   {
+    "rank": 24,
+    "team": "Pittsburgh",
+    "record": "7-2"
+   },
+   {
+    "rank": 25,
+    "team": "Tennessee",
+    "record": "6-3"
+   }
+  ]
+ }
+]

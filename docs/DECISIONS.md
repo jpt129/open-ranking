@@ -50,9 +50,9 @@ The reviewer found PROPOSAL.md faithful to the PDF and SPEC.md's numbers verbati
 
 - **[K] tag.** Constraints that come from the final build package rather than the proposal (write-once editions, the OpenRankingView allow-list, hashing the preregistration before the first scored issue, "report complete, not empty", display rounding only at render, post-cutoff games excluded) are kept and tagged [K]. Reason: John approved building with the pack, whose CLAUDE.md and prompts state them. Alternative: drop them to the proposal's weaker wording.
 - **VT-07 vs the boundary.** The closing-line benchmark is a report computed in `cfp.scoring`, outside `cfp.open_ranking`, and never selects a parameter. Alternative: carve calibration out of the boundary.
-- **Forfeits (OR-07d), Claude's interpretation.** A forfeit is scored in the ledger as a win or loss at its reference probability with the policy exception "forfeit"; its margin stays out of the fit; the exact-flip test is not asserted for it. Needs John's confirmation.
+- **Forfeits (OR-07d).** Confirmed by John on 2026-11-25; see "John's rulings" below.
 - **Missing requirements added:** OR-13, OR-14, CG-05, DS-06, DS-07, RL-05 to RL-10.
-- **Open: SC-04a.** Which open-points vintage the Sunday 02:00 ET forecast uses. Proposed: computed at the issue's own cutoff as a feature build.
+- **SC-04a.** Decided by John on 2026-11-25; see "John's rulings" below.
 
 ## 2026-11-25 — P01 store rules (after spec-guardian review of the first P01 commit)
 
@@ -65,7 +65,7 @@ The review confirmed six defects; each now has a test. Choices made (DS-01..DS-0
 - **OpenRankingView holds no lake.** It is handed a reader that enforces the allow-list again, cannot be subclassed, and lives in a module that imports nothing able to open the lake. PointInTimeView moved to `cfp.store.pit`. Import contracts now forbid the lake transitively for open_ranking, snapshot and rules; a source scan test covers routes imports cannot see. Python has no real privacy: the last layer is still the planned test that deletes forbidden tables and demands a byte-identical edition (P14).
 - **Scored reads report coverage through both views**, including the first dropped keys, and can be scoped to a season.
 - **`as_of` raises on tied rows** instead of returning both.
-- **Replay and scored modes ignore ingest_time** (only live mode requires it). Reason: backfilled history is ingested long after the fact, so requiring it would make every historical replay empty. Consequence: scored replays rest on the first_public_time asserted for reconstructed rows, which is why vintage is tracked. Read strictly, DS-03 asks for both conditions on every forecast query; this is a deliberate narrowing to live issues. Needs John's confirmation.
+- **Replay and scored modes ignore ingest_time** (only live mode requires it). Reason: backfilled history is ingested long after the fact, so requiring it would make every historical replay empty. Consequence: scored replays rest on the first_public_time asserted for reconstructed rows, which is why vintage is tracked. Read strictly, DS-03 asks for both conditions on every forecast query; this is a deliberate narrowing to live issues. Confirmed by John on 2026-11-25; see "John's rulings" below.
 - **A row cannot be public after it was ingested** (first_public_time <= ingest_time is enforced). Ingest code must clamp estimated public times to the ingest time. Not in the proposal; a store invariant.
 - **Scored mode drops only unknown vintage**, as DS-02 says; reconstructed rows are kept and counted in coverage.
 - **Guard hook:** destructive commands are now parsed (including `cd` and quoted or bare folder arguments) rather than pattern-matched.
@@ -77,3 +77,79 @@ The review confirmed six defects; each now has a test. Choices made (DS-01..DS-0
 ## 2026-11-25 — Hash-proof signing
 
 - Edition tags are signed with an SSH key (git `gpg.format ssh`), configured per-repo. The public key must also be registered on GitHub as a signing key so tags show as verified.
+
+## 2026-11-25 — John's rulings on the three open questions
+
+### SC-04a — open points for forecasts (approved)
+
+Each forecast issue (sun0200 and tminus60) computes open points at its own cutoff as a **feature build**.
+
+- The forecast calls the Open Ranking package's public entry point with a snapshot at the forecast cutoff. There is no second copy of the formula in forecast code. Same frozen parameters and rule_version_id.
+- The build reads through OpenRankingView only. The forbidden-tables test covers feature builds as well as editions.
+- The forecast manifest's immutable inputs record the snapshot hash, frozen-parameters hash, rule_version_id and a feature_build_id.
+- A feature build is never published or labelled as an Open Ranking edition. The Committee Gap's open rank comes only from the published edition frozen before the reveal.
+- Test: when a feature build and a published edition share a snapshot hash, their ledgers are byte-identical.
+- Replay and simulation paths build the feature the same way, so training and live match.
+- Live issues run an ingest immediately before the cutoff, then freeze. A game that goes final after the cutoff waits for the next edition.
+
+**Proposed, awaiting John's confirmation — Selection Day edition (OR-07a).** The weekly cutoff stays Monday 06:00 ET, but that falls after the 6 Dec reveal, so Selection Day gets its own Open Ranking edition: cutoff Sun 6 Dec 2026 02:00 ET (07:00 UTC), published before 11:00 ET (16:00 UTC). Alternative: no Open Ranking edition for Selection Day, so the final Gap would use the 30 Nov edition and miss the title games.
+
+### OR-07(d) — forfeits (approved as read)
+
+A certified forfeit is scored as a normal win or loss at the scheduled site, labelled "forfeit"; its margin is excluded from the fit; it is outside the "ordinary FBS" population the exact-flip test is required for. The arithmetic is not special-cased.
+
+- An unplayed forfeit does not count as a meeting for head-to-head (TB-03).
+- Vacated wins are not forfeits. A ruling made public after a cutoff is a later correction and is invisible to replay at that cutoff.
+- Forfeits are kept as a hand-verified list in data. A game that looks like a forfeit and is not on the list blocks the snapshot and is logged in DATA_GAPS.md.
+
+### DS-03 — replay ignores ingest time (approved; John's interpretation of proposal p. 10)
+
+Live requires first_public_time <= t and ingest_time <= t. Replay requires first_public_time <= t only.
+
+- Each correction version carries its own first-public time and replay filters on it. "Latest" means latest among those public by t.
+- Estimated first-public times must err late. A game with no recorded end time is public at **kickoff + 4.5 hours** (not 3.5). Test: a 22:30 ET Saturday kickoff is invisible at the 02:00 ET Sunday cutoff.
+- Vintage travels to every scorecard row. Unknown vintage is excluded from scored tests. Reconstructed is reported separately from authentic.
+- Replay output is never labelled prospective. Only live issues count toward the pilot and the market contest.
+- Reproducing a published live edition uses the manifest's pinned input IDs, not replay mode.
+
+## 2026-11-25 — P02a/P02b conditions (John) and ingest rules (Claude)
+
+John's conditions:
+
+- Live-call order: fixtures (about 10), the 2026 season, 2014–25 rankings and games, lines last. The call counter is checkpointed after each stage; a stage that runs over twice its estimate stops the run.
+- 300 CFBD calls stay in reserve through 30 Nov 2026 unless John says the key has been upgraded.
+- Recorded fixtures hold no Authorization header or key, and are trimmed to the rows the tests need. A test fails if a key-shaped string appears under tests/.
+- All CFBD backfill rows are vintage "reconstructed" with rule-based first-public times. Rows captured from now on are "live".
+- P02b: "archived_authentic" requires a Wayback capture taken within seven days after the reveal whose 25 rows match the parsed release; the capture timestamp is stored. A capture that only predates our ingest is "reconstructed". First-public time is the scheduled show start.
+- Every 2014–25 release is cross-checked against CFBD's committee rankings and each 2026 release against a second source. Any mismatch fails the ingest.
+
+Rules Claude chose to carry these out (DS-01..DS-03, DS-06); open to revision:
+
+| Record | first_public_time rule (reconstructed rows) | Reason |
+|---|---|---|
+| Game, final result | kickoff + 4.5 h | John's ruling; CFBD records no end time |
+| Game, scheduled row, regular season, not a title game, not 2020 | 1 Aug of the season, 04:00 UTC | Schedules are public months earlier, so this errs late |
+| Game, scheduled row, title game, postseason, or any 2020 game | kickoff | Participants or dates were not known in advance |
+| AP / Coaches poll for week N (N >= 2) | the Tuesday 17:00 ET after week N-1's last kickoff | The poll normally appears Sunday 14:00 ET; Labor Day polls slip to Tuesday afternoon |
+| AP / Coaches preseason poll (CFBD week 1) | the season's first kickoff | Released in mid-August |
+| Closing line | kickoff + 4.5 h, same as the result | CFBD gives no quote time; lines are never a predictor |
+
+- **Rows captured live** use min(rule, capture time), since the store refuses a row that claims to be public after it was ingested. A correction observed live becomes public at the time we observed it.
+- **Team and game IDs** at ingest are `cfbd-<id>`. P03 decides the canonical registry and may keep these.
+- **title_game** at ingest is derived from CFBD's notes field (regular-season game whose note contains "Championship"). P04 replaces this with a hand-verified list.
+- **Postseason polls are not ingested** (never a forecast input; the polls key has no season type). CFBD's copy of the committee rankings is not written to the polls table; it is used from raw only as the cross-check for P02b, because the week-based public-time rule above would be wrong for a Tuesday-night reveal.
+- **Reconstructed schedules reflect the final schedule**, so a game moved in-season appears at its played date. Logged in DATA_GAPS.md.
+- **Budget:** every HTTP attempt counts as a call, including retries. The counter lives in `lake/budget.json` and is written before the request goes out.
+
+## 2026-11-25 — P02b choices made while building (Claude; DS-01, DS-02, DS-06)
+
+- **Primary source** is the CFP site's own data endpoint (`/api/v2/rankings?year=`), one payload per season. All 78 releases from 2014 to 24 Nov 2026 are there with 25 rows each. Alternative: scrape rendered pages.
+- **Release numbering** is by date within a season (`cfp-2026-04`); the site's own "week" field is inconsistent across seasons and is not used.
+- **Show starts** live in `data/cfp_reveals.csv` with a source URL and quote per row (76 from CFP or ESPN press releases, 2 from news). The 2026 rows were checked by Claude against the CFP's schedule page; the rest were gathered by a research agent and are not independently re-verified. A release with no sourced time cannot be ingested.
+- **Team names** resolve through `data/aliases_cfp_site.csv` (98 names, built from ESPN's team list, eight resolved by hand). IDs are written as `cfbd-<id>` using ESPN's numeric ID, on the assumption that CFBD uses the same IDs. P03 must verify that against CFBD once the key works; the 2014–25 CFBD cross-check will also expose any mismatch.
+- **"live" vintage for releases** means we captured the release ourselves within seven days of its show, mirroring John's seven-day Wayback window. Alternative: live only if captured before the next release.
+- **Authentic copies** are looked for first in the CFP's dated press-release pages on Wayback, then on its rankings page. The old rankings page loaded its rows by script, so it rarely verifies. Unverified releases are "reconstructed".
+- **committee_releases gained three columns:** `source_name` (the name as printed), `archive_capture_utc` and `archive_raw_hash` (set only for archived_authentic rows).
+- **A later change to a published release** is written as a correction that becomes public when we observed it.
+- **Second source by season:** CFBD for 2014–25 (matched by release order; the counts must agree), ESPN for 2026, as John specified.
+- **Live-season games (P02a):** the first catch-up of games already played uses the rule time; a result first seen for a game we already held is public at the moment we saw it. A finished game never reverts to a scheduled row.
