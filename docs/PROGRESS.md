@@ -175,3 +175,9 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Done: `final_field` section in the issue document (schema 4): pairings with sources and scenarios, strength fallback, conditionals, today's field. Spec review and leakage audit run and their fixes pushed. 2025 polls re-dated; rank noise corrected as `rank_noise_2026.c1.json`. Hourly capture started from the Mac. 433 tests pass; cloud rehearsal 45698608906 passed at `2c516d2`.
 - For John: confirm the corrected rank-noise file; add Big Ten, SEC and Big 12 title pairings to `data/title_games.csv` (source and first-public time) once official, or the field section is refused on Sunday unless CFBD's schedule supplies them.
 - Next: Friday timed dry run; check the first :17 hourly capture; AP "others receiving votes" capture before Tuesday; scoring and promotion modules (VT-12, VT-14) so the promotion test reruns from the repo; rerun the 2024/2025 rehearsal on the re-dated polls; SC-05 pairwise probabilities.
+
+## 2026-11-25 (night) — reviews closed, SC-05 completed, calibrated column frozen
+
+- Done: three reviews (fixes, provenance, referee) and their fixes; rank noise c2 confirmed by John; `cfp.forecast.pl` with the spec-named tests; pairwise bubble probabilities; whole-issue field test; calibrated disclosure column fitted, verified leave-one-season-out (6 of 6 cells) and frozen (`frozen/calibration_2026.json`). 444 tests pass; cloud rehearsal 45705761200 passed at `c115582`. Hourly capture from the Mac confirmed (21:17 UTC run succeeded).
+- For John: look at the reliability tables (`cfp forecast fit-calibration --season 2026 --report`); the step behaviour of the calibrated rank ≤ 4 column (No. 6 and below at 0.0001).
+- Next: title pairings as they become official (Big Ten, SEC, Big 12 rows with source and first-public time); Friday timed dry run; scoring and promotion modules (VT-11, VT-12, VT-14).
