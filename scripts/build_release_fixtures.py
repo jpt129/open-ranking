@@ -68,6 +68,51 @@ def main() -> None:
     if article is None:
         raise SystemExit("no <article> in the archived press release")
     (OUT / "wayback_cfp_news_20251105073639.html").write_text(article.group(0) + "\n")
+    game_fields = [
+        "id",
+        "season",
+        "week",
+        "seasonType",
+        "startDate",
+        "startTimeTBD",
+        "completed",
+        "neutralSite",
+        "venue",
+        "homeId",
+        "homeTeam",
+        "homeClassification",
+        "homePoints",
+        "awayId",
+        "awayTeam",
+        "awayClassification",
+        "awayPoints",
+        "notes",
+    ]
+    week15 = json.loads(latest(lake, "cfbd", "week=15"))
+    fbs = [g for g in week15 if g["homeClassification"] == "fbs"]
+    others = [g for g in week15 if g["homeClassification"] != "fbs"][:3]
+    dump("cfbd_games_2025_w15.json", [{k: g.get(k) for k in game_fields} for g in fbs + others])
+    week1 = json.loads(latest(lake, "cfbd", "games?seasonType=regular&week=1&"))
+    odd = [g for g in week1 if g.get("notes") and g["homeClassification"] == "fbs"][:4]
+    odd += [g for g in week1 if g["awayClassification"] is None][:1]
+    dump("cfbd_games_2025_w1_sample.json", [{k: g.get(k) for k in game_fields} for g in odd])
+    for week in (1, 11):
+        item = json.loads(latest(lake, "cfbd", f"rankings?seasonType=regular&week={week}&"))[0]
+        keep = ("AP Top 25", "Coaches Poll", "Playoff Committee Rankings")
+        polls = [
+            {"poll": p["poll"], "ranks": sorted(p["ranks"], key=lambda r: r["rank"])}
+            for p in item["polls"]
+            if p["poll"] in keep
+        ]
+        dump(
+            f"cfbd_rankings_2025_w{week}.json",
+            [{**{k: item[k] for k in ("season", "seasonType", "week")}, "polls": polls}],
+        )
+    lines = json.loads(latest(lake, "cfbd", "lines?"))[:2]
+    dump(
+        "cfbd_lines_2025_w1_sample.json",
+        [{k: g[k] for k in ("id", "season", "week", "startDate", "lines")} for g in lines],
+    )
     print(sorted(p.name for p in OUT.iterdir()))
 
 

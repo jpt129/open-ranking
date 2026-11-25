@@ -48,6 +48,14 @@ class Cfbd:
     def info(self) -> Fetched:
         return self._get("/info", False)
 
+    def sync_budget(self) -> int:
+        """Raise our counter to CFBD's own count of calls used this month. Returns the counter."""
+        account = self.info().json()
+        used = account.get("usedCalls")
+        if used is None:
+            used = int(account["monthlyLimit"]) - int(account["remainingCalls"])
+        return self.fetcher.budget.sync(SOURCE, int(used))
+
     def games(self, year: int, season_type: str, week: int | None = None, reuse: bool = False) -> Fetched:
         return self._get("/games", reuse, year=year, seasonType=season_type, week=week)
 

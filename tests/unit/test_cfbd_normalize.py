@@ -4,7 +4,7 @@ teams; recorded fixtures replace them once live calls are possible (docs/DATA_GA
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -43,26 +43,21 @@ def cfbd_game(game_id: int, **over: Any) -> dict[str, Any]:
     return game | over
 
 
-def fetched(lake: Lake, payload: Any) -> Fetched:
+def fetched(lake: Lake, payload: Any, at: datetime = NOW) -> Fetched:
     body = json.dumps(payload).encode()
-    return Fetched("cfbd", "https://example.test/games", lake.put_raw(body), body, NOW)
+    return Fetched("cfbd", "https://example.test/games", lake.put_raw(body), body, at)
 
 
-def test_backfill_game_becomes_scheduled_then_final(tmp_path: Path) -> None:
+def test_backfill_final_is_public_four_and_a_half_hours_after_kickoff(tmp_path: Path) -> None:
     lake = Lake(tmp_path, clock=Clock(NOW))
     got = fetched(lake, [cfbd_game(401)])
-    scheduled, final = game_rows(got, "reconstructed")
-    upsert(lake, "games", scheduled, NOW, "asserted")
-    upsert(lake, "games", final, NOW, "asserted")
-    stored = lake.scan("games").collect().sort("correction_version")
-    assert stored["status"].to_list() == ["scheduled", "final"]
-    assert stored["first_public_time"].to_list() == [
-        datetime(2025, 8, 1, 4, 0, tzinfo=UTC),
-        datetime(2025, 11, 23, 8, 0, tzinfo=UTC),  # kickoff + 4.5 h = 03:00 ET
-    ]
-    assert set(stored["vintage"].to_list()) == {"reconstructed"}
-    assert set(stored["raw_hash"].to_list()) == {got.raw_hash}
-    row = stored.row(1, named=True)
+    rows, left_out = game_rows(got, live=False)
+    assert left_out == []
+    upsert(lake, "games", rows, got.fetched_at, "asserted")
+    row = lake.scan("games").collect().row(0, named=True)
+    assert (row["status"], row["correction_version"], row["vintage"]) == ("final", 0, "reconstructed")
+    assert row["first_public_time"] == datetime(2025, 11, 23, 8, 0, tzinfo=UTC)  # 03:00 ET Sunday
+    assert row["raw_hash"] == got.raw_hash
     assert (row["game_id"], row["home_id"], row["away_id"]) == ("cfbd-401", "cfbd-1", "cfbd-2")
     assert (row["home_pts"], row["away_pts"], row["home_div"], row["site"]) == (
         31,
@@ -71,40 +66,73 @@ def test_backfill_game_becomes_scheduled_then_final(tmp_path: Path) -> None:
         "Made-up Stadium",
     )
     sunday_cutoff = datetime(2025, 11, 23, 7, 0, tzinfo=UTC)  # 02:00 ET
-    assert lake.as_of("games", sunday_cutoff, "replay").frame["status"].to_list() == ["scheduled"]
+    assert lake.as_of("games", sunday_cutoff, "replay").frame.height == 0
+    assert lake.as_of("games", datetime(2025, 11, 23, 8, 0, tzinfo=UTC), "replay").frame.height == 1
 
 
-def test_unplayed_game_has_only_a_scheduled_row(tmp_path: Path) -> None:
+def test_no_row_claims_a_past_schedule(tmp_path: Path) -> None:
+    """An unplayed game of a past season is left out; nothing is public before a result could be."""
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    title = cfbd_game(403, week=15, neutralSite=True, notes=None)  # a title game CFBD did not label
+    cancelled = cfbd_game(404, completed=False, homePoints=None, awayPoints=None)
+    rows, left_out = game_rows(fetched(lake, [title, cancelled]), live=False)
+    assert left_out == ["cfbd-404"]
+    assert rows["game_id"].to_list() == ["cfbd-403"]
+    assert (rows["first_public_time"] >= rows["start_utc"]).all()
+
+
+def test_live_unplayed_game_is_public_when_captured(tmp_path: Path) -> None:
     lake = Lake(tmp_path, clock=Clock(NOW))
     upcoming = cfbd_game(402, completed=False, homePoints=None, awayPoints=None, season=2026)
     upcoming["startDate"] = "2026-11-28T17:00:00.000Z"
-    scheduled, final = game_rows(fetched(lake, [upcoming]), "live")
-    assert (scheduled.height, final.height) == (1, 0)
-    assert scheduled["home_pts"].to_list() == [None]
+    rows, left_out = game_rows(fetched(lake, [upcoming]), live=True)
+    assert left_out == []
+    assert rows.select("status", "home_pts", "vintage", "first_public_time").row(0) == (
+        "scheduled",
+        None,
+        "live",
+        NOW,
+    )
 
 
-def test_title_game_and_other_classifications(tmp_path: Path) -> None:
+def test_live_catch_up_is_reconstructed_unless_recent(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    september = cfbd_game(1, season=2026, startDate="2026-09-05T19:30:00.000Z")
+    last_week = cfbd_game(2, season=2026, startDate="2026-11-21T17:00:00.000Z")
+    rows, _ = game_rows(fetched(lake, [september, last_week]), live=True)
+    assert rows["vintage"].to_list() == ["reconstructed", "live"]
+    assert rows["first_public_time"].to_list()[0] == datetime(2026, 9, 6, 0, 0, tzinfo=UTC)
+
+
+def test_title_note_classification_and_placeholder_time(tmp_path: Path) -> None:
     lake = Lake(tmp_path, clock=Clock(NOW))
     title = cfbd_game(403, week=15, neutralSite=True, notes="Made-up Conference Championship")
     bowl = cfbd_game(404, seasonType="postseason", week=1, notes="National Championship")
     odd = cfbd_game(405, awayClassification=None)
     spring = cfbd_game(406, seasonType="spring_regular")
+    tbd = cfbd_game(407, startDate="2025-11-22T05:00:00.000Z", startTimeTBD=True)
     assert is_title_game(title)
     assert not is_title_game(bowl)
-    scheduled, final = game_rows(fetched(lake, [title, bowl, odd, spring]), "reconstructed")
-    assert scheduled["game_id"].to_list() == ["cfbd-403", "cfbd-404", "cfbd-405"]
-    assert final["title_game"].to_list() == [True, False, False]
-    assert final["away_div"].to_list() == ["fbs", "fbs", "other"]
-    # title and postseason pairings are known only at kickoff
-    assert scheduled["first_public_time"].to_list()[:2] == scheduled["start_utc"].to_list()[:2]
+    rows, _ = game_rows(fetched(lake, [title, bowl, odd, spring, tbd]), live=False)
+    assert rows["game_id"].to_list() == ["cfbd-403", "cfbd-404", "cfbd-405", "cfbd-407"]
+    assert rows["title_game"].to_list() == [True, False, False, False]
+    assert rows["away_div"].to_list() == ["fbs", "fbs", "unknown", "fbs"]
+    assert rows["first_public_time"].to_list()[3] == datetime(
+        2025, 11, 23, 9, 29, tzinfo=UTC
+    )  # end of day + 4.5 h
 
 
 def test_broken_games_fail_loudly(tmp_path: Path) -> None:
     lake = Lake(tmp_path, clock=Clock(NOW))
     with pytest.raises(SourceError, match="without a score"):
-        game_rows(fetched(lake, [cfbd_game(1, homePoints=None)]), "reconstructed")
+        game_rows(fetched(lake, [cfbd_game(1, homePoints=None)]), live=False)
+    lower = cfbd_game(2, homePoints=None, homeClassification="iii", awayClassification=None)
+    rows, left_out = game_rows(fetched(lake, [lower]), live=True)  # no FBS team: left out, never scored
+    assert (rows.height, left_out) == (0, ["cfbd-2"])
     with pytest.raises(SourceError, match="no start time"):
-        game_rows(fetched(lake, [cfbd_game(1, startDate=None)]), "reconstructed")
+        game_rows(fetched(lake, [cfbd_game(1, startDate=None)]), live=False)
+    with pytest.raises(SourceError, match="neutral-site"):
+        game_rows(fetched(lake, [cfbd_game(1, neutralSite=None)]), live=False)
 
 
 def test_polls_keep_ap_and_coaches_and_are_dated_by_rule(tmp_path: Path) -> None:
@@ -123,7 +151,7 @@ def test_polls_keep_ap_and_coaches_and_are_dated_by_rule(tmp_path: Path) -> None
         (1, datetime(2025, 8, 30, 16, 0, tzinfo=UTC)),
         (12, datetime(2025, 11, 16, 3, 30, tzinfo=UTC)),
     ]
-    rows = poll_rows(fetched(lake, payload), kickoffs, "reconstructed")
+    rows = poll_rows(fetched(lake, payload), kickoffs, live=False)
     assert sorted(set(rows["poll"].to_list())) == ["ap", "coaches"]
     assert sorted(set(rows["week"].to_list())) == [1, 13]
     week13 = rows.filter((rows["week"] == 13) & (rows["poll"] == "ap")).sort("rank")
@@ -133,9 +161,12 @@ def test_polls_keep_ap_and_coaches_and_are_dated_by_rule(tmp_path: Path) -> None
     assert set(week13["first_public_time"].to_list()) == {datetime(2025, 11, 18, 22, 0, tzinfo=UTC)}
     preseason = rows.filter(rows["week"] == 1)
     assert set(preseason["first_public_time"].to_list()) == {datetime(2025, 8, 30, 16, 0, tzinfo=UTC)}
+    assert set(rows["vintage"].to_list()) == {"reconstructed"}
     upsert(lake, "polls", rows, NOW, "asserted")
     with pytest.raises(SourceError):
-        poll_rows(fetched(lake, payload), [], "reconstructed")
+        poll_rows(fetched(lake, payload), [], live=False)
+    with pytest.raises(SourceError, match="week 12"):  # week 12's games are missing
+        poll_rows(fetched(lake, payload), kickoffs[:1], live=False)
 
 
 def test_lines_one_row_per_provider(tmp_path: Path) -> None:
@@ -152,7 +183,7 @@ def test_lines_one_row_per_provider(tmp_path: Path) -> None:
         },
     ]
     payload = [{"id": 401, "season": 2025, "startDate": "2025-11-23T03:30:00.000Z", "lines": lines}]
-    rows = line_rows(fetched(lake, payload), "reconstructed").sort("provider")
+    rows = line_rows(fetched(lake, payload), live=False).sort("provider")
     assert rows["provider"].to_list() == ["BookA", "BookB"]
     assert rows["ml_home"].to_list() == [-240.0, None]
     assert rows["spread"].to_list() == [-6.5, -7.0]
@@ -166,23 +197,17 @@ def test_reserve_holds_through_30_november() -> None:
     assert allowance(datetime(2026, 12, 1, 5, 0, tzinfo=UTC)) == 1000
 
 
-def test_live_season_ingest_end_to_end(tmp_path: Path) -> None:
-    """First capture: played games carry rule times. Later capture: a new final is public when we saw it."""
-    from cfp.ingest import run
+def _season(tmp_path: Path, season: int, clock: Clock, state: dict[str, Any]) -> tuple[Lake, Any]:
     from cfp.ingest.cfbd import Cfbd
     from cfp.ingest.http import Budget, Fetcher, Response, TokenBucket
 
-    clock = Clock(datetime(2026, 11, 28, 17, 0, tzinfo=UTC))
     lake = Lake(tmp_path, clock=clock)
-    played = cfbd_game(1, season=2026, startDate="2026-11-21T17:00:00.000Z", week=13)
-    tonight = cfbd_game(2, season=2026, startDate="2026-11-29T00:30:00.000Z", week=14, completed=False)
-    tonight |= {"homePoints": None, "awayPoints": None}
-    state: dict[str, Any] = {"games": [played, tonight], "urls": []}
 
     def transport(url: str, headers: Any, timeout: float) -> Response:
         state["urls"].append(url)
-        regular = "seasonType=regular" in url
-        return Response(200, json.dumps(state["games"] if regular else []).encode(), {})
+        clock.now += timedelta(seconds=state.get("latency", 0))  # the reply arrives later than the request
+        kind = "regular" if "seasonType=regular" in url else "postseason"
+        return Response(200, json.dumps(state.get(kind, [])).encode(), {})
 
     fetcher = Fetcher(
         lake,
@@ -194,30 +219,151 @@ def test_live_season_ingest_end_to_end(tmp_path: Path) -> None:
         transport=transport,
         clock=clock,
     )
-    cfbd = Cfbd(fetcher)
-    real_now = run.utc_now
-    run.utc_now = clock  # type: ignore[assignment]
-    try:
-        run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
-        clock.now = datetime(2026, 11, 29, 6, 55, tzinfo=UTC)  # 01:55 ET Sunday, just before the cutoff
-        state["games"] = [played, tonight | {"completed": True, "homePoints": 24, "awayPoints": 21}]
-        run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
-        clock.now = datetime(2026, 11, 29, 6, 58, tzinfo=UTC)
-        unchanged = run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
-        assert sum(r.new + r.corrected for r in unchanged) == 0
-    finally:
-        run.utc_now = real_now
+    return lake, Cfbd(fetcher)
+
+
+def test_live_season_ingest_end_to_end(tmp_path: Path) -> None:
+    from cfp.ingest import run
+
+    clock = Clock(datetime(2026, 11, 28, 17, 0, tzinfo=UTC))
+    played = cfbd_game(1, season=2026, startDate="2026-11-21T17:00:00.000Z", week=13)
+    tonight = cfbd_game(2, season=2026, startDate="2026-11-29T00:30:00.000Z", week=14, completed=False)
+    tonight |= {"homePoints": None, "awayPoints": None}
+    state: dict[str, Any] = {"regular": [played, tonight], "urls": []}
+    lake, cfbd = _season(tmp_path, 2026, clock, state)
+
+    run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
+    # The request leaves at 01:58 ET and the reply showing the final arrives at 02:01 ET, after the cutoff.
+    clock.now = datetime(2026, 11, 29, 6, 58, tzinfo=UTC)
+    state["latency"] = 90
+    state["regular"] = [played, tonight | {"completed": True, "homePoints": 24, "awayPoints": 21}]
+    run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
+    state["latency"] = 0
+    unchanged = run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
+    assert sum(r.new + r.corrected for r in unchanged.results) == 0
+
     stored = lake.scan("games").collect().sort("game_id", "correction_version")
     assert stored.select("game_id", "correction_version", "status").rows() == [
-        ("cfbd-1", 0, "scheduled"),
-        ("cfbd-1", 1, "final"),
+        ("cfbd-1", 0, "final"),
         ("cfbd-2", 0, "scheduled"),
         ("cfbd-2", 1, "final"),
     ]
-    assert set(stored["vintage"].to_list()) == {"live"}
     public = stored["first_public_time"].to_list()
-    assert public[1] == datetime(2026, 11, 21, 21, 30, tzinfo=UTC)  # rule time, already past at first capture
-    assert public[3] == datetime(2026, 11, 29, 6, 55, tzinfo=UTC)  # seen live, 4.5 h rule not needed
+    assert public[0] == datetime(2026, 11, 21, 21, 30, tzinfo=UTC)  # rule time, already past at first capture
+    assert public[2] == datetime(
+        2026, 11, 29, 7, 1, tzinfo=UTC
+    )  # when the payload arrived, not when we asked
     cutoff = datetime(2026, 11, 29, 7, 0, tzinfo=UTC)
-    assert lake.as_of("games", cutoff, "live").frame["status"].to_list() == ["final", "final"]
+    for mode in ("live", "replay"):  # a final that arrived after the cutoff waits, in both modes
+        assert lake.as_of("games", cutoff, mode).frame.sort("game_id")["status"].to_list() == [
+            "final",
+            "scheduled",
+        ]
     assert len(state["urls"]) == 6  # the live season is refetched, never reused
+
+
+def test_source_revert_does_not_unfinalise_a_game(tmp_path: Path) -> None:
+    from cfp.ingest import run
+
+    clock = Clock(datetime(2026, 11, 28, 17, 0, tzinfo=UTC))
+    played = cfbd_game(1, season=2026, startDate="2026-11-21T17:00:00.000Z")
+    state: dict[str, Any] = {"regular": [played], "urls": []}
+    lake, cfbd = _season(tmp_path, 2026, clock, state)
+    run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
+    state["regular"] = [played | {"completed": False, "homePoints": None, "awayPoints": None}]
+    report = run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
+    assert any("no longer marks as final" in note and "cfbd-1" in note for note in report.notes)
+    assert lake.scan("games").collect()["status"].to_list() == ["final"]
+
+
+def test_game_in_both_payloads_fails_loudly(tmp_path: Path) -> None:
+    from cfp.ingest import run
+
+    clock = Clock(datetime(2026, 11, 28, 17, 0, tzinfo=UTC))
+    game = cfbd_game(1, season=2026, startDate="2026-11-21T17:00:00.000Z")
+    state: dict[str, Any] = {
+        "regular": [game],
+        "postseason": [game | {"seasonType": "postseason"}],
+        "urls": [],
+    }
+    lake, cfbd = _season(tmp_path, 2026, clock, state)
+    with pytest.raises(ValueError, match="twice"):
+        run.ingest_cfbd_season(lake, cfbd, 2026, ["games"])
+    assert lake.scan("games").collect().height == 0
+
+
+def test_past_season_is_reconstructed_and_fetched_once(tmp_path: Path) -> None:
+    from cfp.ingest import run
+
+    clock = Clock(NOW)
+    state: dict[str, Any] = {"regular": [cfbd_game(401), cfbd_game(402, completed=False)], "urls": []}
+    lake, cfbd = _season(tmp_path, 2025, clock, state)
+    report = run.ingest_cfbd_season(lake, cfbd, 2025, ["games"])
+    assert report.notes == ["2025 regular: 1 games left out (unplayed or no score)"]
+    run.ingest_cfbd_season(lake, cfbd, 2025, ["games"])
+    assert len(state["urls"]) == 2
+    stored = lake.scan("games").collect()
+    assert stored.select("game_id", "vintage").rows() == [("cfbd-401", "reconstructed")]
+
+
+# --- recorded CFBD responses (trimmed by scripts/build_release_fixtures.py) -------------------------------
+
+FIX = Path(__file__).resolve().parents[1] / "fixtures"
+
+
+def recorded(lake: Lake, name: str) -> Fetched:
+    return fetched(lake, json.loads((FIX / name).read_text()))
+
+
+def test_recorded_title_week_has_nine_title_games_four_on_campus(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    rows, left_out = game_rows(recorded(lake, "cfbd_games_2025_w15.json"), live=False)
+    assert left_out == []
+    assert rows.height == 12
+    titles = rows.filter(rows["title_game"])
+    assert titles.height == 9
+    assert titles.filter(~titles["neutral"]).height == 4  # the official site flag, not forced neutral
+    assert set(titles["home_div"].to_list()) | set(titles["away_div"].to_list()) == {"fbs"}
+    assert rows.filter(~rows["title_game"])["home_div"].to_list() == ["iii", "iii", "fcs"]  # playoff rounds
+    upsert(lake, "games", rows, NOW, "asserted")
+
+
+def test_recorded_week_one_named_games_are_not_title_games(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    rows, _ = game_rows(recorded(lake, "cfbd_games_2025_w1_sample.json"), live=False)
+    assert rows.height == 5
+    assert not rows["title_game"].any()
+    assert rows["away_div"].to_list()[-1] == "unknown"
+
+
+def test_recorded_preseason_poll(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    first_kickoff = datetime(2025, 8, 23, 16, 0, tzinfo=UTC)
+    rows = poll_rows(recorded(lake, "cfbd_rankings_2025_w1.json"), [(1, first_kickoff)], live=False)
+    ap = rows.filter(rows["poll"] == "ap").sort("rank")
+    assert ap.height == 25
+    assert ap.select("team_id", "points", "fpv").row(0) == ("cfbd-251", 1552, 25)  # Texas, preseason No. 1
+    assert sorted(set(rows["poll"].to_list())) == ["ap", "coaches"]
+    assert set(rows["first_public_time"].to_list()) == {first_kickoff}
+    upsert(lake, "polls", rows, NOW, "asserted")
+
+
+def test_recorded_cfbd_committee_ranking_matches_the_cfp_site(tmp_path: Path) -> None:
+    """CFBD's week-11 committee ranking is the CFP site's first 2025 release, team for team."""
+    from cfp.ingest.cfp_releases import cross_check, load_aliases, parse_cfbd, parse_site, resolve
+
+    root = Path(__file__).resolve().parents[2]
+    aliases = load_aliases(root / "data" / "aliases_cfp_site.csv")
+    release = parse_site(json.loads((FIX / "cfp_site_rankings_2025_first.json").read_text()), 2025)[0]
+    lists = parse_cfbd(json.loads((FIX / "cfbd_rankings_2025_w11.json").read_text()))
+    assert len(lists) == 1
+    cross_check(release, resolve(release, aliases), lists[0], "cfbd")
+
+
+def test_recorded_lines(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    rows = line_rows(recorded(lake, "cfbd_lines_2025_w1_sample.json"), live=False)
+    assert rows.height >= 2
+    assert rows["spread"].null_count() < rows.height
+    assert (rows["first_public_time"] > rows["as_of_utc"]).all()
+    upsert(lake, "lines", rows, NOW, "asserted")

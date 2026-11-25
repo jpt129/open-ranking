@@ -15,24 +15,25 @@ ET = ZoneInfo("America/New_York")
 FINAL_LAG = timedelta(hours=4, minutes=30)  # kickoff to a final score, with no recorded end time
 POLL_HOUR_ET = time(17, 0)
 TUESDAY = 1
-UNSETTLED_SCHEDULE_SEASONS = frozenset({2020})
+LIVE_WINDOW = timedelta(days=7)
 
 
-def game_final_public(start: datetime) -> datetime:
-    """When a result with no recorded end time is treated as public: kickoff + 4.5 hours."""
-    return require_utc(start, "start") + FINAL_LAG
+def game_final_public(start: datetime, time_tbd: bool = False) -> datetime:
+    """When a result with no recorded end time is treated as public: kickoff + 4.5 hours.
 
-
-def schedule_public(season: int, start: datetime, season_type: str, title_game: bool) -> datetime:
-    """When a reconstructed scheduled game is treated as known.
-
-    Regular-season schedules are public months ahead, so 1 Aug 04:00 UTC errs late. Title-game and postseason
-    pairings, and every 2020 date, were not known in advance: those are public at kickoff.
+    If the source marks the kickoff time as a placeholder, the clock starts at the end of that day in
+    Eastern time (the later of the placeholder's Eastern and UTC dates), so the estimate still errs late.
     """
     kickoff = require_utc(start, "start")
-    if season_type != "regular" or title_game or season in UNSETTLED_SCHEDULE_SEASONS:
-        return kickoff
-    return min(kickoff, datetime(season, 8, 1, 4, 0, tzinfo=UTC))
+    if time_tbd:
+        day = max(kickoff.astimezone(ET).date(), kickoff.date())
+        kickoff = datetime.combine(day, time(23, 59), tzinfo=ET).astimezone(UTC)
+    return kickoff + FINAL_LAG
+
+
+def vintage_at(live: bool, public: datetime, captured_at: datetime) -> str:
+    """ "live" only when the live system captured the record within seven days of it becoming public."""
+    return "live" if live and captured_at - public <= LIVE_WINDOW else "reconstructed"
 
 
 def tuesday_after(moment: datetime) -> datetime:
@@ -58,6 +59,8 @@ def poll_public(
     earlier = [kick for wk, kick in last_kickoff_by_week.items() if wk < week]
     if not earlier:
         return require_utc(season_first_kickoff, "season_first_kickoff")
+    if week - 1 not in last_kickoff_by_week:
+        raise ValueError(f"cannot date the week-{week} poll: no games held for week {week - 1}")
     return tuesday_after(game_final_public(max(earlier)))
 
 

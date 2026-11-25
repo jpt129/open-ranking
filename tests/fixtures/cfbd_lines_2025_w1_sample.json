@@ -1,0 +1,78 @@
+[
+ {
+  "id": 401756847,
+  "season": 2025,
+  "week": 1,
+  "startDate": "2025-08-23T22:30:00.000Z",
+  "lines": [
+   {
+    "provider": "DraftKings",
+    "spread": -14,
+    "formattedSpread": "Kansas -14",
+    "spreadOpen": -14,
+    "overUnder": 51.5,
+    "overUnderOpen": 51.5,
+    "homeMoneyline": -550,
+    "awayMoneyline": 410
+   },
+   {
+    "provider": "ESPN Bet",
+    "spread": -14.5,
+    "formattedSpread": "Kansas -14.5",
+    "spreadOpen": -13.5,
+    "overUnder": 50.5,
+    "overUnderOpen": 51.5,
+    "homeMoneyline": -650,
+    "awayMoneyline": 425
+   },
+   {
+    "provider": "Bovada",
+    "spread": -14,
+    "formattedSpread": "Kansas -14.0",
+    "spreadOpen": -14.5,
+    "overUnder": 50,
+    "overUnderOpen": 51.5,
+    "homeMoneyline": -575,
+    "awayMoneyline": 400
+   }
+  ]
+ },
+ {
+  "id": 401757218,
+  "season": 2025,
+  "week": 1,
+  "startDate": "2025-08-23T23:00:00.000Z",
+  "lines": [
+   {
+    "provider": "DraftKings",
+    "spread": -9.5,
+    "formattedSpread": "Western Kentucky -9.5",
+    "spreadOpen": -9.5,
+    "overUnder": 60.5,
+    "overUnderOpen": 60.5,
+    "homeMoneyline": -360,
+    "awayMoneyline": 285
+   },
+   {
+    "provider": "ESPN Bet",
+    "spread": -10.5,
+    "formattedSpread": "Western Kentucky -10.5",
+    "spreadOpen": -9.5,
+    "overUnder": 60.5,
+    "overUnderOpen": 61.5,
+    "homeMoneyline": -400,
+    "awayMoneyline": 300
+   },
+   {
+    "provider": "Bovada",
+    "spread": -9.5,
+    "formattedSpread": "Western Kentucky -9.5",
+    "spreadOpen": -7,
+    "overUnder": 60,
+    "overUnderOpen": 61.5,
+    "homeMoneyline": -390,
+    "awayMoneyline": 295
+   }
+  ]
+ }
+]

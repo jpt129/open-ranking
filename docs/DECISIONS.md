@@ -128,8 +128,7 @@ Rules Claude chose to carry these out (DS-01..DS-03, DS-06); open to revision:
 | Record | first_public_time rule (reconstructed rows) | Reason |
 |---|---|---|
 | Game, final result | kickoff + 4.5 h | John's ruling; CFBD records no end time |
-| Game, scheduled row, regular season, not a title game, not 2020 | 1 Aug of the season, 04:00 UTC | Schedules are public months earlier, so this errs late |
-| Game, scheduled row, title game, postseason, or any 2020 game | kickoff | Participants or dates were not known in advance |
+| Game not yet played | Past seasons: no row is written. Live season: public when we captured it | Superseded 2026-11-25 after review: a 1 Aug rule made unlabelled title games public months early |
 | AP / Coaches poll for week N (N >= 2) | the Tuesday 17:00 ET after week N-1's last kickoff | The poll normally appears Sunday 14:00 ET; Labor Day polls slip to Tuesday afternoon |
 | AP / Coaches preseason poll (CFBD week 1) | the season's first kickoff | Released in mid-August |
 | Closing line | kickoff + 4.5 h, same as the result | CFBD gives no quote time; lines are never a predictor |
@@ -138,7 +137,7 @@ Rules Claude chose to carry these out (DS-01..DS-03, DS-06); open to revision:
 - **Team and game IDs** at ingest are `cfbd-<id>`. P03 decides the canonical registry and may keep these.
 - **title_game** at ingest is derived from CFBD's notes field (regular-season game whose note contains "Championship"). P04 replaces this with a hand-verified list.
 - **Postseason polls are not ingested** (never a forecast input; the polls key has no season type). CFBD's copy of the committee rankings is not written to the polls table; it is used from raw only as the cross-check for P02b, because the week-based public-time rule above would be wrong for a Tuesday-night reveal.
-- **Reconstructed schedules reflect the final schedule**, so a game moved in-season appears at its played date. Logged in DATA_GAPS.md.
+- **Past seasons hold results only.** When a schedule became known cannot be read from CFBD, so reconstructed seasons carry no scheduled rows. Replay simulations of remaining games will need a separately sourced schedule table (full track).
 - **Budget:** every HTTP attempt counts as a call, including retries. The counter lives in `lake/budget.json` and is written before the request goes out.
 
 ## 2026-11-25 — P02b choices made while building (Claude; DS-01, DS-02, DS-06)
@@ -152,4 +151,28 @@ Rules Claude chose to carry these out (DS-01..DS-03, DS-06); open to revision:
 - **committee_releases gained three columns:** `source_name` (the name as printed), `archive_capture_utc` and `archive_raw_hash` (set only for archived_authentic rows).
 - **A later change to a published release** is written as a correction that becomes public when we observed it.
 - **Second source by season:** CFBD for 2014–25 (matched by release order; the counts must agree), ESPN for 2026, as John specified.
-- **Live-season games (P02a):** the first catch-up of games already played uses the rule time; a result first seen for a game we already held is public at the moment we saw it. A finished game never reverts to a scheduled row.
+- **Live-season games (P02a):** the first catch-up of games already played uses the rule time; a result first seen for a game we already held is public at the moment the payload showing it arrived. A game we hold as final is never reverted by the source: the ingest reports it and a person records a correction.
+
+## 2026-11-25 — P02 review round (spec-guardian) and what the real data showed
+
+The reviewer confirmed sixteen defects in the first P02 commit. All are fixed with tests. Choices that changed:
+
+- **The .env loader kept an inline comment as part of a value.** This, not the key, caused the CFBD 401s.
+- **"Observed" time is when the payload arrived**, not when the job started. A result that arrives at 02:01 ET is invisible at the 02:00 ET cutoff in live and replay alike (DS-03, SC-04a).
+- **One row per game per capture, in its current state.** No scheduled rows are invented for past seasons (see above).
+- **Vintage is per row.** "live" means the live system captured the record within seven days of its rule-based public time; the first catch-up of earlier 2026 games is "reconstructed". This narrows John's "rows captured from now on are live" to rows that were actually fresh when captured. Needs John's confirmation.
+- **Placeholder kickoff times** (CFBD `startTimeTBD`) start the 4.5-hour clock at the end of that day, Eastern.
+- **A weekly poll is dated only when the previous week's games are held**; otherwise the ingest fails.
+- **Release numbers come from the schedule file**, and a payload that lacks a release whose show has already aired fails. A missing release can no longer shift the IDs.
+- **Finding or losing an archived copy later never writes a correction.** Vintage is fixed at first write, so the Wayback lookup runs before the first ingest.
+- **A page verifies a release only if each name ends where the release's name ends** ("3. Texas A&M" does not verify Texas at 3).
+- **No switch selects a weaker cross-check.** 2014–25 need CFBD; the live season uses ESPN.
+- **Budget file:** written by atomic replace; an unreadable file stops all calls; every CFBD entry point first raises our counter to CFBD's own count.
+- **Redirects** are followed only to https on the same host. A response that echoes a key is not archived.
+- **Missing classification is stored as "unknown"**, never assumed. A snapshot must resolve it (P04).
+- **A game marked completed with no score** stops the ingest if an FBS team is involved; otherwise it is left out and reported. Real data: 5 such games in 2026 (all Division II/III).
+- **title_game (provisional)** now needs both teams FBS and a note of the form "<conference> Championship". On the recorded 2025 title week it finds exactly the nine title games; four of them are not neutral-site, which supports amendment g.
+
+Verified on recorded responses: CFBD's week-1 poll is the preseason poll, and its week-11 committee ranking equals the CFP site's first 2025 release, so "the week-N poll follows week N-1's games" holds. Every alias ID equals the CFBD ID of a 2025 FBS school.
+
+**To raise with John:** his ruling makes a release public at the scheduled show start. On Selection Day the full top 25 was read well after the start in some years (about 14:30 ET against a noon start in 2016). That errs early for those releases. Options: keep the show start (current), or use a later sourced time for Selection Day.

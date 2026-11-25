@@ -5,7 +5,6 @@ Prints shapes only. Bodies are archived in lake/raw; nothing here prints or stor
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from cfp.common.env import load_env
@@ -28,8 +27,7 @@ def main() -> None:
     load_env()
     lake = Lake("lake")
     cfbd = Cfbd.from_env(lake, utc_now())
-    info = cfbd.info().json()
-    print("info:", json.dumps(info))
+    print("calls used this month (CFBD count):", cfbd.sync_budget())
     calls = {
         "games_2025_w1": lambda: cfbd.games(2025, "regular", week=1, reuse=True),
         "games_2025_w15": lambda: cfbd.games(2025, "regular", week=15, reuse=True),
@@ -46,7 +44,7 @@ def main() -> None:
             got = call()
             print(f"{name}: {got.raw_hash[:12]} {len(got.body)}B reused={got.reused}")
             print("   " + shape(got.json())[:1500])
-    print("budget used:", cfbd.fetcher.budget.used("cfbd"), "info after:", json.dumps(cfbd.info().json()))
+    print("budget used:", cfbd.fetcher.budget.used("cfbd"))
 
 
 if __name__ == "__main__":

@@ -21,7 +21,6 @@ def build_parser() -> argparse.ArgumentParser:
     kinds = ingest.add_subparsers(dest="kind", metavar="<source>", required=True)
     releases = kinds.add_parser("releases", help="CFP committee releases for one or more seasons")
     releases.add_argument("--season", type=int, nargs="+", required=True)
-    releases.add_argument("--second", choices=("auto", "espn", "cfbd"), default="auto")
     cfbd = kinds.add_parser("cfbd", help="CFBD games, polls and lines for one or more seasons")
     cfbd.add_argument("--season", type=int, nargs="+", required=True)
     cfbd.add_argument("--what", nargs="+", choices=("games", "rankings", "reference", "lines"), required=True)
@@ -35,20 +34,18 @@ def _ingest_releases(args: argparse.Namespace) -> int:
     from cfp.common.env import load_env
     from cfp.common.timeutil import utc_now
     from cfp.ingest.cfbd import Cfbd
-    from cfp.ingest.run import ingest_releases
+    from cfp.ingest.run import LIVE_SEASON, ingest_releases
     from cfp.store.lake import Lake
 
     load_env()
     lake = Lake(args.lake)
     for season in args.season:
-        # John, 2026-11-25: 2014-25 are checked against CFBD, the 2026 releases against a second source.
-        second = args.second if args.second != "auto" else ("espn" if season >= 2026 else "cfbd")
-        cfbd = Cfbd.from_env(lake, utc_now()) if second == "cfbd" else None
-        result = ingest_releases(lake, season, Path(args.data), second, cfbd)
-        print(
-            f"{season}: checked against {second}; new={result.new} corrected={result.corrected} "
-            f"unchanged={result.unchanged}"
-        )
+        cfbd = None
+        if season < LIVE_SEASON:
+            cfbd = Cfbd.from_env(lake, utc_now())
+            cfbd.sync_budget()
+        result = ingest_releases(lake, season, Path(args.data), cfbd)
+        print(f"{season}: new={result.new} corrected={result.corrected} unchanged={result.unchanged}")
     return 0
 
 
@@ -63,8 +60,7 @@ def _ingest_cfbd(args: argparse.Namespace) -> int:
     lake = Lake(args.lake)
     cfbd = Cfbd.from_env(lake, utc_now())
     budget = cfbd.fetcher.budget
-    account = cfbd.info().json()  # the source's own count is the floor for ours
-    budget.sync(SOURCE, int(account["usedCalls"]))
+    cfbd.sync_budget()  # the source's own count is the floor for ours
     estimate = len(args.season) * sum(CALLS[item] for item in args.what)
     print(
         f"stage {args.stage}: estimate {estimate} calls; used so far {budget.used(SOURCE)}; "
@@ -72,9 +68,11 @@ def _ingest_cfbd(args: argparse.Namespace) -> int:
     )
     with cfbd.fetcher.stage(args.stage, estimate=estimate):
         for season in args.season:
-            for result in ingest_cfbd_season(lake, cfbd, season, args.what):
-                if result.new or result.corrected:
-                    print(f"  {season} {result.table}: new={result.new} corrected={result.corrected}")
+            report = ingest_cfbd_season(lake, cfbd, season, args.what)
+            for result in report.results:
+                print(f"  {season} {result.table}: new={result.new} corrected={result.corrected}")
+            for note in report.notes:
+                print(f"  NOTE {note}")
     print(f"checkpoint: stage used {budget.stage_used(SOURCE, args.stage)}; month used {budget.used(SOURCE)}")
     return 0
 

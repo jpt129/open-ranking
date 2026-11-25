@@ -193,3 +193,71 @@ def test_log_gap_appends_once(tmp_path: Path) -> None:
     assert rows == [
         "| 2026-11-25 | cfbd /lines | 2014 has no moneylines / none | VT-07 benchmark starts later | open |"
     ]
+
+
+def test_unreadable_budget_file_stops_everything(tmp_path: Path) -> None:
+    path = tmp_path / "b.json"
+    budget = Budget(path, clock=lambda: NOW)
+    for _ in range(5):
+        budget.spend("cfbd", 5, "s")
+    assert budget.used("cfbd") == 5
+    before = path.read_bytes()
+    assert budget.used("cfbd") == 5
+    assert path.read_bytes() == before  # reading never rewrites
+    for damage in ("", "{not json", "[]"):
+        path.write_text(damage)
+        with pytest.raises(BudgetExceeded, match="unreadable"):
+            budget.spend("cfbd", 5, "s")
+        with pytest.raises(BudgetExceeded, match="unreadable"):
+            budget.used("cfbd")
+
+
+def test_failed_spend_leaves_the_file_intact(tmp_path: Path) -> None:
+    path = tmp_path / "b.json"
+    budget = Budget(path, clock=lambda: NOW)
+    budget.spend("cfbd", 1, "s")
+    before = path.read_bytes()
+    with pytest.raises(BudgetExceeded):
+        budget.spend("cfbd", 1, "s")
+    assert path.read_bytes() == before
+
+
+def test_response_that_echoes_the_key_is_not_archived(tmp_path: Path) -> None:
+    fetcher = make(tmp_path, [ok(f'{{"you sent": "{KEY}"}}'.encode())])
+    with pytest.raises(SourceError, match="echoes a secret"):
+        fetcher.get("/whoami")
+    for file in (tmp_path / "lake").rglob("*"):
+        if file.is_file():
+            assert KEY.encode() not in file.read_bytes(), file
+
+
+def test_network_error_text_is_scrubbed(tmp_path: Path) -> None:
+    from urllib.parse import quote
+
+    secret = "p@ss/word+0123456789"
+    errors: list[Response | Exception] = [
+        urllib.error.URLError(
+            f"cannot reach https://api.example.test/x?apiKey={quote(secret, safe='')} or {KEY}"
+        )
+    ] * 4
+    fetcher = make(tmp_path, errors, secret_params={"apiKey": secret})
+    with pytest.raises(SourceError) as failure:
+        fetcher.get("/x")
+    assert KEY not in str(failure.value)
+    assert secret not in str(failure.value)
+    assert quote(secret, safe="") not in str(failure.value)
+
+
+def test_redirect_to_another_host_or_to_http_is_refused() -> None:
+    import urllib.request
+
+    from cfp.ingest.http import _SameHostRedirects
+
+    handler = _SameHostRedirects()
+    request = urllib.request.Request("https://api.example.test/a", headers={"Authorization": f"Bearer {KEY}"})
+    for target in ("https://evil.example.test/a", "http://api.example.test/a"):
+        with pytest.raises(SourceError, match="refused a redirect"):
+            handler.redirect_request(request, None, 302, "Found", {}, target)
+    followed = handler.redirect_request(request, None, 302, "Found", {}, "https://api.example.test/b")
+    assert followed is not None
+    assert followed.full_url == "https://api.example.test/b"

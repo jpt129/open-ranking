@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -24,13 +25,19 @@ class UpsertResult:
 
 
 def upsert(
-    lake: Lake, table: str, rows: pl.DataFrame, now: datetime, corrections: CorrectionPublic
+    lake: Lake,
+    table: str,
+    rows: pl.DataFrame,
+    now: datetime,
+    corrections: CorrectionPublic,
+    ignore: Sequence[str] = (),
 ) -> UpsertResult:
     """Write new keys as version 0 and changed keys as the next version; skip unchanged rows.
 
     `rows` carries every column except correction_version and ingest_time. first_public_time is clamped to
     `now`. With corrections="observed" (live capture) a changed row becomes public at `now`, the moment we
-    saw it; with "asserted" (backfill) the caller's rule-based time stands.
+    saw it; with "asserted" (backfill) the caller's rule-based time stands. Columns in `ignore` are stored
+    but do not make a row count as changed.
     """
     spec = lake.spec(table)
     now = require_utc(now, "now")
@@ -52,7 +59,9 @@ def upsert(
         nulls_equal=True,
     )
     is_new = pl.col("correction_version__old").is_null()
-    same = pl.all_horizontal([pl.col(c).eq_missing(pl.col(f"{c}__old")) for c in payload if c not in key])
+    same = pl.all_horizontal(
+        [pl.col(c).eq_missing(pl.col(f"{c}__old")) for c in payload if c not in key and c not in ignore]
+    )
     changed = joined.filter(is_new | ~same)
     n_new = changed.filter(is_new).height
     out = changed.with_columns(

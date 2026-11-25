@@ -172,6 +172,18 @@ def test_page_matches_needs_rank_next_to_name() -> None:
     assert not page_matches(listed.replace("<li>7. TeamG", "<li>7. TeamGX"), names)
 
 
+def test_page_matches_rejects_a_name_that_is_only_a_prefix() -> None:
+    """ "3. Texas A&M" must not verify a release that has Texas third (nor Oklahoma State for Oklahoma)."""
+    names = ["Georgia", "Utah", "Texas", "Oklahoma"] + [f"Team{chr(65 + i)}" for i in range(21)]
+    page = " ".join(f"<td>{rank}</td><td>{name}</td><td>9-2</td>" for rank, name in enumerate(names, 1))
+    assert page_matches(page, names)
+    assert not page_matches(page.replace("<td>Texas</td>", "<td>Texas A&amp;M</td>"), names)
+    assert not page_matches(page.replace("<td>Oklahoma</td>", "<td>Oklahoma State</td>"), names)
+    bare = " ".join(f"{rank}. {name}" for rank, name in enumerate(names, 1))  # no records on the page
+    assert page_matches(bare, names)
+    assert not page_matches(bare.replace("3. Texas", "3. Texas Tech"), names)
+
+
 def test_vintage_rules() -> None:
     reveal = datetime(2025, 11, 5, 1, 0, tzinfo=UTC)
     inside = Capture(reveal + timedelta(hours=6), "u", "0" * 64)
@@ -314,3 +326,63 @@ def test_find_capture_takes_first_matching_page_inside_the_window(tmp_path: Path
 
     none = find_capture(wayback, parse_site(site_2026(), 2026)[0], SCHEDULE[date(2026, 11, 3)].show_start)
     assert none is None
+
+
+def test_release_missing_from_the_payload_fails_and_ids_do_not_shift(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    without_second = [r for r in site_2026() if not r["releaseDate"].startswith("2026-11-10")]
+    with pytest.raises(SourceError, match="lacks releases already shown"):
+        _ingest(lake, without_second, espn_2026(), {})
+    assert lake.scan("committee_releases").collect().height == 0
+    # before the 17 Nov show, a payload with two releases is complete, and numbers follow the schedule
+    early = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
+    first_two = [r for r in site_2026() if r["releaseDate"][:10] in ("2026-11-03", "2026-11-10")]
+    lake2 = Lake(tmp_path / "second", clock=Clock(early))
+    ingest_season(lake2, 2026, fetched(lake2, first_two, early), SCHEDULE, ALIASES, espn_2026(), "espn", {})
+    assert sorted(set(lake2.scan("committee_releases").collect()["release_id"].to_list())) == [
+        "cfp-2026-01",
+        "cfp-2026-02",
+    ]
+
+
+def test_finding_or_losing_a_capture_later_writes_no_correction(tmp_path: Path) -> None:
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    _ingest(lake, site_2026(), espn_2026(), {})
+    capture = Capture(
+        datetime(2026, 11, 11, 9, 0, tzinfo=UTC), "https://web.archive.org/x", lake.put_raw(b"page")
+    )
+    for captures in ({date(2026, 11, 10): capture}, {}):
+        again = _ingest(lake, site_2026(), espn_2026(), captures)
+        assert (again.new, again.corrected, again.unchanged) == (0, 0, 100)
+    stored = lake.scan("committee_releases").collect()
+    assert stored["correction_version"].max() == 0
+    assert set(stored.filter(pl.col("release_id") == "cfp-2026-02")["vintage"].to_list()) == {"reconstructed"}
+
+
+def test_schedule_row_without_a_source_is_refused(tmp_path: Path) -> None:
+    header = "season,release_date,show_date,show_start_et,basis,source_url,quote,notes\n"
+    path = tmp_path / "reveals.csv"
+    path.write_text(header + "2026,2026-12-01,2026-12-01,19:00,,,,\n")
+    with pytest.raises(SourceError, match="no source"):
+        load_schedule(path)
+    path.write_text(header + "2026,2026-12-01,2026-12-01,,,,,\n")
+    assert load_schedule(path) == {}
+
+
+def test_old_seasons_cannot_be_ingested_without_cfbd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """There is no switch that lets a 2014-25 season through on a weaker check."""
+    from cfp.cli import build_parser
+    from cfp.ingest import run
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["ingest", "releases", "--season", "2025", "--second", "espn"])
+    lake = Lake(tmp_path, clock=Clock(NOW))
+    body = (FIX / "cfp_site_rankings_2025_first.json").read_bytes()
+
+    class Site:
+        def get(self, path: str, params: Any = None, reuse: bool = False) -> Fetched:
+            return Fetched("cfp_site", "u", lake.put_raw(body), body, NOW)
+
+    monkeypatch.setattr(run, "public_fetcher", lambda *a, **k: Site())
+    with pytest.raises(ValueError, match="CFBD cross-check"):
+        run.ingest_releases(lake, 2025, ROOT / "data", None)

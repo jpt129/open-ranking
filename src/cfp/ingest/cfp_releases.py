@@ -1,7 +1,7 @@
 """CFP selection committee releases (P02b; DS-01, DS-02, DS-06).
 
 Primary source: the CFP site's own rankings data, one payload per season. Each release must have exactly
-25 rows, a scheduled show start from the hand-verified schedule, every team name resolved through the alias
+25 rows, a scheduled show start from the sourced schedule file, every team name resolved through the alias
 list, and agreement with a second source. Anything else fails the ingest.
 
 Vintage (John, 2026-11-25): "live" when we captured the release ourselves within seven days of the reveal;
@@ -16,7 +16,7 @@ import gzip
 import html
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -38,6 +38,7 @@ ROWS = 25
 WINDOW = timedelta(days=7)
 WAYBACK_PAGES = ("collegefootballplayoff.com/rankings.aspx", "collegefootballplayoff.com/rankings")
 MAX_CAPTURES_TRIED = 6
+ARCHIVE_COLUMNS = ("archive_capture_utc", "archive_raw_hash")
 ESPN_COMMITTEE = "cfp"
 CFBD_COMMITTEE = "Playoff Committee Rankings"
 
@@ -91,7 +92,7 @@ def parse_site(payload: Any, season: int) -> list[Release]:
 
 
 def load_schedule(path: Path | str) -> dict[date, Reveal]:
-    """Hand-verified show starts, keyed by the release date as the CFP site prints it.
+    """Sourced show starts, keyed by the release date as the CFP site prints it. Every row needs a source.
 
     Columns: release_date, show_date (the day the show aired, where the site's date is wrong),
     show_start_et (HH:MM Eastern), basis, source_url.
@@ -107,6 +108,8 @@ def load_schedule(path: Path | str) -> dict[date, Reveal]:
             start = datetime(day.year, day.month, day.day, hour, minute, tzinfo=ET).astimezone(UTC)
             if key in out:
                 raise SourceError(f"reveal schedule lists {key} twice")
+            if not row["basis"].strip() or not row["source_url"].startswith("https://"):
+                raise SourceError(f"reveal schedule row {key} has a time but no source")
             out[key] = Reveal(start, row["basis"], row["source_url"])
     return out
 
@@ -193,9 +196,9 @@ def page_matches(page: str, names: Sequence[str]) -> bool:
     """True if the page lists the names as ranks 1..25, in order."""
     text, position = page_text(page), 0
     for rank, name in enumerate(names, start=1):
-        found = re.compile(rf"(?<![\d#.-]){rank}\W{{0,3}}{re.escape(name)}(?![A-Za-z])").search(
-            text, position
-        )
+        # the name must end there: "3. Texas A&M" is not "Texas"
+        pattern = rf"(?<![\d#.-]){rank}\W{{0,3}}{re.escape(name)}(?=\s*(?:[\d(]|$))"
+        found = re.compile(pattern).search(text, position)
         if found is None:
             return False
         position = found.end()
@@ -295,14 +298,21 @@ def ingest_season(
 ) -> UpsertResult:
     """Validate every release of a season, cross-check each one, then write. Nothing is written on failure."""
     rows: list[dict[str, Any]] = []
-    for release in parse_site(site.json(), season):
+    releases = {release.day: release for release in parse_site(site.json(), season)}
+    # Release numbers come from the schedule, so a release missing from the payload cannot shift the rest.
+    planned = sorted(day for day in schedule if day.year == season)
+    overdue = [d for d in planned if schedule[d].show_start <= site.fetched_at and d not in releases]
+    if overdue:
+        raise SourceError(f"cfp_site: {season} payload lacks releases already shown: {overdue}")
+    for day in sorted(releases):
+        if day not in schedule:
+            raise MissingSource(f"cfp-{season} ({day}): no sourced show start in the schedule")
+        release = replace(releases[day], release_no=planned.index(day) + 1)
         ids = resolve(release, aliases)
-        if release.day not in schedule:
-            raise MissingSource(
-                f"{release.release_id} ({release.day}): no verified show start in the schedule"
-            )
-        cross_check(release, ids, second.get(release.day), second_name)
-        rows += release_rows(release, ids, schedule[release.day], site, captures.get(release.day))
+        cross_check(release, ids, second.get(day), second_name)
+        rows += release_rows(release, ids, schedule[day], site, captures.get(day))
     spec = TABLES["committee_releases"]
     schema = {k: v for k, v in spec.schema.items() if k not in ("correction_version", "ingest_time")}
-    return upsert(lake, "committee_releases", pl.DataFrame(rows, schema=schema), site.fetched_at, "observed")
+    frame = pl.DataFrame(rows, schema=schema)
+    # Whether an archived copy was found is provenance of the first write, not a change to the release.
+    return upsert(lake, "committee_releases", frame, site.fetched_at, "observed", ignore=ARCHIVE_COLUMNS)

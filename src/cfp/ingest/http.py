@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 from cfp.common.timeutil import require_utc, utc_now
 from cfp.ingest.errors import BudgetExceeded, SourceError, StageOverrun
@@ -39,12 +39,25 @@ class Response:
 Transport = Callable[[str, Mapping[str, str], float], Response]
 
 
+class _SameHostRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only to https on the same host, so request headers never travel elsewhere."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
+        old, new = urlsplit(req.full_url), urlsplit(newurl)
+        if new.scheme != "https" or new.hostname != old.hostname:
+            raise SourceError(f"refused a redirect from {old.hostname} to {new.scheme}://{new.hostname}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_SameHostRedirects)
+
+
 def urllib_transport(url: str, headers: Mapping[str, str], timeout: float) -> Response:
     if not url.startswith("https://"):
         raise SourceError("only https sources are fetched")
     request = urllib.request.Request(url, headers=dict(headers))
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as reply:
+        with _OPENER.open(request, timeout=timeout) as reply:
             return Response(reply.status, reply.read(), {k.lower(): v for k, v in reply.headers.items()})
     except urllib.error.HTTPError as error:
         return Response(error.code, error.read(), {k.lower(): v for k, v in error.headers.items()})
@@ -87,27 +100,35 @@ class Budget:
     def _month(self) -> str:
         return require_utc(self._clock(), "clock").strftime("%Y-%m")
 
+    def _read(self) -> dict[str, Any]:
+        """The stored counters. A file that exists but cannot be read is an error, never a fresh start."""
+        if not self.path.exists():
+            return {}
+        try:
+            state = json.loads(self.path.read_text())
+        except ValueError as error:
+            raise BudgetExceeded(f"{self.path} is unreadable; refusing to guess the call count") from error
+        if not isinstance(state, dict):
+            raise BudgetExceeded(f"{self.path} is unreadable; refusing to guess the call count")
+        return state
+
     @contextmanager
     def _state(self) -> Iterator[dict[str, Any]]:
+        """Read-modify-write under a lock; the new file replaces the old one in a single step."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a+") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
-            handle.seek(0)
-            text = handle.read()
-            state: dict[str, Any] = json.loads(text) if text.strip() else {}
+        with self.path.with_name(self.path.name + ".lock").open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            state = self._read()
             yield state
-            handle.seek(0)
-            handle.truncate()
-            handle.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
-            handle.flush()
+            tmp = self.path.with_name(self.path.name + ".tmp")
+            tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+            tmp.replace(self.path)
 
     def used(self, source: str) -> int:
-        with self._state() as state:
-            return int(state.get(source, {}).get(self._month(), {}).get("calls", 0))
+        return int(self._read().get(source, {}).get(self._month(), {}).get("calls", 0))
 
     def stage_used(self, source: str, stage: str) -> int:
-        with self._state() as state:
-            return int(state.get(source, {}).get(self._month(), {}).get("stages", {}).get(stage, 0))
+        return int(self._read().get(source, {}).get(self._month(), {}).get("stages", {}).get(stage, 0))
 
     def sync(self, source: str, used: int) -> int:
         """Raise the counter to the source's own figure when that is higher. Returns the counter."""
@@ -195,11 +216,17 @@ class Fetcher:
         base = path if path.startswith("https://") else f"{self.base_url}/{path.lstrip('/')}"
         return f"{base}?{urlencode(query)}" if query else base
 
+    def _secrets(self) -> list[str]:
+        """Secret values this fetcher sends: named query parameters and any Authorization header."""
+        values = list(self._secret_params.values())
+        values += [
+            v.removeprefix("Bearer ") for k, v in self._headers.items() if k.lower() == "authorization"
+        ]
+        return [value for value in values if len(value) >= 8]
+
     def _scrub(self, text: str) -> str:
-        for value in [*self._secret_params.values(), *self._headers.values()]:
-            if len(value) >= 8:
-                text = text.replace(value, REDACTED)
-                text = text.replace(value.removeprefix("Bearer "), REDACTED)
+        for secret in self._secrets():
+            text = text.replace(secret, REDACTED).replace(quote(secret, safe=""), REDACTED)
         return text
 
     def lookup(self, public_url: str) -> Fetched | None:
@@ -253,6 +280,8 @@ class Fetcher:
 
     def _archive(self, public_url: str, body: bytes) -> Fetched:
         at = require_utc(self._clock(), "clock")
+        if any(secret.encode() in body for secret in self._secrets()):
+            raise SourceError(f"{self.source}: the response echoes a secret; not archived")
         raw_hash = self.lake.put_raw(body)
         entry = {
             "source": self.source,

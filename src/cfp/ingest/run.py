@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
 import polars as pl
 
-from cfp.common.timeutil import utc_now
 from cfp.ingest import cfbd_normalize as norm
 from cfp.ingest import cfp_releases as rel
 from cfp.ingest.cfbd import Cfbd
 from cfp.ingest.errors import CrossCheckFailed
 from cfp.ingest.http import Budget, Fetcher, TokenBucket
-from cfp.ingest.upsert import UpsertResult, upsert
+from cfp.ingest.upsert import CorrectionPublic, UpsertResult, upsert
 from cfp.store.lake import Lake
 
 # A plain client name; no contact details are sent to third parties.
@@ -22,6 +22,15 @@ AGENT = {"User-Agent": "Mozilla/5.0 (compatible; research-client)", "Accept": "*
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/football/college-football"
 ESPN_REGULAR_WEEKS = range(8, 17)
 UNMETERED = 100_000
+LIVE_SEASON = 2026
+# Calls per season: games (regular, postseason), rankings; reference payloads; lines (regular, postseason).
+CALLS = {"games": 2, "rankings": 1, "reference": 3, "lines": 2}
+
+
+@dataclass
+class SeasonReport:
+    results: list[UpsertResult] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 def public_fetcher(lake: Lake, source: str, base_url: str, rate: float = 1.0) -> Fetcher:
@@ -59,26 +68,27 @@ def cfbd_committee(cfbd: Cfbd, season: int, releases: Sequence[rel.Release]) -> 
     return {release.day: ids for release, ids in zip(releases, lists, strict=True)}
 
 
-def ingest_releases(
-    lake: Lake, season: int, data_dir: Path, second: str, cfbd: Cfbd | None = None
-) -> UpsertResult:
-    """Fetch one season's releases, cross-check each against `second`, look for archived copies, write."""
+def ingest_releases(lake: Lake, season: int, data_dir: Path, cfbd: Cfbd | None = None) -> UpsertResult:
+    """Fetch one season's releases, cross-check each one, look for archived copies, write.
+
+    John, 2026-11-25: 2014-25 are checked against CFBD, the live season against a second source (ESPN).
+    There is no way to choose a weaker check.
+    """
     schedule = rel.load_schedule(data_dir / "cfp_reveals.csv")
     aliases = rel.load_aliases(data_dir / "aliases_cfp_site.csv")
     site = public_fetcher(lake, "cfp_site", rel.SITE).get("/api/v2/rankings", {"year": season})
     releases = rel.parse_site(site.json(), season)
-    if second == "espn":
-        other = espn_committee(public_fetcher(lake, "espn", ESPN), season)
-    elif second == "cfbd" and cfbd is not None:
-        other = cfbd_committee(cfbd, season, releases)
+    if season >= LIVE_SEASON:
+        second, other = "espn", espn_committee(public_fetcher(lake, "espn", ESPN), season)
+    elif cfbd is not None:
+        second, other = "cfbd", cfbd_committee(cfbd, season, releases)
     else:
-        raise ValueError(f"unknown second source {second!r}")
+        raise ValueError(f"{season}: releases before {LIVE_SEASON} need the CFBD cross-check")
     wayback = public_fetcher(lake, "wayback", "https://web.archive.org", rate=0.5)
     captures: dict[date, rel.Capture] = {}
-    now = utc_now()
     for release in releases:
         reveal = schedule.get(release.day)
-        if reveal is None or rel.vintage_for(reveal.show_start, now, None) == "live":
+        if reveal is None or rel.vintage_for(reveal.show_start, site.fetched_at, None) == "live":
             continue  # a missing time fails in ingest_season; our own timely capture needs no archive
         found = rel.find_capture(wayback, release, reveal.show_start)
         if found is not None:
@@ -86,47 +96,49 @@ def ingest_releases(
     return rel.ingest_season(lake, season, site, schedule, aliases, other, second, captures)
 
 
-LIVE_SEASON = 2026
-# Calls per season: games (regular, postseason), rankings; reference payloads; lines (regular, postseason).
-CALLS = {"games": 2, "rankings": 1, "reference": 3, "lines": 2}
-
-
-def ingest_cfbd_season(lake: Lake, cfbd: Cfbd, season: int, what: Sequence[str]) -> list[UpsertResult]:
+def ingest_cfbd_season(lake: Lake, cfbd: Cfbd, season: int, what: Sequence[str]) -> SeasonReport:
     """One season from CFBD. `what` is any of games, rankings, reference, lines.
 
-    The live season is vintage "live": a result first seen for a game we already held becomes public at the
-    moment we saw it. Everything else, including the first catch-up of games already played, carries the
-    rule-based time; earlier seasons are "reconstructed".
+    In the live season a change to a row we already hold becomes public at the moment the payload showing
+    it was fetched. Past seasons are fetched once and carry rule-based times.
     """
-    live = season >= LIVE_SEASON
-    vintage = "live" if live else "reconstructed"
+    live = season == LIVE_SEASON
     reuse = not live  # finished seasons are fetched once; the raw payload is the record
-    results: list[UpsertResult] = []
-    now = utc_now()
+    how: CorrectionPublic = "observed" if live else "asserted"
+    report = SeasonReport()
     if "reference" in what:  # archived raw for P03 (identity, membership); not normalized here
         cfbd.teams(season, reuse=reuse)
         cfbd.conferences(reuse=reuse)
         cfbd.calendar(season, reuse=reuse)
     if "games" in what:
-        held = set(lake.scan("games").filter(pl.col("season") == season).collect()["game_id"].to_list())
+        frames, seen_at = [], []
         for season_type in norm.SEASON_TYPES:
-            scheduled, final = norm.game_rows(cfbd.games(season, season_type, reuse=reuse), vintage)
-            seen_before = pl.col("game_id").is_in(sorted(held))
-            # a game we already hold that is now final gets only its final row, or it would flip back
-            finished = pl.col("game_id").is_in(final["game_id"].to_list())
-            pending = scheduled.filter(~(seen_before & finished))
-            results.append(upsert(lake, "games", pending, now, "observed" if live else "asserted"))
-            results.append(upsert(lake, "games", final.filter(~seen_before), now, "asserted"))
-            results.append(
-                upsert(lake, "games", final.filter(seen_before), now, "observed" if live else "asserted")
-            )
+            got = cfbd.games(season, season_type, reuse=reuse)
+            rows, left_out = norm.game_rows(got, live)
+            frames.append(rows)
+            seen_at.append(got.fetched_at)
+            if left_out:
+                report.notes.append(
+                    f"{season} {season_type}: {len(left_out)} games left out (unplayed or no score)"
+                )
+        games = pl.concat(frames)  # one upsert: a game listed in both payloads fails loudly
+        held = lake.scan("games").filter(pl.col("season") == season)
+        latest = pl.col("correction_version") == pl.col("correction_version").max().over("game_id")
+        finals = held.filter(latest & (pl.col("status") == "final")).collect()["game_id"].to_list()
+        reverted = games.filter((pl.col("status") == "scheduled") & pl.col("game_id").is_in(finals))
+        if reverted.height:  # never un-finalise a game on the source's say-so; a person records a correction
+            report.notes.append(f"{season}: source no longer marks as final: {reverted['game_id'].to_list()}")
+            games = games.filter(~pl.col("game_id").is_in(reverted["game_id"].to_list()))
+        report.results.append(upsert(lake, "games", games, max(seen_at), how))
     if "rankings" in what:
-        games = lake.scan("games").filter((pl.col("season") == season) & (pl.col("season_type") == "regular"))
-        kickoffs = games.select("week", "start_utc").unique().collect().rows()
-        polls = norm.poll_rows(cfbd.rankings(season, "regular", reuse=reuse), kickoffs, vintage)
-        results.append(upsert(lake, "polls", polls, now, "observed" if live else "asserted"))
+        regular = lake.scan("games").filter(
+            (pl.col("season") == season) & (pl.col("season_type") == "regular")
+        )
+        kickoffs = regular.select("week", "start_utc").unique().collect().rows()
+        got = cfbd.rankings(season, "regular", reuse=reuse)
+        report.results.append(upsert(lake, "polls", norm.poll_rows(got, kickoffs, live), got.fetched_at, how))
     if "lines" in what:
         for season_type in norm.SEASON_TYPES:
-            lines = norm.line_rows(cfbd.lines(season, season_type, reuse=reuse), vintage)
-            results.append(upsert(lake, "lines", lines, now, "observed" if live else "asserted"))
-    return results
+            got = cfbd.lines(season, season_type, reuse=reuse)
+            report.results.append(upsert(lake, "lines", norm.line_rows(got, live), got.fetched_at, how))
+    return report
