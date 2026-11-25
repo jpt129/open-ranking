@@ -33,6 +33,7 @@ def row(game_id: str, home: str, away: str, home_pts: int, away_pts: int, **over
         "away_conf": CONF.get(away),
         "ordinary_fbs": True,
         "margin_excluded": False,
+        "title_game": False,
     }
     return base | over
 
@@ -51,6 +52,7 @@ def frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
         "away_conf": pl.String,
         "ordinary_fbs": pl.Boolean,
         "margin_excluded": pl.Boolean,
+        "title_game": pl.Boolean,
     }
     return pl.DataFrame(rows, schema=schema)
 
@@ -124,7 +126,7 @@ def test_fit_solves_the_ridge_normal_equations() -> None:
         assert got.theta[team] == pytest.approx(beta[index[team]] + league, abs=1e-9)
 
 
-def test_independents_penalty_is_combined_by_default_and_team_only_on_request() -> None:
+def test_independent_penalty() -> None:
     games = frame(season(noise=4.0))
     combined = fit(games, PARAMS)
     team_only = fit(games, Params(lambda_c=2.0, lambda_u=0.5, independent_penalty="team"))
@@ -136,7 +138,7 @@ def test_independents_penalty_is_combined_by_default_and_team_only_on_request() 
         fit(games, Params(lambda_c=2.0, lambda_u=0.5, independent_penalty="none"))  # type: ignore[arg-type]
 
 
-def test_a_teams_own_games_do_not_change_the_fit_used_to_grade_it() -> None:
+def test_fit_excludes_team_games() -> None:
     rows = season(noise=4.0)
     base = fit(frame(rows), PARAMS, exclude="E2")
     assert "E2" not in base.theta
@@ -172,7 +174,7 @@ def test_neutral_reversal_symmetry() -> None:
     )  # a true home game adds the site term
 
 
-def test_margins_are_capped_at_24() -> None:
+def test_margin_cap_24() -> None:
     rows = season(noise=4.0)
     blowout = [row("x", "E1", "W4", 70, 0), row("y", "W4", "E1", 0, 63)]
     capped = [row("x", "E1", "W4", 24, 0), row("y", "W4", "E1", 0, 24)]
@@ -220,3 +222,28 @@ def test_fit_all_gives_one_fold_per_team_within_budget() -> None:
     assert elapsed < 1.0, f"136 fits took {elapsed:.2f}s"
     assert same(folds["T007"], fit(games, PARAMS, exclude="T007"))
     assert "T007" not in folds["T007"].theta
+
+
+def test_title_game_site_from_data() -> None:
+    """OR-02b: a title game on a campus carries the home term; only a neutral field has none."""
+    rows = season(noise=4.0)
+    campus = fit(frame([*rows, row("title", "E1", "E2", 27, 24, title_game=True)]), PARAMS)
+    neutral = fit(frame([*rows, row("title", "E1", "E2", 27, 24, title_game=True, neutral=True)]), PARAMS)
+    assert not same(campus, neutral)
+    assert campus.n_games == neutral.n_games == 91  # either way the title game is in the fit
+
+
+def test_no_prior_year_inputs() -> None:
+    """OR-02(g): the fit takes one season's games and penalties, and nothing else."""
+    import dataclasses
+    import inspect
+
+    assert list(inspect.signature(fit).parameters) == ["games", "params", "exclude"]
+    assert [f.name for f in dataclasses.fields(Params)] == [
+        "lambda_c",
+        "lambda_u",
+        "cap",
+        "independent_penalty",
+    ]
+    rows = season(noise=4.0)
+    assert same(fit(frame(rows), PARAMS), fit(frame(rows).with_columns(season=pl.lit(2019)), PARAMS))
