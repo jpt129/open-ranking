@@ -132,9 +132,7 @@ def _ingest_odds(args: argparse.Namespace) -> int:
     got = api.odds()
     rows, report = line_rows(got, team_ids, lake.scan("games").collect())
     result = upsert(lake, "lines", rows, got.fetched_at, "observed")
-    print(
-        f"lines: new={result.new} from {report.games} games; credits this month {api.used()}/{MONTHLY_CREDITS}"
-    )
+    print(f"lines: new={result.new} from {report.games} games; credits {api.used()}/{MONTHLY_CREDITS}")
     for line in report.unmatched:
         print(f"  not matched: {line}")
     return 0
