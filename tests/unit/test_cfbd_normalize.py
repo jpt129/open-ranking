@@ -367,3 +367,62 @@ def test_recorded_lines(tmp_path: Path) -> None:
     assert rows["spread"].null_count() < rows.height
     assert (rows["first_public_time"] > rows["as_of_utc"]).all()
     upsert(lake, "lines", rows, NOW, "asserted")
+
+
+# --- AP votes outside the top 25, from ESPN (SC-03) ---------------------------------
+
+
+def _espn_ap(points_shift: int = 0, others: list[tuple[int, int]] | None = None) -> bytes:
+    import json
+
+    ranks = [
+        {
+            "current": r,
+            "points": 1600 - 50 * r + points_shift,
+            "team": {"id": str(100 + r), "location": f"S{r}"},
+        }
+        for r in range(1, 26)
+    ]
+    rows = [{"current": 0, "points": p, "team": {"id": str(i), "location": "x"}} for i, p in others or []]
+    payload = {"rankings": [{"type": "cfp", "ranks": []}, {"type": "ap", "ranks": ranks, "others": rows}]}
+    return json.dumps(payload).encode()
+
+
+def test_ap_others_take_the_week_and_public_time_of_the_matching_stored_poll(tmp_path: Path) -> None:
+    import polars as pl
+
+    from cfp.ingest.errors import SourceError
+    from cfp.ingest.espn_polls import others_rows
+    from cfp.ingest.http import Fetched
+
+    lake = Lake(tmp_path / "lake")
+    public = datetime(2026, 11, 24, 22, 0, tzinfo=UTC)
+    stored = pl.DataFrame(
+        {
+            "season": [2026] * 50,
+            "week": [12] * 25 + [13] * 25,
+            "team_id": [f"cfbd-{100 + r}" for r in range(1, 26)] * 2,
+            "rank": list(range(1, 26)) * 2,
+            "points": [1500 - 50 * r for r in range(1, 26)] + [1600 - 50 * r for r in range(1, 26)],
+            "first_public_time": [public - timedelta(days=7)] * 25 + [public] * 25,
+        }
+    )
+    ids = {100 + r: f"cfbd-{100 + r}" for r in range(1, 26)} | {300: "cfbd-300", 301: "cfbd-301"}
+
+    def got(body: bytes) -> Fetched:
+        return Fetched(
+            "espn", "https://example.test/rankings", lake.put_raw(body), body, public + timedelta(hours=1)
+        )
+
+    rows = others_rows(got(_espn_ap(others=[(300, 40), (999, 31), (301, 2)])), stored, ids, live=True)
+    assert rows.select("team_id", "points", "week").rows() == [("cfbd-300", 40, 13), ("cfbd-301", 2, 13)]
+    assert rows["rank"].null_count() == 2
+    assert rows["others_votes"].all()
+    assert set(rows["first_public_time"]) == {public}
+    assert set(rows["vintage"]) == {"live"}
+    with pytest.raises(SourceError, match="matches 0 stored polls"):
+        others_rows(got(_espn_ap(points_shift=1, others=[(300, 40)])), stored, ids, live=True)
+    with pytest.raises(SourceError, match="not matched"):
+        others_rows(got(_espn_ap(others=[(300, 40)])), stored, {300: "cfbd-300"}, live=True)
+    with pytest.raises(SourceError, match="no votes outside"):
+        others_rows(got(_espn_ap()), stored, ids, live=True)

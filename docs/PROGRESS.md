@@ -119,3 +119,24 @@ Open
 
 Next prompt: P15 (bracket rules) and P23 (baselines), then P05–P08.
 
+## 2026-11-25 — P15 (observations and baselines), P23 (issue pipeline and proof), cloud captures
+
+Done
+- Cloud capture: private `jpt129/open-ranking-data` runs markets and odds hourly on GitHub Actions (both verified).
+- `cfp.forecast`: cutoffs, observations, tiebreak draw, Baseline 1 and 2, and `build_issue`.
+- `cfp.release`: canonical edition bytes, input IDs, write-once edition folders, RFC 3161 request and check, signed-tag commands, post text.
+- Commands: `cfp ingest ap-others`, `cfp forecast draw`, `cfp forecast issue`.
+- Data: 2026 AP votes outside the top 25 (weeks 2–13); `data/preseason_draw_2026.csv`.
+- Dry run on real data in a scratch copy (nothing written to `lake/editions`): last week's release forecast, Baseline 2 22/25.
+- Both timestamp authorities granted a token for the dry-run hash; local tag signing works.
+
+Tests: 295 passed. ruff, mypy (47 files), lint-imports (5 kept) clean.
+
+Open
+- Sunday's issue needs, before 02:00 ET: a CFBD games ingest after the last final, `cfp ingest ap-others` is not needed again until the next AP poll (Sunday afternoon, before Issue 2).
+- The signed tag proves nothing publicly until the repository is public and the tag is pushed (`--push`).
+- Issue runs still depend on John's Mac; an Actions job for issues is not built.
+- Rank-noise temperature; open points (after P05–P08).
+
+Next prompt: P11-lite, then P05–P08 (the ledger).
+

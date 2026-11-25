@@ -279,3 +279,27 @@ Accepted, not changed:
 - **Issue runs (P16/P17).** The issue pipeline is to be built to run on Actions as well as locally: scheduled ahead of the cutoff, with the cutoff enforced by the store's `as_of`, never by when the job starts. A job that starts late must fail loudly, not issue late.
 - John keeps the Mac awake as the primary (`pmset`), since the local copy also holds CFBD data.
 
+## 2026-11-25 — P15 (observations, baselines) and P23 (issue pipeline, proof)
+
+John approved both plans and these five choices:
+1. **AP votes outside the top 25 come from ESPN** (SC-03). CFBD stores only the ranked 25. `cfp ingest ap-others` reads ESPN's "others receiving votes" and accepts a poll only when its ranked 25, team by team and point by point, equal an AP poll already stored from CFBD; the new rows take that poll's week and public time. Votes for a school that is not a tracked FBS team are skipped. 2026 weeks 2–13 are loaded; earlier seasons are not (DATA_GAPS).
+2. **Open points are absent until the ledger exists.** Baseline 2 then orders teams with equal AP votes by the draw alone, and the edition lists `open_points` under `missing_inputs`.
+3. **The tiebreak draw was not published before the season.** `data/preseason_draw_2026.csv` was generated and committed on 25 Nov 2026. A team's place is the rank of SHA-256("open-ranking tiebreak draw 2026|<team_id>"), so the phrase is the recorded seed and any language reproduces it. A published draw is never redrawn.
+4. **Timestamp authorities:** FreeTSA, then DigiCert. Only the edition's SHA-256 is sent. Both granted a token for a dry-run hash on 25 Nov.
+5. **Rank-noise temperature is deferred** until open points exist for past seasons. Until then a baseline is an order without probabilities, and the edition lists `rank_noise_temperature` under `missing_inputs`.
+
+Choices made while building (Claude):
+- **SC-03 "sort by adjusted position, then original order"** is applied literally. A team at 3 with two losses has adjusted position 13 and sorts ahead of the team that started 13th, so it lands 12th: its adjusted position moves ten, its final place nine. `test_baseline2_two_losses_move_ten` pins both numbers.
+- **"Losses since that release"** are losses in final games that kicked off after the prior release's reveal time. On the opening week the anchor is the latest AP poll, and losses count from that poll's week (the week-N poll follows week N-1's games). Losses to any opponent count, FCS included.
+- **Which release is forecast** comes from the sourced reveal schedule. If the schedule says an earlier release exists and the store does not hold all 25 rows of it at the cutoff, the issue is refused; it never falls back to an older release.
+- **SC-02a:** Sunday 02:00 is taken in standard time when the clocks go back that morning (07:00 UTC, not 06:00).
+- **Issue window (P23):** a live issue is refused before its cutoff (inputs incomplete) and at or after the reveal. It runs just after the cutoff and reads everything through `as_of(cutoff, live)`, so anything ingested after the cutoff is invisible. This replaces the earlier note that a job starting after its cutoff must fail: starting after the cutoff is the normal case; starting after the reveal is the failure.
+- **The edition is one canonical JSON document** with no wall-clock time in it, so the same inputs and the same code commit give the same bytes. The time of issue, the tag name and the timestamp authority are in `receipt.json` beside it. `code_hash` is the git commit, with `-dirty` appended if the tree has uncommitted changes.
+- **Input IDs** are, per table, the count and a SHA-256 over each visible row's key, correction version and raw payload hash; `ingest_time` is left out so a second store holding the same rows gives the same edition.
+- **Edition IDs:** `scw-<season>-r<release number>-<issue>-e<revision>`. A folder that exists is never rewritten; a correction is `--revision 2`.
+- **A replay is never prospective.** `prospective_eligible` is true only for a live issue whose label had not leaked.
+- **`--now`** (a frozen clock) exists for tests and dry runs and cannot be combined with a proof.
+- The headline forecast of an edition is Baseline 2 until the fitted model (P16) exists; the edition says so in `headline_forecast`.
+
+Dry run (scratch copy, replay mode): forecasting the 24 Nov release from the 22 Nov cutoff, Baseline 2 had 22 of the committee's 25 teams with mean rank error 1.64 on those; Baseline 1 had 21 with 2.52.
+

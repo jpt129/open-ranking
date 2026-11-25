@@ -22,4 +22,7 @@ Missing sources, unknown vintages and unverified inputs. A missing input removes
 | 2026-11-25 | 2026 conference title pairings | Seven of ten 2026 title games have at least one participant undecided as of 25 Nov. | Their rows in `data/title_games.csv` have blank teams; fill them in after 28 Nov. A snapshot cut more than three days after a game date blocks until they are. | open — due before Issue 3 |
 | 2026-11-25 | Title-game list sourcing | 2014–25 rows rest on ESPN's scoreboard, not conference releases; three 2026 conference-release URLs were not opened. | The list agrees with CFBD on every pairing and site flag, but CFBD and ESPN are not independent. | open — low |
 | 2026-11-25 | 2020 games never played | FBS-vs-FCS games added in the fall of 2020 may be incomplete; `no_contest` status is by conference policy. | Only the omissions log of a 2020 replay is affected. | open — low |
+| 2026-11-25 | AP votes outside the top 25, 2014–2025 | Only 2026 weeks 2–13 are loaded from ESPN. | Baseline 2 cannot be replayed for earlier seasons, so its rank-noise temperature cannot be fitted yet. | open — needed for P16/P25 |
+| 2026-11-25 | Open points at forecast issues | The ledger (P05–P08) is not built. | Baseline 2 runs without its third ordering key; editions list it under `missing_inputs`. | open — closes with P08 |
+| 2026-11-25 | Tiebreak draw | Published 25 Nov 2026, not before the season. | Disclosed; the draw depends only on a recorded phrase. | closed |
 
