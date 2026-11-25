@@ -1,0 +1,363 @@
+{
+ "brier": 0.183351,
+ "cap": 24,
+ "code_hash": "4b235dd45f7a588b1147bacc5ad5b1c3882dc476",
+ "first_week": 8,
+ "grid": {
+  "lambda_c": [
+   0.25,
+   0.5,
+   1.0,
+   2.0,
+   4.0,
+   8.0,
+   16.0,
+   32.0
+  ],
+  "lambda_u": [
+   0.25,
+   0.5,
+   1.0,
+   2.0,
+   4.0,
+   8.0,
+   16.0,
+   32.0
+  ],
+  "t": [
+   3.0,
+   3.25,
+   3.5,
+   3.75,
+   4.0,
+   4.25,
+   4.5,
+   4.75,
+   5.0,
+   5.25,
+   5.5,
+   5.75,
+   6.0,
+   6.25,
+   6.5,
+   6.75,
+   7.0,
+   7.25,
+   7.5,
+   7.75,
+   8.0,
+   8.25,
+   8.5,
+   8.75,
+   9.0,
+   9.25,
+   9.5,
+   9.75,
+   10.0,
+   10.25,
+   10.5,
+   10.75,
+   11.0,
+   11.25,
+   11.5,
+   11.75,
+   12.0,
+   12.25,
+   12.5,
+   12.75,
+   13.0,
+   13.25,
+   13.5,
+   13.75,
+   14.0,
+   14.25,
+   14.5,
+   14.75,
+   15.0,
+   15.25,
+   15.5,
+   15.75,
+   16.0,
+   16.25,
+   16.5,
+   16.75,
+   17.0,
+   17.25,
+   17.5,
+   17.75,
+   18.0,
+   18.25,
+   18.5,
+   18.75,
+   19.0,
+   19.25,
+   19.5,
+   19.75,
+   20.0
+  ]
+ },
+ "independent_penalty": "combined",
+ "inputs_used": "game results only; no committee ranking, poll or betting line",
+ "lambda_c": 4.0,
+ "lambda_u": 4.0,
+ "log_loss": 0.541997,
+ "n_games": 4132,
+ "not_done": [
+  "closing-line comparison",
+  "leave-one-game-out diagnostic",
+  "public adoption review"
+ ],
+ "objective": "pooled log loss of rolling pregame predictions of FBS-v-FBS results",
+ "out_of_sample": [
+  {
+   "brier": 0.166905,
+   "lambda_c": 8.0,
+   "lambda_u": 4.0,
+   "log_loss": 0.499685,
+   "n": 370,
+   "season": 2018,
+   "t": 5.5,
+   "trained_on": [
+    2015,
+    2016,
+    2017
+   ],
+   "venue_only_brier": 0.241039,
+   "venue_only_log_loss": 0.675114
+  },
+  {
+   "brier": 0.172116,
+   "lambda_c": 8.0,
+   "lambda_u": 4.0,
+   "log_loss": 0.515157,
+   "n": 395,
+   "season": 2019,
+   "t": 5.5,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018
+   ],
+   "venue_only_brier": 0.242214,
+   "venue_only_log_loss": 0.677491
+  },
+  {
+   "brier": 0.184678,
+   "lambda_c": 8.0,
+   "lambda_u": 4.0,
+   "log_loss": 0.549327,
+   "n": 365,
+   "season": 2020,
+   "t": 5.25,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019
+   ],
+   "venue_only_brier": 0.244611,
+   "venue_only_log_loss": 0.682329
+  },
+  {
+   "brier": 0.188356,
+   "lambda_c": 8.0,
+   "lambda_u": 4.0,
+   "log_loss": 0.553367,
+   "n": 364,
+   "season": 2021,
+   "t": 5.25,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020
+   ],
+   "venue_only_brier": 0.244148,
+   "venue_only_log_loss": 0.681395
+  },
+  {
+   "brier": 0.201528,
+   "lambda_c": 4.0,
+   "lambda_u": 4.0,
+   "log_loss": 0.591599,
+   "n": 359,
+   "season": 2022,
+   "t": 5.5,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021
+   ],
+   "venue_only_brier": 0.248545,
+   "venue_only_log_loss": 0.690235
+  },
+  {
+   "brier": 0.182691,
+   "lambda_c": 4.0,
+   "lambda_u": 2.0,
+   "log_loss": 0.540738,
+   "n": 374,
+   "season": 2023,
+   "t": 6.5,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022
+   ],
+   "venue_only_brier": 0.246743,
+   "venue_only_log_loss": 0.686618
+  },
+  {
+   "brier": 0.201413,
+   "lambda_c": 4.0,
+   "lambda_u": 2.0,
+   "log_loss": 0.585663,
+   "n": 405,
+   "season": 2024,
+   "t": 6.5,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023
+   ],
+   "venue_only_brier": 0.24171,
+   "venue_only_log_loss": 0.676469
+  },
+  {
+   "brier": 0.181917,
+   "lambda_c": 4.0,
+   "lambda_u": 4.0,
+   "log_loss": 0.538148,
+   "n": 410,
+   "season": 2025,
+   "t": 5.75,
+   "trained_on": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024
+   ],
+   "venue_only_brier": 0.246151,
+   "venue_only_log_loss": 0.685428
+  }
+ ],
+ "reliability": [
+  {
+   "bin": "0.0-0.1",
+   "home_win_rate": 0.075949,
+   "mean_predicted": 0.067581,
+   "n": 79
+  },
+  {
+   "bin": "0.1-0.2",
+   "home_win_rate": 0.174157,
+   "mean_predicted": 0.154452,
+   "n": 178
+  },
+  {
+   "bin": "0.2-0.3",
+   "home_win_rate": 0.264591,
+   "mean_predicted": 0.251147,
+   "n": 257
+  },
+  {
+   "bin": "0.3-0.4",
+   "home_win_rate": 0.338816,
+   "mean_predicted": 0.355743,
+   "n": 304
+  },
+  {
+   "bin": "0.4-0.5",
+   "home_win_rate": 0.416918,
+   "mean_predicted": 0.45047,
+   "n": 331
+  },
+  {
+   "bin": "0.5-0.6",
+   "home_win_rate": 0.546448,
+   "mean_predicted": 0.552619,
+   "n": 366
+  },
+  {
+   "bin": "0.6-0.7",
+   "home_win_rate": 0.64,
+   "mean_predicted": 0.652067,
+   "n": 400
+  },
+  {
+   "bin": "0.7-0.8",
+   "home_win_rate": 0.724311,
+   "mean_predicted": 0.750559,
+   "n": 399
+  },
+  {
+   "bin": "0.8-0.9",
+   "home_win_rate": 0.856808,
+   "mean_predicted": 0.853597,
+   "n": 426
+  },
+  {
+   "bin": "0.9-1.0",
+   "home_win_rate": 0.927152,
+   "mean_predicted": 0.940365,
+   "n": 302
+  }
+ ],
+ "rule_version_id": "or-1.0-pilot",
+ "season": 2026,
+ "snapshot_hashes": {
+  "2015": "4d4611c28b0aa33a6209e9c8bdf59ff1147bd6bec45e553700d82bb4384f8984",
+  "2016": "4b61a5b854fcfb3a1f6d503ec3aadbbdbac7b9a3c21a37be7efcd5a18f9e3ae8",
+  "2017": "1cb7dee1fb629339a3d44c409a401b26d8e87dec54cf33568b8234301ec52dde",
+  "2018": "90434c340585047a37bdd51ec856f61a12e0b2aa3446b9343664c7af3c4f85a1",
+  "2019": "9e97743e172f703c77b04a8fb635c990a93e775febb12a7705d9c79695b7b29b",
+  "2020": "05d86c7b18da32c887b30e1d2061efbd4ac39a8ce0fe6b4d24cf921bda03b662",
+  "2021": "1f68f4bc10560a63e76f4c645f3966df8c1f800e354e1da819bf50b5b3ab5ffe",
+  "2022": "b8a5539c55de673fd843e29ffa615cf307fcd072d64868a79fbf6af16a31629f",
+  "2023": "7b440d60556101bf9837991aa3994d185372b708b0256189cb0770c4edb2db48",
+  "2024": "68bfa9c03ff2af858d787a71372ed734f93e8c1d5293d30d57cefff790ab5533",
+  "2025": "62111aa7677aa7ebf21306e17ee9f54d05db66201538b2a0ab3ca8545ab3bba1"
+ },
+ "status": "provisional",
+ "t": 5.75,
+ "trained_on": [
+  2015,
+  2016,
+  2017,
+  2018,
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "venue_only_brier": 0.244835,
+ "venue_only_log_loss": 0.682781
+}

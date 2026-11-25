@@ -150,11 +150,9 @@ John has since added the CFBD and issuer secrets and made the code repository pu
 
 Built: strength engine, reference band, link, calibration search and report, frozen-parameter files, ledger, ordering. 351 tests pass; ruff, mypy and the five import contracts are clean.
 
-Calibration on 2015–2025 chooses λ_c = 4, λ_u = 4, t = 5.75. Nothing is frozen yet.
+Calibration on 2015–2025 chose λ_c = 4, λ_u = 4, t = 5.75; frozen for 2026 on 25 Nov with John's approval (week-8 start approved). Both reviews done and fixes applied; 355 tests pass.
 
 Waiting on John:
-- Go-ahead to run `cfp calibrate freeze --season 2026` (write-once).
-- Ruling on scoring calibration from week 8 only.
 - Ruling on the "losses since" rule in Baseline 2 (still Claude's reading).
 - Delete `~/issuer_key` (the private key) from this machine if it is still there.
 - 2026 title-game pairings in `data/title_games.csv` after 28 Nov, before Issue 3.
