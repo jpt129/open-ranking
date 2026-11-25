@@ -57,16 +57,16 @@ files = ["src"]
 module = ["scipy.*", "duckdb.*", "pyarrow.*"]
 ignore_missing_imports = true
 
-# --- Dependency boundary (docs/PROPOSAL.md p. 1; final package Part 2) -------
-# cfp.open_ranking may import only cfp.common, cfp.store.views, cfp.snapshot
-# and cfp.rules.
+# --- Dependency boundary (docs/SPEC.md DS-04, OR-12) --------------------------
+# cfp.open_ranking may import only cfp.common, cfp.store.views, cfp.snapshot and cfp.rules. cfp.store.views
+# imports nothing that can open the lake, so the transitive contract can forbid the lake itself.
 [tool.importlinter]
 root_package = "cfp"
 
 [[tool.importlinter.contracts]]
-name = "Open Ranking never reaches forecasts, markets, scoring, gap, ingest or release (transitive)"
+name = "Open Ranking, snapshots and rules never reach the lake, forecasts, markets, scoring, gap, ingest or release"
 type = "forbidden"
-source_modules = ["cfp.open_ranking"]
+source_modules = ["cfp.open_ranking", "cfp.snapshot", "cfp.rules"]
 forbidden_modules = [
     "cfp.forecast",
     "cfp.markets",
@@ -74,6 +74,9 @@ forbidden_modules = [
     "cfp.gap",
     "cfp.ingest",
     "cfp.release",
+    "cfp.store.asof",
+    "cfp.store.lake",
+    "cfp.store.pit",
 ]
 
 [[tool.importlinter.contracts]]
@@ -83,9 +86,8 @@ source_modules = ["cfp.open_ranking"]
 forbidden_modules = [
     "cfp.cli",
     "cfp.identity",
-    "cfp.store.asof",
-    "cfp.store.lake",
     "cfp.store.schemas",
+    "cfp.store.types",
 ]
 allow_indirect_imports = true
 
@@ -94,3 +96,9 @@ name = "Shared foundations do not depend on products"
 type = "forbidden"
 source_modules = ["cfp.common", "cfp.rules", "cfp.snapshot", "cfp.store", "cfp.identity"]
 forbidden_modules = ["cfp.open_ranking", "cfp.forecast", "cfp.markets", "cfp.scoring", "cfp.gap"]
+
+[[tool.importlinter.contracts]]
+name = "The Open Ranking's door (cfp.store.views) cannot open the lake"
+type = "forbidden"
+source_modules = ["cfp.store.views", "cfp.store.types"]
+forbidden_modules = ["cfp.store.asof", "cfp.store.lake", "cfp.store.pit", "cfp.store.schemas"]

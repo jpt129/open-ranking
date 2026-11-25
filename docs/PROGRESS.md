@@ -35,4 +35,12 @@ Open
 - SC-04a (open-points vintage for the Sunday issue) and the forfeit interpretation need John's decision.
 - Scored mode drops only unknown vintage, as the spec says; reconstructed rows are kept and counted in coverage.
 
+### P01 review round (same day)
+
+spec-guardian confirmed six defects in the first P01 commit; all fixed with tests (see DECISIONS.md "P01 store rules"): backdatable ingest_time, non-atomic multi-season batches, unvalidated raw hashes, a bypassable OpenRankingView, weak import contracts, and silent drops in scored mode.
+
+Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src`, `uv run lint-imports` (4 kept, 0 broken), `uv run pytest -q` (129 passed). Budget: as_of over 999,999 lake-backed rows with three corrections per key = 24 ms.
+
+Still to build for DS-04: `test_open_ranking_runs_without_forbidden_tables` (needs editions, P14).
+
 Next prompt: P02a (CFBD client), P02b (CFP releases).

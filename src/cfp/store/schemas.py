@@ -10,6 +10,7 @@ import polars as pl
 TS: Final = pl.Datetime("us", "UTC")
 
 VINTAGES: Final = ("live", "archived_authentic", "reconstructed", "unknown")
+SHA256_HEX: Final = r"^[0-9a-f]{64}$"
 
 # DS-01: source ID, event time, first-public time, ingest time, correction version, raw hash. DS-02: vintage.
 PROVENANCE: Final[dict[str, pl.DataType]] = {
@@ -42,6 +43,10 @@ class TableSpec:
             raise ValueError(f"{self.name}: columns shadow provenance fields: {sorted(overlap)}")
         if not set(self.key) <= set(self.columns):
             raise ValueError(f"{self.name}: key columns missing from schema")
+        if set(self.key) & self.nullable:
+            raise ValueError(f"{self.name}: key columns cannot be nullable")
+        if not self.nullable <= set(self.columns):
+            raise ValueError(f"{self.name}: nullable names unknown columns")
         if self.partition_by_season and "season" not in self.columns:
             raise ValueError(f"{self.name}: partitioned tables need a season column")
         object.__setattr__(self, "schema", pl.Schema({**self.columns, **PROVENANCE}))
@@ -64,10 +69,14 @@ class TableSpec:
         unknown = set(df["vintage"].unique()) - set(VINTAGES)
         if unknown:
             raise SchemaError(f"{self.name}: vintage must be one of {VINTAGES}; got {sorted(unknown)}")
+        if df.filter(~pl.col("raw_hash").str.contains(SHA256_HEX)).height:
+            raise SchemaError(f"{self.name}: raw_hash must be a lowercase SHA-256 hex digest")
         if df.filter(pl.col("correction_version") < 0).height:
             raise SchemaError(f"{self.name}: correction_version must be >= 0")
         if df.filter(pl.col("ingest_time") < pl.col("first_public_time")).height:
-            raise SchemaError(f"{self.name}: ingest_time precedes first_public_time")
+            raise SchemaError(
+                f"{self.name}: ingest_time precedes first_public_time (ingested before it is public)"
+            )
         return df
 
 
