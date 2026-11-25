@@ -144,13 +144,21 @@ Next prompt: P11-lite, then P05–P08 (the ledger).
 
 Done: P15/P23 review findings fixed (304 tests); `scripts/issue.sh`; `issue` workflow in the data repository, rehearsed once.
 
-Blocked on John before Sun 29 Nov 02:00 ET:
-1. Add `CFBD_API_KEY` as a secret on `jpt129/open-ranking-data` (results pull before the cutoff).
-2. Create the issuer key (write deploy key on this repository, private half as the `ISSUER_KEY` secret) so the job can sign and push the tag.
-3. Make this repository public, or the tag proves nothing publicly.
-Then: rerun the rehearsal and confirm all steps pass.
+John has since added the CFBD and issuer secrets and made the code repository public; rehearsal 2 on Actions passed every step.
 
-Also open: local cron entries fail hourly (macOS blocks cron from the Desktop folder); the cloud capture replaces them.
+## 2026-11-25 (evening) — Open Ranking core: P05, P06, P11-lite, P07, P08
 
-Next prompt: P11-lite, then P05–P08.
+Built: strength engine, reference band, link, calibration search and report, frozen-parameter files, ledger, ordering. 351 tests pass; ruff, mypy and the five import contracts are clean.
 
+Calibration on 2015–2025 chooses λ_c = 4, λ_u = 4, t = 5.75. Nothing is frozen yet.
+
+Waiting on John:
+- Go-ahead to run `cfp calibrate freeze --season 2026` (write-once).
+- Ruling on scoring calibration from week 8 only.
+- Ruling on the "losses since" rule in Baseline 2 (still Claude's reading).
+- Delete `~/issuer_key` (the private key) from this machine if it is still there.
+- 2026 title-game pairings in `data/title_games.csv` after 28 Nov, before Issue 3.
+
+Next: review fixes from spec-guardian and numerics-reviewer; Open Ranking release step (edition, manifest hashes); wire open points into the forecast (SC-04a).
+
+Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).

@@ -183,7 +183,7 @@ def test_margin_cap_24() -> None:
     assert not same(fit(frame(rows + blowout), uncapped), fit(frame(rows + capped), uncapped))
 
 
-def test_only_fbs_v_fbs_games_with_usable_margins_enter_the_fit() -> None:
+def test_fcs_excluded_from_fit() -> None:
     rows = season(noise=4.0)
     base = fit(frame(rows), PARAMS)
     extra = [

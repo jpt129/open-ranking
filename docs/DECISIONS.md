@@ -342,3 +342,40 @@ John approved the ledger plan (P05, P06, P11-lite, P07, P08) with two scope cuts
 
 Real-data check with placeholder penalties (not calibrated): 697 games, home advantage 2.2 points, SEC the strongest league. The numbers mean nothing until P11-lite sets the penalties.
 
+
+## 2026-11-25 — P06 (band and link), P11-lite (calibration), P07 (ledger), P08 (ordering)
+
+**P06 (OR-03, OR-04, OR-13).**
+- The band is ranks 1–8 for a 4-team field (through 2023), 9–16 for 12 (2024–26), 21–28 for 24 (2027 on). The field size by season lives in `band.py` until the rules engine (P09) owns it.
+- Band members are ranked by strength, ties by team ID, and summed strongest first.
+- q = Python `round(p·10⁴)`, which rounds halves to even. The boundary flag is set when p·10⁴ is within 1e-6 of a half.
+
+**P11-lite (OR-04, OR-12, VT-07).**
+- Objective: pooled log loss of rolling pregame predictions of FBS-v-FBS results, each game predicted from that season's earlier weeks only. Game results are the only input.
+- Only games from week 8 on are scored, because the first ledger follows week 7 and the link is never used earlier. (Claude's choice; John has not ruled.)
+- A team with no earlier game that season is given its league's effect (zero for an independent).
+- Grid: λ_c and λ_u each in {0.25, 0.5, 1, 2, 4, 8, 16, 32}; t from 3.00 to 20.00 in steps of 0.25. Ties go to the first point in grid order. The freeze command refuses a choice on the edge of the grid.
+- Result on 2015–2025 (4,132 games): λ_c = 4, λ_u = 4, t = 5.75; log loss 0.5420 against 0.6828 for venue only; Brier 0.1834 against 0.2448. Out of sample (each season scored with parameters chosen on earlier seasons) the model beats venue-only in every season 2018–2025. The surface is flat near the minimum: the six best penalty pairs are within 0.0002 log loss.
+- The venue-only benchmark takes its home win rate from the games it is scored on, which flatters it slightly.
+- `frozen/params_<season>.json` is written once by `cfp calibrate freeze`, with its SHA-256 beside it, status "provisional". **Nothing is frozen yet**: the file cannot be rewritten, so it waits for John's go-ahead.
+- `RULE_VERSION_ID = "or-1.0-pilot"`.
+- Not done: closing-line comparison (`test_closing_line_report_outside_boundary`), the leave-one-game-out diagnostic, reliability split by venue and season, the public adoption review.
+
+**P07 (OR-01, OR-05, OR-06, OR-08, OR-11).**
+- For team A: one fit without A's games, the band without A, then one row per game. FBS opponent: win 10000 − q, loss −q, title games and forfeits the same. Forfeit rows are labelled `forfeit`. Non-FBS opponent: win 0, loss −9900, no q.
+- The site of every game, title games included, is the snapshot's neutral flag.
+- An FBS opponent with no fitted strength (no game with a usable margin outside A's) stops the build with an error.
+- `revision_cp` is this edition's points minus the last edition's for the same game; a row new since then has none.
+- Totals are integer sums. No float is stored in a ledger row except through q; the band strength and home advantage are carried for display only and must not be hashed.
+- `test_edition_manifest_hashes` (OR-08) belongs to the Open Ranking release step, which is not built.
+
+**P08 (TB-01..04).**
+- Sort by total, then draw position. Adjacent gaps ≤ 2500 join a group. Only a group of exactly two looks at head-to-head.
+- The series is every played meeting; forfeits are not meetings. A split is noted and points order kept.
+- A pair exactly tied on points and settled by head-to-head gets separate ranks. Any other exact tie shares a rank, listed in draw order.
+- `raw_rank` is the rank by points alone. `order` is the total order (head-to-head, then the draw).
+- The preseason draw moved from `cfp.forecast.draw` to `cfp.common.draw` so both products can use it.
+
+Real-data check, 2026 season to 25 Nov with the unfrozen parameters above: 138 ledgers in 0.05 s; no row on a rounding boundary; q from 815 to 9971. Not compared with any committee ranking or poll.
+
+Process note: for P11-lite, P07 and P08 the tests were written first, but the code was written before a failing run was shown.

@@ -9,9 +9,9 @@ from typing import Any
 import polars as pl
 import pytest
 
+from cfp.common.draw import draw_positions, load_draw
 from cfp.forecast.baselines import ap_order, baseline1, baseline2, initial_order, losses_since
 from cfp.forecast.cutoffs import issue_time, sunday_0200
-from cfp.forecast.draw import draw_positions, load_draw
 from cfp.forecast.observations import ObservationError, fbs_field, label_leaked, observations
 
 ROOT = Path(__file__).resolve().parents[2]

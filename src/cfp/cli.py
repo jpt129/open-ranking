@@ -232,8 +232,8 @@ def _forecast_draw(args: argparse.Namespace) -> int:
 
     import polars as pl
 
+    from cfp.common.draw import PHRASE, draw_positions
     from cfp.common.timeutil import utc_now
-    from cfp.forecast.draw import PHRASE, draw_positions
     from cfp.forecast.observations import fbs_field
     from cfp.store.lake import Lake
 
@@ -297,8 +297,8 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
 
     import polars as pl
 
+    from cfp.common.draw import load_draw
     from cfp.common.timeutil import require_utc, utc_now
-    from cfp.forecast.draw import load_draw
     from cfp.ingest.cfp_releases import load_schedule
     from cfp.ingest.upsert import upsert
     from cfp.release import proof
