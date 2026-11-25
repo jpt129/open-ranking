@@ -7,18 +7,23 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from cfp.forecast.observations import open_points_feature
 from cfp.open_ranking import RULE_VERSION_ID
 from cfp.open_ranking.feature import feature_build
 from cfp.open_ranking.release import build_edition
 from cfp.release.edition import canonical
+from cfp.snapshot.build import Snapshot
 from cfp.snapshot.data import TitleGame
 from cfp.store.lake import Lake
 
 from .store_helpers import Clock, frame, game
 from .test_issue import CUTOFF, SAT, TEAMS, issue, world
+from .test_ledger import frame as ledger_frame
+from .test_ledger import league
 from .test_open_release import DRAW as SYNTHETIC_DRAW
-from .test_open_release import frozen, rows_with_extras, snapshot
+from .test_open_release import EMPTY, frozen, rows_with_extras, snapshot
 
 LISTS: dict[str, Any] = {"title_games": [], "forfeits": [], "unplayed": []}
 
@@ -37,6 +42,13 @@ def add_games(lake: Lake, rounds: int = 5) -> None:
     lake.append("games", frame("games", rows))
 
 
+def earlier_edition(params: Any) -> Any:
+    early = Snapshot(
+        2026, CUTOFF - timedelta(days=14), "replay", ledger_frame(league()[:80]), EMPTY, "e" * 64, "b" * 64
+    )
+    return build_edition(early, params, SYNTHETIC_DRAW, code_hash="abc")
+
+
 def test_feature_build_matches_edition_on_same_snapshot(tmp_path: Path) -> None:
     params = frozen(tmp_path)
     snap = snapshot(rows_with_extras())
@@ -50,6 +62,10 @@ def test_feature_build_matches_edition_on_same_snapshot(tmp_path: Path) -> None:
     assert canonical(feature.rows) == canonical(published)  # byte-identical ledgers
     assert feature.points == {team["team_id"]: team["total_cp"] for team in edition["teams"]}
     assert feature.feature_build_id.startswith("orf:")
+    # a later edition adds each row's change since its predecessor; the ledger itself is still identical
+    later = build_edition(snap, params, SYNTHETIC_DRAW, code_hash="abc", previous=earlier_edition(params)).doc
+    stripped = {t["team_id"]: [r | {"revision_cp": None} for r in t["rows"]] for t in later["teams"]}
+    assert canonical(stripped) == canonical(feature.rows)
     assert (
         feature_build(snapshot(rows_with_extras(), tag="c"), params).feature_build_id
         != feature.feature_build_id
@@ -116,3 +132,37 @@ def test_a_blocked_snapshot_is_disclosed_not_fatal(tmp_path: Path) -> None:
     assert doc["open_ranking_feature"] is None
     assert doc["open_points_error"]
     assert all(row["open_points_cp"] is None for row in doc["forecasts"]["baseline2"]["rows"])
+    assert doc["open_points_error"].startswith("SnapshotBlocked")
+    noted = issue(lake, open_points_note="FrozenError: 2026 is not frozen").doc
+    assert noted["open_points_error"] == "FrozenError: 2026 is not frozen"
+
+
+def test_an_unexpected_fault_is_disclosed_as_unexpected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import cfp.release.issue as module
+
+    def broken(*args: Any, **kwargs: Any) -> Any:
+        raise KeyError("bug")
+
+    monkeypatch.setattr(module, "open_points_feature", broken)
+    lake = world(tmp_path)
+    doc = issue(lake, frozen=frozen(tmp_path), lists=LISTS).doc
+    assert doc["open_points_error"].startswith("unexpected KeyError")
+    assert "open_points" in doc["missing_inputs"]
+
+
+def test_manifest_inputs_pin_the_feature(tmp_path: Path) -> None:
+    params = frozen(tmp_path)
+    lake = world(tmp_path)
+    add_games(lake)
+    doc = issue(lake, frozen=params, lists=LISTS).doc
+    feature = doc["open_ranking_feature"]
+    assert doc["inputs"][-4:] == [
+        f"feature:{feature['feature_build_id']}",
+        f"feature-snapshot:{feature['snapshot_hash']}",
+        f"feature-params:{params.sha256}",
+        f"feature-rule:{RULE_VERSION_ID}",
+    ]
+    assert doc["product"] == "shadow_committee_weekly"  # a feature build is never labelled an edition
+    assert not doc["edition_id"].startswith("or-")

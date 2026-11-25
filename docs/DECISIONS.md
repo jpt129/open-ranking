@@ -435,3 +435,13 @@ Left open: the lists hash covers every season of the hand-kept lists, so adding 
 - The issue command reads `frozen/` and `data/` relative to the code repository, which is where `scripts/issue.sh` runs.
 
 Replay on a scratch copy (tminus60 for the 24 Nov reveal): all 138 teams carry open points; `missing_inputs` is `rank_noise_temperature` only.
+
+**Spec review of the open-points wiring (25 Nov).** No high findings; the feature build reads the same rows as the rest of the issue, and byte replay holds. Fixed:
+- "Byte-identical ledgers" is now tested against an edition that has a predecessor: the rows match once `revision_cp` is set aside. `revision_cp` is the edition's comparison with its predecessor, not part of the ledger (Claude's reading of SC-04a; John has not ruled).
+- Failures are split. Data conditions (`SnapshotBlocked`, `LedgerError`, `BandError`, `StrengthError`) are disclosed by name. Any other fault is disclosed as "unexpected ..." and the issue still goes out. Claude's choice, for the same reason as before: the deadline cannot be repaired. The reviewer's objection stands on record: a live, prospectively eligible edition can ship while the feature build has a code fault. John to rule.
+- When the command cannot load the frozen file or a list, the reason now reaches `open_points_error`.
+- `inputs` now also lists the feature's snapshot hash, parameters hash and rule version.
+
+Left open: no test that a row ingested late is invisible to the feature build specifically (the reviewer probed it by hand and it held); the forbidden-tables test removes only the two forbidden tables its world holds; simulation does not exist yet.
+
+Rehearsal on Actions (25 Nov 19:11 UTC, run 45682742188, code `ffe752c`): every step passed and no open-points warning was printed.

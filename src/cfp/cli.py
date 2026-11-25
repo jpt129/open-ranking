@@ -337,7 +337,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
     if day not in shows:
         print(f"refused: {day} is not a sourced reveal date for {args.season}", file=sys.stderr)
         return 1
-    frozen, lists = None, None
+    frozen, lists, note = None, None, None
     try:  # open points (SC-04a); without them the issue still goes out and says so
         from cfp.open_ranking.frozen import FrozenError, load_frozen
         from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
@@ -349,8 +349,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             "unplayed": load_unplayed(data / "unplayed_games.csv"),
         }
     except (FrozenError, OSError, ValueError) as error:
-        print(f"WARNING: open points will be missing: {error}", file=sys.stderr)
-        frozen, lists = None, None
+        frozen, lists, note = None, None, f"{type(error).__name__}: {error}"
     try:
         built = build_issue(
             lake,
@@ -367,6 +366,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             allow_unresolved=args.allow_unresolved,
             frozen=frozen,
             lists=lists,
+            open_points_note=note,
         )
     except TooEarly as error:
         print(str(error), file=sys.stderr)

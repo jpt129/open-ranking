@@ -25,7 +25,10 @@ from cfp.forecast.observations import (
     open_points_feature,
 )
 from cfp.ingest.public_time import tuesday_after
+from cfp.open_ranking.band import BandError
 from cfp.open_ranking.frozen import Frozen
+from cfp.open_ranking.ledger import LedgerError
+from cfp.open_ranking.strength import StrengthError
 from cfp.release.edition import canonical, input_id
 from cfp.snapshot.build import SnapshotBlocked
 from cfp.store.lake import Lake
@@ -75,6 +78,7 @@ def build_issue(
     allow_unresolved: bool = False,
     frozen: Frozen | None = None,
     lists: Mapping[str, Any] | None = None,
+    open_points_note: str | None = None,
 ) -> Issue:
     """The forecast for the committee release revealed at `reveal`, from inputs public at the issue cutoff.
 
@@ -119,12 +123,14 @@ def build_issue(
         raise IssueRefused(f"no FBS teams are on record for {season} at the cutoff")
     missing = ["rank_noise_temperature"]
     feature = None
-    feature_error: str | None = None
+    feature_error: str | None = open_points_note  # why the caller could not supply parameters or lists
     if frozen is not None and lists is not None:
         try:
             feature = open_points_feature(lake.open_ranking_view(cutoff, mode), season, frozen, lists)
-        except (SnapshotBlocked, ValueError) as error:
-            feature_error = f"{type(error).__name__}: {error}"
+        except (SnapshotBlocked, LedgerError, BandError, StrengthError) as error:
+            feature_error = f"{type(error).__name__}: {error}"  # the data cannot support a ledger yet
+        except Exception as error:  # a fault in the feature build must not cost the forecast its deadline
+            feature_error = f"unexpected {type(error).__name__}: {error}"
     if feature is None:
         missing.insert(0, "open_points")
     open_points = feature.points if feature is not None else None
@@ -204,6 +210,9 @@ def build_issue(
     inputs.append(f"draw:{len(draw)}:{sha256_hex(canonical(dict(sorted(draw.items()))))}")
     if feature is not None:
         inputs.append(f"feature:{feature.feature_build_id}")
+        inputs.append(f"feature-snapshot:{feature.snapshot_hash}")
+        inputs.append(f"feature-params:{feature.params_sha256}")
+        inputs.append(f"feature-rule:{feature.rule_version_id}")
     doc: dict[str, Any] = {
         "schema": 2,
         "edition_id": edition_id,
