@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Final
 
 import numpy as np
@@ -150,6 +150,7 @@ class Paths:
     away_pts: Ints | None
     seed: int
     a: float
+    sides: dict[str, tuple[str, str]] = field(default_factory=dict)  # game id -> (home, away)
 
 
 def simulate(
@@ -188,7 +189,7 @@ def simulate(
         away_pts = np.empty(won.shape, dtype=np.int64)
         for k, g in enumerate(ordered):
             home_pts[:, k], away_pts[:, k] = scores.sample(g.p_home, won[:, k], rng)
-    return Paths(ids, won, home_pts, away_pts, seed, a)
+    return Paths(ids, won, home_pts, away_pts, seed, a, {g.game_id: (g.home_id, g.away_id) for g in ordered})
 
 
 @dataclass(frozen=True)
