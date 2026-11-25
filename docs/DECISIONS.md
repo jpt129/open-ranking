@@ -411,3 +411,15 @@ John asked for the release step after the freeze.
 - **Not built:** the full gate (`cfp gate`, RL-01), the public post, a signed tag or timestamp for Open Ranking editions, team display names in the document, the rendered page.
 
 End-to-end check on a scratch copy of the lake (replay, cutoffs 22 Nov 07:00 and 25 Nov 12:00 UTC): both editions built; the second measured revisions against the first; a repeat exited 17. With the committee, poll, line and market tables deleted from the copy, both editions were byte-identical (OR-12). A live-mode edition with a cutoff one minute in the past also built. The real `lake/editions` was not touched.
+
+**Spec review of the release step (25 Nov), fixed:**
+- **Corrections (RL-02).** `--revision N --corrected-as-of T` builds a new edition with the same cutoff that supersedes revision N−1: it holds exactly the superseded edition's games, re-read as public at T. The document carries both `cutoff_utc` and `data_as_of_utc`. A plain `--revision N` (no later read time) is for a fix to code or a hand-kept list.
+- **Crash repair.** If the folder was written and the table row was not, the next run records the row from the folder's own bytes and still exits 17.
+- **Previous edition is an input.** Its ID and hash are in the document's `inputs`, so the bytes depend only on declared inputs.
+- **The snapshot is published.** `games.jsonl` sits beside `edition.json`; the manifest pins its SHA-256.
+- **Formula hash** now also covers `cfp/snapshot/build.py` and `cfp/snapshot/data.py`.
+- **Code hash** is read from the repository this code lives in, not the caller's directory (this also applies to forecast issues).
+- A cutoff must be a whole minute; a bad time prints a message, not a traceback; live and replay editions cannot be mixed as `previous`.
+- Command-level tests added (`tests/unit/test_open_release_cli.py`).
+
+Left open: the lists hash covers every season of the hand-kept lists, so adding a 2027 row changes a 2026 replay's bytes; `revision_cp` does not show rows dropped since the previous edition; "previous" is the latest earlier edition, not strictly last week's.

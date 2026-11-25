@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -76,14 +76,26 @@ class Snapshot:
     lists_hash: str
 
 
-def _hash(season: int, games: pl.DataFrame) -> str:
-    """SHA-256 of the season and the rows in game_id order, one canonical JSON object per line."""
-    digest = hashlib.sha256(f"season={season}\n".encode())
+def game_lines(games: pl.DataFrame) -> bytes:
+    """The rows in game_id order, one canonical JSON object per line: the bytes the snapshot hash covers."""
+    out = []
     for row in games.sort("game_id").iter_rows(named=True):
         plain = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row.items()}
-        digest.update(json.dumps(plain, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode())
-        digest.update(b"\n")
-    return digest.hexdigest()
+        out.append(
+            json.dumps(plain, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode() + b"\n"
+        )
+    return b"".join(out)
+
+
+def _hash(season: int, games: pl.DataFrame) -> str:
+    """SHA-256 of the season line followed by `game_lines`."""
+    return hashlib.sha256(f"season={season}\n".encode() + game_lines(games)).hexdigest()
+
+
+def restrict(snapshot: Snapshot, game_ids: Collection[str]) -> Snapshot:
+    """The same snapshot limited to `game_ids`, rehashed. A correction re-reads an edition's games later."""
+    games = snapshot.games.filter(pl.col("game_id").is_in(sorted(game_ids)))
+    return replace(snapshot, games=games, snapshot_hash=_hash(snapshot.season, games))
 
 
 def _lists_hash(*lists: Sequence[object]) -> str:

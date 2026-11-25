@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -23,7 +24,9 @@ from cfp.open_ranking.frozen import Frozen
 from cfp.open_ranking.ledger import FCS_LOSS_CP, FCS_WIN_CP, build_ledgers
 from cfp.open_ranking.link import BOUNDARY, SCALE
 from cfp.open_ranking.ordering import WINDOW_CP, rank_teams
-from cfp.snapshot.build import Snapshot
+from cfp.snapshot import build as snapshot_build
+from cfp.snapshot import data as snapshot_data
+from cfp.snapshot.build import Snapshot, game_lines
 
 PRODUCT: Final = "open_ranking"
 FORMULA_SOURCES: Final = ("strength.py", "band.py", "link.py", "ledger.py", "ordering.py")
@@ -40,6 +43,7 @@ class Built:
     body: bytes
     sha256: str
     inputs: list[str]
+    games_file: bytes = b""  # the snapshot's rows, published beside the edition
 
 
 def _canonical(doc: Any) -> bytes:
@@ -51,6 +55,10 @@ def _canonical(doc: Any) -> bytes:
 def formula_hash(frozen: Frozen, season: int) -> str:
     """SHA-256 over the rule version, the frozen parameters, the fixed constants and the formula's source."""
     here = Path(__file__).parent
+    source = {name: sha256_hex((here / name).read_bytes()) for name in FORMULA_SOURCES}
+    for module in (snapshot_build, snapshot_data):  # which games count, who won, what is a forfeit
+        path = Path(str(module.__file__))
+        source[f"snapshot/{path.name}"] = sha256_hex(path.read_bytes())
     pinned = {
         "rule_version_id": RULE_VERSION_ID,
         "params_sha256": frozen.sha256,
@@ -61,7 +69,7 @@ def formula_hash(frozen: Frozen, season: int) -> str:
         "fcs_loss_cp": FCS_LOSS_CP,
         "scale": SCALE,
         "boundary": repr(BOUNDARY),
-        "source": {name: sha256_hex((here / name).read_bytes()) for name in FORMULA_SOURCES},
+        "source": source,
     }
     return sha256_hex(_canonical(pinned))
 
@@ -82,8 +90,13 @@ def build_edition(
     code_hash: str,
     revision: int = 1,
     previous: Built | None = None,
+    cutoff: datetime | None = None,
 ) -> Built:
-    """The edition for one snapshot. `previous` is the last edition, for each row's revision since then."""
+    """The edition for one snapshot. `previous` is the last edition, for each row's revision since then.
+
+    `cutoff` is given only for a correction: the edition keeps the cutoff of the one it supersedes, while
+    the snapshot was read later (its own cutoff becomes `data_as_of_utc`).
+    """
     if revision < 1:
         raise ReleaseError("revision starts at 1")
     if frozen.season != snapshot.season:
@@ -95,10 +108,18 @@ def build_edition(
     live = snapshot.mode == "live"
     if live and (code_hash == "unknown" or code_hash.endswith("-dirty")):
         raise ReleaseError("a live edition needs committed code")
-    cutoff = snapshot.cutoff
-    offset = cutoff.utcoffset()
-    if offset is None or offset.total_seconds() != 0:
-        raise ReleaseError("the snapshot cutoff must be in UTC")
+    data_as_of = snapshot.cutoff
+    cutoff = cutoff or data_as_of
+    for moment in (cutoff, data_as_of):
+        offset = moment.utcoffset()
+        if offset is None or offset.total_seconds() != 0:
+            raise ReleaseError("the cutoff must be in UTC")
+    if cutoff.second or cutoff.microsecond:
+        raise ReleaseError("the cutoff must be a whole minute")
+    if data_as_of < cutoff:
+        raise ReleaseError("the snapshot was read before the cutoff")
+    if data_as_of > cutoff and revision < 2:
+        raise ReleaseError("a correction is a new revision of the edition it supersedes")
     stem = f"or-{snapshot.season}-{cutoff.strftime('%Y%m%dt%H%Mz')}" + ("" if live else "-replay")
     edition_id = f"{stem}-e{revision}"
     if previous is not None:
@@ -107,6 +128,8 @@ def build_edition(
         )
         if not earlier or previous.doc["product"] != PRODUCT:
             raise ReleaseError(f"{previous.edition_id} is not earlier in the same season")
+        if previous.doc["mode"] != snapshot.mode:
+            raise ReleaseError(f"{previous.edition_id} is a {previous.doc['mode']} edition")
 
     ledgers = build_ledgers(snapshot.games, frozen.params, frozen.t, snapshot.season)
     old = _previous_ledgers(previous) if previous is not None else {}
@@ -159,6 +182,15 @@ def build_edition(
         for reason, count in snapshot.omissions.group_by("reason").len().sort("reason").iter_rows()
     }
     draw_hash = _draw_hash(draw)
+    games_file = game_lines(snapshot.games)
+    inputs = [
+        f"snapshot:{snapshot.snapshot_hash}",
+        f"lists:{snapshot.lists_hash}",
+        f"params:{frozen.sha256}",
+        f"draw:{draw_hash}",
+    ]
+    if previous is not None:
+        inputs.append(f"previous:{previous.edition_id}:{previous.sha256}")
     manifest = {
         "snapshot_hash": snapshot.snapshot_hash,
         "lists_hash": snapshot.lists_hash,
@@ -177,6 +209,7 @@ def build_edition(
         "rule_version_id": RULE_VERSION_ID,
         "band_ranks": list(band_ranks(snapshot.season)),
         "games": snapshot.games.height,
+        "games_sha256": sha256_hex(games_file),
         "omissions": omissions,
         "boundary_rows": boundary_rows,
         "second_implementation": "not run",
@@ -186,6 +219,8 @@ def build_edition(
         "edition_id": edition_id,
         "season": snapshot.season,
         "cutoff_utc": cutoff.isoformat(),
+        "data_as_of_utc": data_as_of.isoformat(),
+        "inputs": inputs,
         "mode": snapshot.mode,
         "revision": revision,
         "supersedes": f"{stem}-e{revision - 1}" if revision > 1 else None,
@@ -196,13 +231,7 @@ def build_edition(
         "teams": teams,
     }
     body = _canonical(doc)
-    inputs = [
-        f"snapshot:{snapshot.snapshot_hash}",
-        f"lists:{snapshot.lists_hash}",
-        f"params:{frozen.sha256}",
-        f"draw:{draw_hash}",
-    ]
-    return Built(edition_id, doc, body, sha256_hex(body), inputs)
+    return Built(edition_id, doc, body, sha256_hex(body), inputs, games_file)
 
 
 def load_built(edition_json: bytes) -> Built:
@@ -210,4 +239,4 @@ def load_built(edition_json: bytes) -> Built:
     doc = json.loads(edition_json)
     if doc.get("product") != PRODUCT:
         raise ReleaseError("not an Open Ranking edition")
-    return Built(doc["edition_id"], doc, edition_json, sha256_hex(edition_json), [])
+    return Built(doc["edition_id"], doc, edition_json, sha256_hex(edition_json), list(doc.get("inputs", [])))

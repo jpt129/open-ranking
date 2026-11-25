@@ -92,6 +92,10 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--mode", choices=("live", "replay"), default="live")
     build.add_argument("--revision", type=int, default=1)
     build.add_argument("--previous", help="edition to measure revisions against; 'none' for no comparison")
+    build.add_argument(
+        "--corrected-as-of",
+        help="for --revision 2+: re-read the superseded edition's games as public at this later time",
+    )
     build.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
 
     calibrate = commands.add_parser(
@@ -295,8 +299,9 @@ def _code_hash() -> str:
     import subprocess
 
     try:
-        head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        dirty = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
+        git = ["git", "-C", str(Path(__file__).resolve().parent)]  # this code's repository, not the caller's
+        head = subprocess.run([*git, "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+        dirty = subprocess.run([*git, "status", "--porcelain"], capture_output=True, text=True, check=True)
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
     return head.stdout.strip() + ("-dirty" if dirty.stdout.strip() else "")
@@ -464,38 +469,74 @@ def _open_ranking_build(args: argparse.Namespace, clock: Callable[[], datetime] 
     import polars as pl
 
     from cfp.common.draw import load_draw
-    from cfp.common.timeutil import utc_now
-    from cfp.ingest.upsert import upsert
-    from cfp.open_ranking import RULE_VERSION_ID
+    from cfp.common.timeutil import require_utc, utc_now
+    from cfp.ingest import upsert as ingest
     from cfp.open_ranking.frozen import FrozenError, load_frozen
     from cfp.open_ranking.release import PRODUCT, ReleaseError, build_edition, load_built
     from cfp.release.edition import EditionExists, write_edition
-    from cfp.snapshot.build import SnapshotBlocked, build_snapshot
+    from cfp.snapshot.build import SnapshotBlocked, build_snapshot, restrict
     from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
     from cfp.store.lake import Lake
     from cfp.store.schemas import TABLES
 
     clock = clock or utc_now
     now = clock()
-    cutoff = datetime.fromisoformat(args.cutoff)
-    if cutoff.tzinfo is None:
-        print("--cutoff needs a UTC offset", file=sys.stderr)
-        return 2
-    cutoff = cutoff.astimezone(UTC)
-    if cutoff > now:
-        print(f"refused: the cutoff {cutoff.isoformat()} has not passed", file=sys.stderr)
+    times = {}
+    for flag, text in (("--cutoff", args.cutoff), ("--corrected-as-of", args.corrected_as_of)):
+        if text is None:
+            continue
+        try:
+            moment = datetime.fromisoformat(text)
+        except ValueError:
+            moment = None
+        if moment is None or moment.tzinfo is None:
+            print(f"{flag} needs an ISO time with a UTC offset", file=sys.stderr)
+            return 2
+        times[flag] = moment.astimezone(UTC)
+    cutoff = times["--cutoff"]
+    read_at = times.get("--corrected-as-of", cutoff)
+    if read_at > now:
+        print(f"refused: {read_at.isoformat()} has not passed", file=sys.stderr)
         return 1
     data, lake = Path(args.data), Lake(args.lake, clock=clock)
     folder = lake.root / "editions"
     live = args.mode == "live"
     tail = "" if live else "-replay"
     name = re.compile(rf"^or-{args.season}-(\d{{8}}t\d{{4}}z){tail}-e(\d+)$")
+    stamp = cutoff.strftime("%Y%m%dt%H%Mz")
+
+    def record(edition_id: str) -> None:
+        """Append the editions row from the folder's own bytes, unless it is there already."""
+        if lake.scan("editions").filter(pl.col("edition_id") == edition_id).collect().height:
+            return
+        body = (folder / edition_id / "edition.json").read_bytes()
+        doc = json.loads(body)
+        receipt = json.loads((folder / edition_id / "receipt.json").read_text())
+        row = {
+            "edition_id": edition_id,
+            "season": doc["season"],
+            "product": PRODUCT,
+            "issue_utc": require_utc(datetime.fromisoformat(doc["cutoff_utc"]), "cutoff_utc"),
+            "input_ids": doc["inputs"],
+            "seed": None,
+            "code_hash": doc["manifest"]["code_hash"],
+            "rule_version_id": doc["manifest"]["rule_version_id"],
+            "sha256": hashlib.sha256(body).hexdigest(),
+            "source_id": "cfp:open-ranking build",
+            "event_time": require_utc(datetime.fromisoformat(doc["data_as_of_utc"]), "data_as_of_utc"),
+            "first_public_time": require_utc(datetime.fromisoformat(receipt["issued_utc"]), "issued_utc"),
+            "raw_hash": lake.put_raw(body),
+            "vintage": "live" if doc["mode"] == "live" else "reconstructed",
+        }
+        keep = ("correction_version", "ingest_time")
+        schema = {k: v for k, v in TABLES["editions"].schema.items() if k not in keep}
+        ingest.upsert(lake, "editions", pl.DataFrame([row], schema=schema), clock(), "asserted")
+
     try:
         previous = None
         if args.previous != "none":
             chosen = args.previous
             if chosen is None and folder.is_dir():  # the latest earlier edition of the same kind
-                stamp = cutoff.strftime("%Y%m%dt%H%Mz")
                 held = [
                     (m.group(1), int(m.group(2)), p.name)
                     for p in folder.iterdir()
@@ -506,12 +547,20 @@ def _open_ranking_build(args: argparse.Namespace, clock: Callable[[], datetime] 
             if chosen is not None:
                 previous = load_built((folder / chosen / "edition.json").read_bytes())
         snapshot = build_snapshot(
-            lake.open_ranking_view(cutoff, args.mode),
+            lake.open_ranking_view(read_at, args.mode),
             args.season,
             title_games=load_title_games(data / "title_games.csv"),
             forfeits=load_forfeits(data / "forfeits.csv"),
             unplayed=load_unplayed(data / "unplayed_games.csv"),
         )
+        superseded = f"or-{args.season}-{stamp}{tail}-e{args.revision - 1}" if args.revision > 1 else None
+        if superseded and not (folder / superseded).is_dir():
+            raise ReleaseError(f"revision {args.revision} would supersede {superseded}, which does not exist")
+        if read_at > cutoff:  # a correction: the superseded edition's games, as they read now
+            if not superseded:
+                raise ReleaseError("a correction is a new revision of the edition it supersedes")
+            old = load_built((folder / superseded / "edition.json").read_bytes())
+            snapshot = restrict(snapshot, {r["game_id"] for t in old.doc["teams"] for r in t["rows"]})
         built = build_edition(
             snapshot,
             load_frozen(args.frozen, args.season),
@@ -519,42 +568,25 @@ def _open_ranking_build(args: argparse.Namespace, clock: Callable[[], datetime] 
             code_hash=_code_hash(),
             revision=args.revision,
             previous=previous,
+            cutoff=cutoff,
         )
     except (ReleaseError, FrozenError, SnapshotBlocked, OSError, ValueError) as error:
         print(f"refused: {error}", file=sys.stderr)
         return 1
-    superseded = built.doc["supersedes"]
-    if superseded and not (folder / superseded).is_dir():
-        print(
-            f"refused: revision {args.revision} would supersede {superseded}, which does not exist",
-            file=sys.stderr,
-        )
-        return 1
     receipt = {"edition_id": built.edition_id, "product": PRODUCT, "sha256": built.sha256}
     try:
-        write_edition(folder, built.edition_id, built.body, receipt | {"issued_utc": now.isoformat()})
+        write_edition(
+            folder,
+            built.edition_id,
+            built.body,
+            receipt | {"issued_utc": now.isoformat()},
+            {"games.jsonl": built.games_file},
+        )
     except EditionExists as error:
+        record(built.edition_id)  # repairs a run that wrote the folder and died before the table row
         print(str(error), file=sys.stderr)
         return EXIT_EXISTS
-    row = {
-        "edition_id": built.edition_id,
-        "season": args.season,
-        "product": PRODUCT,
-        "issue_utc": cutoff,
-        "input_ids": built.inputs,
-        "seed": None,
-        "code_hash": built.doc["manifest"]["code_hash"],
-        "rule_version_id": RULE_VERSION_ID,
-        "sha256": built.sha256,
-        "source_id": "cfp:open-ranking build",
-        "event_time": cutoff,
-        "first_public_time": now,
-        "raw_hash": lake.put_raw(built.body),
-        "vintage": "live" if live else "reconstructed",
-    }
-    keep = ("correction_version", "ingest_time")
-    schema = {k: v for k, v in TABLES["editions"].schema.items() if k not in keep}
-    upsert(lake, "editions", pl.DataFrame([row], schema=schema), clock(), "asserted")
+    record(built.edition_id)
     manifest = built.doc["manifest"]
     print(f"edition {built.edition_id}  sha256 {built.sha256}")
     print(f"  games {manifest['games']}  teams {len(built.doc['teams'])}")
