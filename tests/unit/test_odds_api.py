@@ -80,7 +80,7 @@ def test_credit_cost_matches_the_published_rule() -> None:
     assert credit_cost(["h2h", "spreads", "totals"], ["us"]) == 3
     assert credit_cost(["h2h"], ["us", "uk", "au"]) == 3
     assert credit_cost(["h2h", "spreads", "totals"], ["us"], historical=True) == 30
-    assert MONTHLY_CREDITS <= 150_000  # at most 1% of the shared plan
+    assert MONTHLY_CREDITS == 50_000  # John, 2026-11-25; 0.33% of the shared plan
 
 
 def client(tmp_path: Path, monthly: int, seen: list[str]) -> OddsApi:
@@ -164,10 +164,29 @@ def test_events_that_cannot_be_tied_to_a_game_are_reported_not_guessed(tmp_path:
         event("Texas Longhorns", "Texas A&M Aggies", [], kick=datetime(2026, 12, 5, 17, 0, tzinfo=UTC)),
     ]
     rows, report = line_rows(fetched(lake, payload), IDS, games)
-    assert rows.height == 0
-    assert len(report.unmatched) == 4
+    assert rows.height == 1  # the third event names the same two teams with home and away swapped
+    assert len(report.unmatched) == 3
     assert "unknown team name" in report.unmatched[0]
     assert "0 games in the store" in report.unmatched[1]
+    swapped = rows.row(0, named=True)
+    # the stored home team is Texas, so its moneyline and spread are reported, whatever the API calls home
+    values = (swapped["game_id"], swapped["ml_home"], swapped["ml_away"], swapped["spread"])
+    assert values == ("g-tex", 195.0, -240.0, 6.5)
+
+
+def test_games_under_way_are_skipped_and_two_versions_of_a_game_still_match(tmp_path: Path) -> None:
+    lake, _ = store(tmp_path)
+    moved = game(
+        lake, "g-tex", home_id="T-TEX", away_id="T-TAMU", start_utc=KICK, status="scheduled", week=13
+    )
+    lake.append("games", frame("games", [moved | {"correction_version": 1}]))
+    games = lake.scan("games").collect()
+    assert games.height == 2
+    texas = ("Texas Longhorns", "Texas A&M Aggies")
+    started = datetime(2026, 11, 25, 17, 0, tzinfo=UTC)  # an hour before the capture
+    payload = [event(*texas, [book("dk", *texas)]), event(*texas, [book("dk", *texas)], kick=started)]
+    rows, report = line_rows(fetched(lake, payload), IDS, games)
+    assert (rows.height, report.games, report.in_play, report.unmatched) == (1, 1, 1, [])
 
 
 def test_recorded_payload(tmp_path: Path) -> None:

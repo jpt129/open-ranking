@@ -249,3 +249,25 @@ Twelve findings confirmed; fixed with tests unless noted.
 - **Not done:** historical snapshots (available from June 2020). They wait for John's plan for this source; the parser already accepts the historical wrapper.
 - **Schedules:** `scripts/market_snapshot.sh` runs from John's crontab at five past every hour, and at 01:50 ET Sun 29 Nov, 17:50 ET Tue 1 Dec, and 01:50 and 10:50 ET Sun 6 Dec. It needs this machine awake.
 
+## 2026-11-25 — P04/P02c review round (spec-guardian) and the sourced lists
+
+Sourced lists (research pass, checked by Claude against the store):
+- **Title games:** `data/title_games.csv`, 120 rows, 2014–2026. All 112 played games match exactly one stored game, CFBD's neutral-site flag agrees with the list's site type for every one, and all 41 games CFBD itself flags (2022 on) are on the list. Basis is ESPN's scoreboard for 2014–25, so the list and the site flags are not independent of ESPN. Names were changed to the store's spelling (Miami, Hawai'i, San José State). Seven 2026 pairings are not yet known; those rows have blank teams and will block a snapshot three days after the game date until filled in.
+- **Forfeits:** none found in 2014–2026 (ESPN statuses for 10,950 FBS events, plus searches on the 2021 conference forfeit policies). `data/forfeits.csv` is header-only.
+- **2020 games never played:** `data/unplayed_games.csv`, 105 rows for 90 fixtures (some were called off twice). `no_contest` is assigned by conference policy, not verified game by game.
+
+Review findings fixed with tests:
+- A game the source flags as a title game must be on the list even when the list is empty; a blank-team row that is overdue blocks.
+- Odds matching used every stored version of a game, so a rescheduled game would have lost its lines; it now uses the latest version, matches either home/away orientation (reporting the stored home team's numbers), and skips games already under way.
+- The capture script recovers a stale lock and exits non-zero on failure.
+- A forfeit carries the time its ruling became public and is invisible to an earlier cutoff (OR-07d).
+- An FBS team's opponent with no known division blocks the snapshot.
+- The snapshot hash includes the season; a second hash covers the hand-kept lists so a manifest can pin them.
+- `cfp ingest odds` exits 1 when an event cannot be matched.
+
+Accepted, not changed:
+- A result that became public after the cutoff appears in the omissions only if a scheduled row was already in the store. For 2014–25 there are no scheduled rows (DATA_GAPS), so those games are simply absent; listing them would mean reading past the cutoff.
+- Eligibility rows are public on 20 Aug of their season. An in-season eligibility ruling would need its own dated row.
+- Credit counting over-counts slightly on refused or retried requests; that errs safe.
+- **For P16:** the hourly job does not ingest CFBD results. The issue pipeline must run the CFBD games ingest immediately before each cutoff (SC-04a), within the CFBD call budget.
+

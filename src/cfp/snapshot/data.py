@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 
@@ -24,8 +24,10 @@ class TitleGame:
 
 @dataclass(frozen=True)
 class Forfeit:
+    season: int
     game_id: str
     winner_id: str
+    public_utc: datetime  # when the ruling became public; a replay cut before it does not see the forfeit
     source_url: str
 
 
@@ -75,10 +77,14 @@ def load_title_games(path: Path | str) -> list[TitleGame]:
 
 
 def load_forfeits(path: Path | str) -> list[Forfeit]:
-    return [
-        Forfeit(row["game_id"], row["winner_id"], _sourced(row, f"forfeits: {row['game_id']}"))
-        for row in _rows(path)
-    ]
+    out = []
+    for row in _rows(path):
+        public = datetime.fromisoformat(row["public_utc"])
+        if public.tzinfo is None:
+            raise SnapshotDataError(f"forfeits: {row['game_id']}: public_utc needs a UTC offset")
+        url = _sourced(row, f"forfeits: {row['game_id']}")
+        out.append(Forfeit(int(row["season"]), row["game_id"], row["winner_id"], public.astimezone(UTC), url))
+    return out
 
 
 def load_unplayed(path: Path | str) -> list[Unplayed]:

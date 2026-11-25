@@ -133,9 +133,11 @@ def _ingest_odds(args: argparse.Namespace) -> int:
     rows, report = line_rows(got, team_ids, lake.scan("games").collect())
     result = upsert(lake, "lines", rows, got.fetched_at, "observed")
     print(f"lines: new={result.new} from {report.games} games; credits {api.used()}/{MONTHLY_CREDITS}")
+    if report.in_play:
+        print(f"  skipped {report.in_play} games already under way")
     for line in report.unmatched:
         print(f"  not matched: {line}")
-    return 0
+    return 1 if report.unmatched else 0
 
 
 def _snapshot(args: argparse.Namespace) -> int:

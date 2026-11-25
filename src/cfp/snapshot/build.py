@@ -5,6 +5,9 @@ the completed regular-season and conference-title games involving an FBS team, e
 division and conference on the game date, plus a log of everything left out and why. It never guesses:
 a game that looks like a forfeit and is not on the hand-verified list, a classification that disagrees with
 the membership table, or a title game that cannot be found, stops the build.
+
+A game whose result was not yet public at the cutoff appears in the omissions only if the store already held
+its scheduled row; a snapshot cannot list what was not knowable at its cutoff.
 """
 
 from __future__ import annotations
@@ -70,16 +73,24 @@ class Snapshot:
     games: pl.DataFrame
     omissions: pl.DataFrame
     snapshot_hash: str
+    lists_hash: str
 
 
-def _hash(games: pl.DataFrame) -> str:
-    """SHA-256 of the rows in game_id order, one canonical JSON object per line."""
-    digest = hashlib.sha256()
+def _hash(season: int, games: pl.DataFrame) -> str:
+    """SHA-256 of the season and the rows in game_id order, one canonical JSON object per line."""
+    digest = hashlib.sha256(f"season={season}\n".encode())
     for row in games.sort("game_id").iter_rows(named=True):
         plain = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row.items()}
         digest.update(json.dumps(plain, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode())
         digest.update(b"\n")
     return digest.hexdigest()
+
+
+def _lists_hash(*lists: Sequence[object]) -> str:
+    """SHA-256 of the hand-kept lists a snapshot was built with, so a manifest can pin them."""
+    return hashlib.sha256(
+        repr([sorted(repr(item) for item in items) for items in lists]).encode()
+    ).hexdigest()
 
 
 def _with_membership(games: pl.DataFrame, membership: pl.DataFrame) -> pl.DataFrame:
@@ -124,8 +135,15 @@ def _title_ids(
     games: pl.DataFrame, teams: pl.DataFrame, title_games: Sequence[TitleGame], season: int, cutoff: datetime
 ) -> set[str]:
     """Game ids of the listed title games. A named, overdue title game absent from the data blocks."""
+    if teams["name"].n_unique() != teams.height:
+        raise SnapshotBlocked("two teams share a name; title games cannot be matched by name")
     ids_by_name: dict[str, str] = dict(teams.select("name", "team_id").iter_rows())
     found: set[str] = set()
+    for title in (t for t in title_games if t.season == season and not t.team_a):
+        if cutoff.date() > title.day + TITLE_OVERDUE:
+            raise SnapshotBlocked(
+                f"title games: the {season} {title.conference} game has no teams on the list"
+            )
     for title in (t for t in title_games if t.season == season and t.team_a):
         unknown = [name for name in (title.team_a, title.team_b) if name not in ids_by_name]
         if unknown:
@@ -175,24 +193,32 @@ def build_snapshot(
     teams = view.table("teams")
     membership = view.table("membership")
     title_ids = _title_ids(games, teams, title_games, season, view.t)
-    forfeit_by_id = {f.game_id: f for f in forfeits}
+    season_forfeits = [f for f in forfeits if f.season == season]
+    forfeit_by_id = {f.game_id: f for f in season_forfeits if f.public_utc <= view.t}
+    not_yet_public = {f.game_id for f in season_forfeits} - set(forfeit_by_id)
+    stray = sorted(set(forfeit_by_id) - set(games["game_id"]))
+    if stray:
+        raise SnapshotBlocked(f"the forfeit list names games that are not in the {season} data: {stray}")
 
-    flagged = set(games.filter(pl.col("title_game"))["game_id"]) - title_ids
-    listed_season = any(t.season == season and t.team_a for t in title_games)
-    if flagged and listed_season:
-        raise SnapshotBlocked(f"the source flags {sorted(flagged)} as title games; they are not on the list")
+    flagged = sorted(set(games.filter(pl.col("title_game"))["game_id"]) - title_ids)
+    if flagged:
+        raise SnapshotBlocked(f"the source flags {flagged} as title games; they are not on the list")
 
     kept: list[dict[str, Any]] = []
     omitted: list[dict[str, Any]] = []
-    fbs = {"fbs"}
     for row in games.iter_rows(named=True):
         is_title = row["game_id"] in title_ids
-        if row["home_div"] not in fbs and row["away_div"] not in fbs:
+        divisions = {row["home_div"], row["away_div"]}
+        if "fbs" not in divisions:
             omitted.append(_omission(row, "no_fbs_team"))
         elif row["status"] != "final":
             omitted.append(_omission(row, "not_final_at_cutoff", row["status"]))
         elif row["season_type"] != "regular" and not is_title:
             omitted.append(_omission(row, "postseason", row["season_type"]))
+        elif "unknown" in divisions:
+            raise SnapshotBlocked(
+                f"{row['game_id']}: an FBS team's opponent has no known division; resolve it before building"
+            )
         else:
             kept.append(row | {"title_game": is_title})
 
@@ -202,7 +228,8 @@ def build_snapshot(
         if home is None or away is None:
             raise SnapshotBlocked(f"{row['game_id']}: final with no score")
         forfeit = forfeit_by_id.get(row["game_id"])
-        if forfeit is None and (home, away) in FORFEIT_SCORES:
+        awaiting_ruling = row["game_id"] in not_yet_public
+        if forfeit is None and not awaiting_ruling and (home, away) in FORFEIT_SCORES:
             raise SnapshotBlocked(
                 f"{row['game_id']}: a {home}-{away} final looks like a forfeit and is not on the list; "
                 "verify it by hand and record it in docs/DATA_GAPS.md"
@@ -253,4 +280,5 @@ def build_snapshot(
                 }
             )
     omissions = pl.DataFrame(omitted, schema=OMISSION_SCHEMA).sort("reason", "day", "home", "away")
-    return Snapshot(season, view.t, view.mode, frame, omissions, _hash(frame))
+    lists = _lists_hash(title_games, forfeits, unplayed)
+    return Snapshot(season, view.t, view.mode, frame, omissions, _hash(season, frame), lists)

@@ -164,7 +164,7 @@ def check_classification(
     """Apply the classification rule and stop if CFBD disagrees with it (John's ruling, 2026-11-25).
 
     A team is FBS in a season if it is an NCAA FBS member that season, including a reclassifying member in
-    any transition year, and is a football member of an FBS conference or an FBS independent. The sourced
+    its first FBS season, and is a football member of an FBS conference or an FBS independent. The sourced
     conference list says which conferences are FBS; the sourced transition table says who is reclassifying.
     Returns the transition rows keyed by (season, team_id).
     """

@@ -97,3 +97,25 @@ Open
 
 Next prompt: P04 (canonical games), P02c once John's plan is known, then P15, P23.
 
+## 2026-11-25 — P04 (snapshot builder), P02c (The Odds API), FBS classification ruling
+
+Decisions: John ruled that a reclassifying member in an FBS conference is FBS for the ledger, with bid eligibility as a separate sourced flag; approved P04; set the Odds API tier (15M shared, be realistic) and accepted a 50,000-credit project cap.
+
+Done
+- Identity build enforces the classification rule and writes 29 sourced eligibility rows; membership rows carry a source URL.
+- `cfp.snapshot`: `build_snapshot` and `cfp snapshot build`. Snapshots build for every season 2014–2026 with the right number of title games (7 to 10 a season). 2026 at the Issue 1 cutoff today: 824 games, 697 FBS v FBS.
+- Sourced lists installed: 120 title games, no forfeits, 105 unplayed 2020 dates.
+- `cfp.ingest.odds_api` and `cfp ingest odds`: 6 credits used; lines from US books for all 69 listed games.
+- Hourly capture script (markets, then odds) in John's crontab, plus runs just before each pilot cutoff.
+- spec-guardian review: findings fixed (DECISIONS.md).
+
+Commands run: `uv run ruff format .`, `uv run ruff check .`, `uv run mypy src` (39 files), `uv run lint-imports` (5 kept), `uv run pytest -q` (272 passed), `cfp identity build`, `cfp snapshot build` for 2014–2026, `cfp ingest odds` (twice).
+
+Open
+- Captures need John's Mac awake; a GitHub Actions copy needs a private data repository and John's go-ahead.
+- Fill in the 2026 title pairings after 28 Nov.
+- P07 carry-over: `test_loss_to_first_year_fbs_member_scores_minus_q`. P16: CFBD ingest immediately before each cutoff.
+- Odds API historical snapshots wait for John's plan.
+
+Next prompt: P15 (bracket rules) and P23 (baselines), then P05–P08.
+

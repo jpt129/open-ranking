@@ -116,7 +116,7 @@ def snap(lake: Lake, cutoff: datetime, **lists: Any) -> Any:
     return build_snapshot(lake.open_ranking_view(cutoff), 2026, **lists)
 
 
-def test_a_late_saturday_game_is_out_on_sunday_morning_and_in_on_monday(tmp_path: Path) -> None:
+def test_game_after_cutoff_excluded(tmp_path: Path) -> None:
     lake = Lake(tmp_path / "lake", clock=Clock(MON_0600))
     games = [played(lake, "noon", "T-TEX", "T-RICE"), played(lake, "late", "T-UGA", "T-RICE", SAT_2230)]
     lake = world(tmp_path, games)
@@ -166,7 +166,7 @@ def test_first_year_fbs_member_is_an_ordinary_fbs_opponent(tmp_path: Path) -> No
     assert rows["fcs"]["ordinary_fbs"] is False
 
 
-def test_omissions_are_logged_with_reasons(tmp_path: Path) -> None:
+def test_snapshot_omissions(tmp_path: Path) -> None:
     lake = Lake(tmp_path / "lake", clock=Clock(MON_0600))
     lake = world(
         tmp_path,
@@ -193,22 +193,32 @@ def test_omissions_are_logged_with_reasons(tmp_path: Path) -> None:
     ]
 
 
-def test_listed_forfeit_is_a_result_but_not_a_margin(tmp_path: Path) -> None:
+def forfeit(game_id: str, winner: str, public: datetime = SAT_NOON) -> Forfeit:
+    return Forfeit(2026, game_id, winner, public, "https://example.test/f")
+
+
+def test_forfeit_margin_excluded(tmp_path: Path) -> None:
     lake = Lake(tmp_path / "lake", clock=Clock(MON_0600))
     lake = world(tmp_path, [played(lake, "ff", "T-TEX", "T-RICE", home_pts=0, away_pts=2)])
     with pytest.raises(SnapshotBlocked, match="looks like a forfeit"):
         snap(lake, MON_0600)
-    row = snap(lake, MON_0600, forfeits=[Forfeit("ff", "T-RICE", "https://example.test/f")]).games.row(
-        0, named=True
-    )
-    assert (row["winner_id"], row["forfeit"], row["margin_excluded"], row["ordinary_fbs"]) == (
-        "T-RICE",
-        True,
-        True,
-        False,
-    )
+    row = snap(lake, MON_0600, forfeits=[forfeit("ff", "T-RICE")]).games.row(0, named=True)
+    flags = (row["winner_id"], row["forfeit"], row["margin_excluded"], row["ordinary_fbs"])
+    assert flags == ("T-RICE", True, True, False)
     with pytest.raises(SnapshotBlocked, match="did not play"):
-        snap(lake, MON_0600, forfeits=[Forfeit("ff", "T-UGA", "https://example.test/f")])
+        snap(lake, MON_0600, forfeits=[forfeit("ff", "T-UGA")])
+    with pytest.raises(SnapshotBlocked, match="not in the 2026 data"):
+        snap(lake, MON_0600, forfeits=[forfeit("ff", "T-RICE"), forfeit("typo", "T-RICE")])
+
+
+def test_a_forfeit_ruled_after_the_cutoff_is_invisible_to_that_cutoff(tmp_path: Path) -> None:
+    lake = Lake(tmp_path / "lake", clock=Clock(MON_0600))
+    lake = world(tmp_path, [played(lake, "g", "T-TEX", "T-RICE", home_pts=31, away_pts=10)])
+    ruling = forfeit("g", "T-RICE", MON_0600 + timedelta(days=3))
+    before = snap(lake, MON_0600, forfeits=[ruling]).games.row(0, named=True)
+    assert (before["winner_id"], before["forfeit"], before["ordinary_fbs"]) == ("T-TEX", False, True)
+    after = snap(lake, MON_0600 + timedelta(days=4), forfeits=[ruling]).games.row(0, named=True)
+    assert (after["winner_id"], after["forfeit"], after["margin_excluded"]) == ("T-RICE", True, True)
 
 
 def test_title_game_comes_from_the_list_and_keeps_its_real_site(tmp_path: Path) -> None:
@@ -232,11 +242,14 @@ def test_title_game_comes_from_the_list_and_keeps_its_real_site(tmp_path: Path) 
 def test_title_list_and_source_must_agree(tmp_path: Path) -> None:
     lake = Lake(tmp_path / "lake", clock=Clock(MON_0600))
     lake = world(tmp_path, [played(lake, "odd", "T-TEX", "T-RICE", title_game=True)])
-    assert snap(lake, MON_0600).games["title_game"].to_list() == [
-        False
-    ]  # no list for the season: the flag is ignored
-    with pytest.raises(SnapshotBlocked, match="not on the list"):
-        snap(lake, MON_0600, title_games=[SEC_TITLE])
+    for listed in ([], [SEC_TITLE]):  # an empty list is no excuse: a flagged game must be on it
+        with pytest.raises(SnapshotBlocked, match="not on the list"):
+            snap(lake, MON_0600, title_games=listed)
+    plain_lake = Lake(tmp_path / "p" / "lake", clock=Clock(MON_0600))
+    lake = world(tmp_path / "p", [played(plain_lake, "g", "T-TEX", "T-RICE")])
+    blank = TitleGame(2026, "MAC", date(2026, 11, 20), "", "", "https://example.test/mac")
+    with pytest.raises(SnapshotBlocked, match="no teams on the list"):
+        snap(lake, MON_0600, title_games=[blank])
     unknown = TitleGame(2026, "ACC", date(2026, 12, 5), "Clemson", "Miami", "https://example.test/acc")
     with pytest.raises(SnapshotBlocked, match="no team is named"):
         snap(lake, MON_0600, title_games=[unknown])
@@ -268,6 +281,10 @@ def test_ties_and_missing_scores_block(tmp_path: Path) -> None:
     lake = world(tmp_path, [played(lake, "tie", "T-TEX", "T-RICE", home_pts=21, away_pts=21)])
     with pytest.raises(SnapshotBlocked, match="tie"):
         snap(lake, MON_0600)
+    other = Lake(tmp_path / "b" / "lake", clock=Clock(MON_0600))
+    other = world(tmp_path / "b", [played(other, "blank", "T-TEX", "T-RICE", home_pts=None, away_pts=None)])
+    with pytest.raises(SnapshotBlocked, match="no score"):
+        snap(other, MON_0600)
 
 
 def test_hash_depends_on_content_not_on_row_order_or_cutoff(tmp_path: Path) -> None:
@@ -320,5 +337,64 @@ def test_data_loaders_validate(tmp_path: Path) -> None:
     )
     with pytest.raises(SnapshotDataError, match="unknown status"):
         load_unplayed(path)
-    path.write_text("game_id,winner_id,source_url,note\ng1,T-TEX,https://example.test/f,\n")
-    assert load_forfeits(path) == [Forfeit("g1", "T-TEX", "https://example.test/f")]
+    head = "season,game_id,winner_id,public_utc,source_url,note\n"
+    path.write_text(head + "2026,g1,T-TEX,2026-11-30T12:00:00-05:00,https://example.test/f,\n")
+    when = datetime(2026, 11, 30, 17, 0, tzinfo=UTC)
+    assert load_forfeits(path) == [Forfeit(2026, "g1", "T-TEX", when, "https://example.test/f")]
+    path.write_text(head + "2026,g1,T-TEX,2026-11-30T12:00:00,https://example.test/f,\n")
+    with pytest.raises(SnapshotDataError, match="UTC offset"):
+        load_forfeits(path)
+
+
+def test_2020_cancellations_logged(tmp_path: Path) -> None:
+    """The sourced list of 2020 games never played is logged in a 2020 snapshot's omissions."""
+    unplayed = load_unplayed(ROOT / "data" / "unplayed_games.csv")
+    assert len(unplayed) == 105
+    assert {u.season for u in unplayed} == {2020}
+    lake = world(tmp_path, [])
+    end = lake.open_ranking_view(datetime(2021, 2, 1, tzinfo=UTC))
+    result = build_snapshot(end, 2020, title_games=[], unplayed=unplayed)
+    counts = dict(result.omissions.group_by("reason").len().iter_rows())
+    assert counts == {"no_contest": 40, "postponed_never_played": 33, "cancelled": 32}
+    october = lake.open_ranking_view(datetime(2020, 10, 1, tzinfo=UTC))
+    early = build_snapshot(october, 2020, title_games=[], unplayed=unplayed)
+    assert 0 < early.omissions.height < 105  # only games whose date had passed by the cutoff
+
+
+def test_repo_title_list_covers_every_season() -> None:
+    titles = load_title_games(ROOT / "data" / "title_games.csv")
+    by_season: dict[int, int] = {}
+    for title in titles:
+        by_season[title.season] = by_season.get(title.season, 0) + 1
+    expected = {2014: 7, 2015: 8, 2016: 8, 2017: 9, 2020: 9, 2024: 9, 2025: 9}
+    assert by_season == {season: expected.get(season, 10) for season in range(2014, 2027)}
+    assert all(t.team_a for t in titles if t.season < 2026)
+
+
+def test_live_mode_needs_the_row_ingested_by_the_cutoff(tmp_path: Path) -> None:
+    clock = Clock(SUN_0200 + timedelta(hours=1))  # the result is ingested an hour after the cutoff
+    world(tmp_path, [])
+    lake = Lake(tmp_path / "lake", clock=clock)
+    lake.append("games", frame("games", [played(lake, "g", "T-TEX", "T-RICE")]))
+    live = build_snapshot(lake.open_ranking_view(SUN_0200, "live"), 2026, title_games=[])
+    replay = build_snapshot(lake.open_ranking_view(SUN_0200, "replay"), 2026, title_games=[])
+    assert (live.games.height, replay.games.height) == (0, 1)
+    assert live.snapshot_hash != replay.snapshot_hash
+
+
+def test_unknown_division_opponent_of_an_fbs_team_blocks(tmp_path: Path) -> None:
+    teams = TEAMS | {"T-X": ("Mystery College", "unknown", None)}
+    lake = Lake(tmp_path / "lake", clock=Clock(MON_0600))
+    row = played(lake, "g", "T-TEX", "T-RICE") | {"away_id": "T-X", "away_div": "unknown"}
+    lake = world(tmp_path, [row], teams)
+    with pytest.raises(SnapshotBlocked, match="no known division"):
+        snap(lake, MON_0600)
+
+
+def test_empty_snapshots_of_different_seasons_do_not_share_a_hash(tmp_path: Path) -> None:
+    lake = world(tmp_path, [])
+    view = lake.open_ranking_view(MON_0600)
+    a = build_snapshot(view, 2026, title_games=[])
+    b = build_snapshot(view, 2025, title_games=[])
+    assert a.snapshot_hash != b.snapshot_hash
+    assert a.lists_hash != build_snapshot(view, 2026, title_games=[SEC_TITLE]).lists_hash

@@ -75,6 +75,7 @@ class OddsApi:
 class OddsReport:
     rows: int = 0
     games: int = 0
+    in_play: int = 0  # events already kicked off at capture; their prices are not pregame lines
     unmatched: list[str] = field(default_factory=list)  # events we could not tie to a game in the store
 
 
@@ -93,30 +94,37 @@ def _price(market: Mapping[str, Any], name: str) -> float | None:
 
 
 def line_rows(
-    got: Fetched, team_ids: Mapping[str, str], games: pl.DataFrame, as_of: datetime | None = None
+    got: Fetched, team_ids: Mapping[str, str], games: pl.DataFrame, vintage: str = "live"
 ) -> tuple[pl.DataFrame, OddsReport]:
-    """One row per book and game from an /odds payload.
+    """One row per book and game from an /odds payload of pregame lines.
 
-    `team_ids` maps the names the API prints to team ids; `games` is the store's games table. An event is
-    tied to the game between the same two teams that kicks off within 36 hours of the API's commence time.
-    The spread is the home team's, as in the CFBD rows. Rows are public at the capture time.
+    `team_ids` maps the names the API prints to team ids; `games` is the store's games table (any number of
+    versions per game). An event is tied to the one game between the same two teams that kicks off within
+    36 hours of the API's commence time, whichever side each source calls home. The spread and the home
+    moneyline are the stored home team's, as in the CFBD rows. Events already under way are skipped. Rows
+    are public at the capture time.
     """
     payload = got.json()
     events = payload["data"] if isinstance(payload, dict) else payload
-    stamp = as_of or got.fetched_at
+    stamp = got.fetched_at
+    latest = games.sort("correction_version").unique("game_id", keep="last")
     report = OddsReport()
     rows: list[dict[str, Any]] = []
     for event in events:
-        home_name, away_name = event["home_team"], event["away_team"]
-        label = f"{away_name} at {home_name} ({event['commence_time']})"
-        home, away = team_ids.get(home_name), team_ids.get(away_name)
-        if home is None or away is None:
+        names = (event["home_team"], event["away_team"])
+        label = f"{names[1]} at {names[0]} ({event['commence_time']})"
+        kickoff = datetime.fromisoformat(event["commence_time"].replace("Z", "+00:00"))
+        if kickoff <= stamp:
+            report.in_play += 1
+            continue
+        name_by_id = {team_ids[name]: name for name in names if name in team_ids}
+        if len(name_by_id) != 2:
             report.unmatched.append(f"{label}: unknown team name")
             continue
-        kickoff = datetime.fromisoformat(event["commence_time"].replace("Z", "+00:00"))
-        match = games.filter(
-            (pl.col("home_id") == home)
-            & (pl.col("away_id") == away)
+        pair = list(name_by_id)
+        match = latest.filter(
+            pl.col("home_id").is_in(pair)
+            & pl.col("away_id").is_in(pair)
             & (pl.col("start_utc") >= kickoff - KICKOFF_SLACK)
             & (pl.col("start_utc") <= kickoff + KICKOFF_SLACK)
         )
@@ -125,6 +133,7 @@ def line_rows(
             continue
         report.games += 1
         game = match.row(0, named=True)
+        home_name, away_name = name_by_id[game["home_id"]], name_by_id[game["away_id"]]
         for book in event.get("bookmakers") or []:
             markets = {m["key"]: m for m in book["markets"]}
             values = {
@@ -146,7 +155,7 @@ def line_rows(
                     "event_time": stamp,
                     "first_public_time": stamp,
                     "raw_hash": got.raw_hash,
-                    "vintage": "live",
+                    "vintage": vintage,
                 }
             )
     if len({(r["provider"], r["game_id"]) for r in rows}) != len(rows):
