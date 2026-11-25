@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.openranking.issue-fallback</string>
+<key>ProgramArguments</key><array><string>~/Library/Application Support/OpenRanking/trigger_workflow.sh</string><string>issue</string></array>
+<key>StartCalendarInterval</key><array>
+<dict><key>Month</key><integer>11</integer><key>Day</key><integer>29</integer><key>Hour</key><integer>0</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>11</integer><key>Day</key><integer>29</integer><key>Hour</key><integer>1</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>11</integer><key>Day</key><integer>29</integer><key>Hour</key><integer>1</integer><key>Minute</key><integer>40</integer></dict>
+<dict><key>Month</key><integer>12</integer><key>Day</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>12</integer><key>Day</key><integer>1</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>12</integer><key>Day</key><integer>1</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>40</integer></dict>
+<dict><key>Month</key><integer>12</integer><key>Day</key><integer>6</integer><key>Hour</key><integer>0</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>12</integer><key>Day</key><integer>6</integer><key>Hour</key><integer>1</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>12</integer><key>Day</key><integer>6</integer><key>Hour</key><integer>1</integer><key>Minute</key><integer>40</integer></dict>
+<dict><key>Month</key><integer>12</integer><key>Day</key><integer>6</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>12</integer><key>Day</key><integer>6</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>10</integer></dict><dict><key>Month</key><integer>12</integer><key>Day</key><integer>6</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>40</integer></dict>
+</array>
+<key>StandardErrorPath</key><string>~/Library/Logs/OpenRanking/launchd.err</string>
+<key>StandardOutPath</key><string>~/Library/Logs/OpenRanking/launchd.out</string>
+</dict></plist>

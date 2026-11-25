@@ -477,3 +477,7 @@ John approved the plan. Rules and past fields were checked against collegefootba
 - Tests added for the 24/25 cutoff and the 8/9 and 16/17 seed boundaries in 2027.
 
 Left open: a waiver overrides any ineligibility, though the CFP's waiver covers scheduling only; in 2024, with fewer than four ranked champions, an extra-ordered unranked champion would take a top-four seed (literal to the rule, never happened, unverified).
+
+## 2026-11-25 — Mac fallback for issue triggers
+
+No scheduled run had started in the data repository by 19:38 UTC (capture slots at 18:17 and 19:17 produced nothing); hand-triggered runs work. John chose a fallback on his Mac. A launchd job hand-triggers the `issue` workflow three times before each cutoff, and a second job keeps the Mac from idle-sleeping. Files and removal steps: `scripts/mac_fallback/`. Tested with a one-off job that started a capture run at 19:42 UTC. The old local cron entries (failing hourly since macOS blocks cron from the Desktop folder) were removed. Limits: the Mac must be on, online, lid open, and logged in.
