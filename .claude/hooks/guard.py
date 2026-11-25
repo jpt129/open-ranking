@@ -30,7 +30,7 @@ def rel(path: str) -> str | None:
     full = os.path.realpath(path if os.path.isabs(path) else os.path.join(ROOT, path))
     if full == ROOT:
         return ""
-    return full[len(ROOT) + 1:] if full.startswith(ROOT + os.sep) else None
+    return full[len(ROOT) + 1 :] if full.startswith(ROOT + os.sep) else None
 
 
 def under(relpath: str | None, top: str) -> bool:
@@ -38,8 +38,12 @@ def under(relpath: str | None, top: str) -> bool:
 
 
 def shell_mentions(command: str, top: str) -> bool:
-    """True if a shell command names project-root `top/`, relative or absolute."""
-    anchored = r"(?:^|[\s\"'=(;|&<>])(?:\./)?" + re.escape(top) + r"(?:/|\b)"
+    """True if a shell command names project-root `top/`, relative or absolute.
+
+    The folder must be followed by a slash, or be the last word of a command (`rm -r frozen`), so the
+    bare word in prose or code (`frozen=True`, "frozen parameters") is not treated as a path.
+    """
+    anchored = r"(?:^|[\s\"'=(;|&<>])(?:\./)?" + re.escape(top) + r"(?:/|(?=\s*(?:[;|&)]|$)))"
     return bool(re.search(anchored, command)) or (ROOT + "/" + top) in command
 
 

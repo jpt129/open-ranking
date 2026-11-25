@@ -84,6 +84,7 @@ forbidden_modules = [
     "cfp.cli",
     "cfp.identity",
     "cfp.store.asof",
+    "cfp.store.lake",
     "cfp.store.schemas",
 ]
 allow_indirect_imports = true

@@ -10,8 +10,21 @@ import cfp
 from cfp.cli import main
 
 PACKAGES = [
-    "common", "store", "store.schemas", "store.asof", "store.views", "ingest", "identity", "snapshot",
-    "open_ranking", "rules", "forecast", "scoring", "markets", "gap", "release",
+    "common",
+    "store",
+    "store.schemas",
+    "store.asof",
+    "store.views",
+    "ingest",
+    "identity",
+    "snapshot",
+    "open_ranking",
+    "rules",
+    "forecast",
+    "scoring",
+    "markets",
+    "gap",
+    "release",
 ]
 
 

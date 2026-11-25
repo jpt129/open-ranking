@@ -16,7 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_import_contracts_hold() -> None:
     result = subprocess.run(
         [str(Path(sys.executable).parent / "lint-imports"), "--config", str(ROOT / "pyproject.toml")],
-        cwd=ROOT, capture_output=True, text=True, check=False,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "0 broken" in result.stdout, result.stdout
