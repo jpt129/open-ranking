@@ -1,0 +1,10 @@
+# BR-2025: five highest-ranked conference champions plus seven at-large. Straight seeding: the top four
+# ranked teams get byes, and a champion from outside the top twelve takes a bottom seed in rank order.
+seasons: {first: 2025, last: 2025}
+field_size: 12
+auto:
+  - {kind: highest_ranked_champions, count: 5}
+seeding: rank
+byes: [1, 2, 3, 4]
+hosts: {1: [5, 6, 7, 8]}
+source: https://collegefootballplayoff.com/news/2025/5/22/2526-seeding-rev

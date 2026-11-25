@@ -25,4 +25,4 @@ Missing sources, unknown vintages and unverified inputs. A missing input removes
 | 2026-11-25 | AP votes outside the top 25, 2014–2025 | Only 2026 weeks 2–13 are loaded from ESPN. | Baseline 2 cannot be replayed for earlier seasons, so its rank-noise temperature cannot be fitted yet. | open — needed for P16/P25 |
 | 2026-11-25 | Open points at forecast issues | The ledger (P05–P08) is not built. | Baseline 2 runs without its third ordering key; editions list it under `missing_inputs`. | open — closes with P08 |
 | 2026-11-25 | Tiebreak draw | Published 25 Nov 2026, not before the season. | Disclosed; the draw depends only on a recorded phrase. | closed |
-
+| 2026-11-25 | rules fixtures | Conference champions for 2024 and 2025 are confirmed from a secondary source (Wikipedia) and from title-game results in the lake, not from each conference's own page | The 2024 and 2025 field fixtures depend on them; the outcomes match the CFP's published seeds | Archive each conference's champion announcement |

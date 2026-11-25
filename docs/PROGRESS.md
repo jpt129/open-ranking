@@ -160,6 +160,8 @@ Open Ranking release step built (`cfp open-ranking build`); 359 tests pass. No O
 
 Release-step review fixes applied (corrections, crash repair, published snapshot rows). Open points are wired into the forecast issue (SC-04a); 368 tests pass.
 
-Next: rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
+P09 rules engine built with season files for 2014–2027 and fixtures checked against CFP pages; 382 tests pass.
+
+Next: P16 (Plackett–Luce) and P17 (title-game simulator) per the pilot order; rank-noise temperature; the gate (RL-01); the ledger page; a first published Open Ranking edition.
 
 Not confirmed: that the hourly cloud capture fires on schedule (only hand-triggered runs were observed).

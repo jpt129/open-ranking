@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from cfp.open_ranking.strength import Fit
+from cfp.rules.engine import RulesError, load_rules
 
 BAND_BY_FIELD: Final[dict[int, tuple[int, int]]] = {4: (1, 8), 12: (9, 16), 24: (21, 28)}
 
@@ -26,10 +27,11 @@ class Band:
 
 
 def field_size(season: int) -> int:
-    """Teams in the playoff field: 4 through 2023, 12 for 2024-2026, 24 from 2027 (BR-2014..BR-2027)."""
-    if season < 2014:
-        raise BandError(f"no playoff field is defined for {season}")
-    return 4 if season <= 2023 else 12 if season <= 2026 else 24
+    """Teams in the playoff field that season, from the season's bracket rules (BR-2014..BR-2027)."""
+    try:
+        return load_rules(season).field_size
+    except RulesError as error:
+        raise BandError(f"no playoff field is defined for {season}") from error
 
 
 def band_ranks(season: int) -> tuple[int, int]:

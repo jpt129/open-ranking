@@ -1,0 +1,16 @@
+# BR-2026: the ACC, Big Ten, Big 12 and SEC champions; one place for the other six conferences; seven
+# at-large. Notre Dame is in if ranked in the top twelve. Straight seeding; the top four get byes.
+# Automatic qualifiers outside the top 25 are ordered by the committee's extra ordering.
+seasons: {first: 2026, last: 2026}
+field_size: 12
+auto:
+  - {kind: named_champions, conferences: [acc, big-ten, big-12, sec]}
+  - kind: group_place
+    of: team  # the highest-ranked team from these conferences, champion or not
+    conferences: [american-athletic, conference-usa, mid-american, mountain-west, pac-12, sun-belt]
+guarantee: {team_id: cfbd-87, name: Notre Dame, top: 12}
+seeding: rank
+byes: [1, 2, 3, 4]
+hosts: {1: [5, 6, 7, 8]}
+source: https://collegefootballplayoff.com/sports/2016/10/24/selection-committee-protocol
+source_also: https://collegefootballplayoff.com/sports/2024/5/29/12-team-format

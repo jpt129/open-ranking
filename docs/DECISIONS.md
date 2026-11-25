@@ -447,3 +447,23 @@ Left open: no test that a row ingested late is invisible to the feature build sp
 Rehearsal on Actions (25 Nov 19:11 UTC, run 45682742188, code `ffe752c`): every step passed and no open-points warning was printed.
 
 **John's rulings (25 Nov, evening).** (1) If the open-points build fails for any reason, the forecast issue still goes out, without open points and with the reason disclosed; an unexpected fault is labelled as such. (2) SC-04a's "byte-identical ledgers" covers every row field except `revision_cp`, which is an edition's comparison with its predecessor.
+
+## 2026-11-25 — P09 (rules engine, BR-*, FF-06)
+
+John approved the plan. Rules and past fields were checked against collegefootballplayoff.com by the rules-verifier before the fixtures were fixed; its quotes and URLs are summarised here.
+
+- **Rules are data**: `src/cfp/rules/seasons/{2014,2024,2025,2026,2027}.yaml`, each with its CFP source URL. `load_rules(season)`; `select_field(rules, order, champions, eligible=, conference_of=, extra_order=, waivers=, qualifying_games=)` returns one entry per team it was told about: rank, qualifier, route, seed, bye, host round, reason.
+- **The sixth-conference place (2026, 2027) goes to the highest-ranked team, champion or not.** CFP protocol: "the highest-ranked team from the American, Conference USA, Mid-American Conference, Mountain West, Pac-12 Conference or Sun Belt Conference, along with the next seven highest-ranked teams." The engine therefore needs each team's conference for those seasons.
+- **Notre Dame (2026).** "Notre Dame receives an automatic bid if it is ranked in the CFP Top 12 on Selection Day. If so, six (6) at-large bids would be awarded." Built as: if Notre Dame is in the top 12 and would not get in on rank, it takes the last at-large place (route `guarantee`); if it gets in on rank anyway, its route is `at_large`. That it displaces the lowest at-large team is the plain consequence of six at-large places; the CFP does not spell that case out.
+- **Seeding.** 2024: "The four highest-ranked conference champions will be seeded one through four and receive a first-round bye"; the rest in rank order. 2025 on: straight by rank; a qualifier outside the top twelve is "seeded at the bottom of the 12 in rank order". Seeds 5–8 host round one.
+- **Unranked automatic qualifiers.** The committee orders them itself ("determine their relative positions for seeding purposes"); the engine takes that as `extra_order` and refuses if two such teams must be told apart without it. A team in the extra ordering is seeded below every ranked team. How the CFP would sort an unranked qualifier against one ranked 13–25 is not stated; the engine puts ranked first.
+- **2027.** 24 teams; seeds 1–8 bye and host round two; seeds 9–16 host round one. The ten-game count is reported in the reason and a flag, and never excludes a team. A waiver makes a team eligible and is flagged. Not published by the CFP as of 25 Nov 2026: any Notre Dame provision, seeding of an unranked qualifier, what missing the standard costs, how each league names its champion. The 2027 file has no Notre Dame guarantee for that reason.
+- **Missing inputs stop the engine**: a named conference with no champion, no conference for a ranked team where one is needed, an order too short to fill the at-large places.
+- `band.field_size` now reads the field size from these rules.
+- **Fixtures** (`tests/fixtures/cfp_final_orders.json`): final orders from the verified release tables in the lake; champions are title-game winners from `data/title_games.csv` and game results. The 2014–2023 top fours and the 2024 and 2025 top 25s and seeds match collegefootballplayoff.com. The champion lists were cross-checked against Wikipedia only.
+
+**Conflicts with the spec, raised not resolved:**
+- BR-2026 and BR-2027 already say "team"; the P09 plan had read it as champion. No spec change needed.
+- BR-SCHED says the CFP "permits consideration of at most one FCS win". The source says: "will not give any weight to a win over more than one (1) FCS opponent per season." Same effect, different wording; the 2027 file quotes the source.
+- BR-FIX and the plan assume ten champions a season; 2024 and 2025 have nine (the two-team Pac-12 named none).
+- Unverified: the 2024 rule sentence for placing a fifth champion ranked outside the top twelve (only the outcome, Clemson at seed 12, is primary).

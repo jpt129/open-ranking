@@ -1,0 +1,2553 @@
+{
+ "2014": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-400608167",
+    "name": "Florida State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400608167",
+    "team_id": "cfbd-52"
+   },
+   "big-ten": {
+    "game_id": "cfbd-400609096",
+    "name": "Ohio State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400609096",
+    "team_id": "cfbd-194"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-400609077",
+    "name": "Marshall",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400609077",
+    "team_id": "cfbd-276"
+   },
+   "mid-american": {
+    "game_id": "cfbd-400609055",
+    "name": "Northern Illinois",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400609055",
+    "team_id": "cfbd-2459"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-400609154",
+    "name": "Boise State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400609154",
+    "team_id": "cfbd-68"
+   },
+   "pac-12": {
+    "game_id": "cfbd-400609076",
+    "name": "Oregon",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400609076",
+    "team_id": "cfbd-2483"
+   },
+   "sec": {
+    "game_id": "cfbd-400609098",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400609098",
+    "team_id": "cfbd-333"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 1,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 2,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Florida State",
+    "rank": 3,
+    "team_id": "cfbd-52"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 4,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Baylor",
+    "rank": 5,
+    "team_id": "cfbd-239"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "TCU",
+    "rank": 6,
+    "team_id": "cfbd-2628"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Mississippi State",
+    "rank": 7,
+    "team_id": "cfbd-344"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan State",
+    "rank": 8,
+    "team_id": "cfbd-127"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Ole Miss",
+    "rank": 9,
+    "team_id": "cfbd-145"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Arizona",
+    "rank": 10,
+    "team_id": "cfbd-12"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Kansas State",
+    "rank": 11,
+    "team_id": "cfbd-2306"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Georgia Tech",
+    "rank": 12,
+    "team_id": "cfbd-59"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 13,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "UCLA",
+    "rank": 14,
+    "team_id": "cfbd-26"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Arizona State",
+    "rank": 15,
+    "team_id": "cfbd-9"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Missouri",
+    "rank": 16,
+    "team_id": "cfbd-142"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 17,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Wisconsin",
+    "rank": 18,
+    "team_id": "cfbd-275"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Auburn",
+    "rank": 19,
+    "team_id": "cfbd-2"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "Boise State",
+    "rank": 20,
+    "team_id": "cfbd-68"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Louisville",
+    "rank": 21,
+    "team_id": "cfbd-97"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 22,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 23,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 24,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Minnesota",
+    "rank": 25,
+    "team_id": "cfbd-135"
+   }
+  ],
+  "release_id": "cfp-2014-07",
+  "source_name": "Alabama"
+ },
+ "2015": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-400852676",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852676",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-400852678",
+    "name": "Houston",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852678",
+    "team_id": "cfbd-248"
+   },
+   "big-ten": {
+    "game_id": "cfbd-400852682",
+    "name": "Michigan State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852682",
+    "team_id": "cfbd-127"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-400852672",
+    "name": "Western Kentucky",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852672",
+    "team_id": "cfbd-98"
+   },
+   "mid-american": {
+    "game_id": "cfbd-400852680",
+    "name": "Bowling Green",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852680",
+    "team_id": "cfbd-189"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-400852675",
+    "name": "San Diego State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852675",
+    "team_id": "cfbd-21"
+   },
+   "pac-12": {
+    "game_id": "cfbd-400852677",
+    "name": "Stanford",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852677",
+    "team_id": "cfbd-24"
+   },
+   "sec": {
+    "game_id": "cfbd-400852681",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400852681",
+    "team_id": "cfbd-333"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 1,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 2,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan State",
+    "rank": 3,
+    "team_id": "cfbd-127"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 4,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Iowa",
+    "rank": 5,
+    "team_id": "cfbd-2294"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Stanford",
+    "rank": 6,
+    "team_id": "cfbd-24"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 7,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 8,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Florida State",
+    "rank": 9,
+    "team_id": "cfbd-52"
+   },
+   {
+    "conference_id": "acc",
+    "name": "North Carolina",
+    "rank": 10,
+    "team_id": "cfbd-153"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "TCU",
+    "rank": 11,
+    "team_id": "cfbd-2628"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Ole Miss",
+    "rank": 12,
+    "team_id": "cfbd-145"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Northwestern",
+    "rank": 13,
+    "team_id": "cfbd-77"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 14,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 15,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 16,
+    "team_id": "cfbd-197"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Baylor",
+    "rank": 17,
+    "team_id": "cfbd-239"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Houston",
+    "rank": 18,
+    "team_id": "cfbd-248"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Florida",
+    "rank": 19,
+    "team_id": "cfbd-57"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 20,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Navy",
+    "rank": 21,
+    "team_id": "cfbd-2426"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 22,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Tennessee",
+    "rank": 23,
+    "team_id": "cfbd-2633"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Temple",
+    "rank": 24,
+    "team_id": "cfbd-218"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 25,
+    "team_id": "cfbd-30"
+   }
+  ],
+  "release_id": "cfp-2015-06",
+  "source_name": "Clemson"
+ },
+ "2016": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-400926944",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926944",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-400926947",
+    "name": "Temple",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926947",
+    "team_id": "cfbd-218"
+   },
+   "big-ten": {
+    "game_id": "cfbd-400926946",
+    "name": "Penn State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926946",
+    "team_id": "cfbd-213"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-400926948",
+    "name": "Western Kentucky",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926948",
+    "team_id": "cfbd-98"
+   },
+   "mid-american": {
+    "game_id": "cfbd-400926941",
+    "name": "Western Michigan",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926941",
+    "team_id": "cfbd-2711"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-400926949",
+    "name": "San Diego State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926949",
+    "team_id": "cfbd-21"
+   },
+   "pac-12": {
+    "game_id": "cfbd-400926942",
+    "name": "Washington",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926942",
+    "team_id": "cfbd-264"
+   },
+   "sec": {
+    "game_id": "cfbd-400926943",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400926943",
+    "team_id": "cfbd-333"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 1,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 2,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 3,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington",
+    "rank": 4,
+    "team_id": "cfbd-264"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 5,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 6,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 7,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Wisconsin",
+    "rank": 8,
+    "team_id": "cfbd-275"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 9,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Colorado",
+    "rank": 10,
+    "team_id": "cfbd-38"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Florida State",
+    "rank": 11,
+    "team_id": "cfbd-52"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 12,
+    "team_id": "cfbd-197"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Louisville",
+    "rank": 13,
+    "team_id": "cfbd-97"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Auburn",
+    "rank": 14,
+    "team_id": "cfbd-2"
+   },
+   {
+    "conference_id": "mid-american",
+    "name": "Western Michigan",
+    "rank": 15,
+    "team_id": "cfbd-2711"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "West Virginia",
+    "rank": 16,
+    "team_id": "cfbd-277"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Florida",
+    "rank": 17,
+    "team_id": "cfbd-57"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Stanford",
+    "rank": 18,
+    "team_id": "cfbd-24"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 19,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 20,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Tennessee",
+    "rank": 21,
+    "team_id": "cfbd-2633"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Virginia Tech",
+    "rank": 22,
+    "team_id": "cfbd-259"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Pittsburgh",
+    "rank": 23,
+    "team_id": "cfbd-221"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Temple",
+    "rank": 24,
+    "team_id": "cfbd-218"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Navy",
+    "rank": 25,
+    "team_id": "cfbd-2426"
+   }
+  ],
+  "release_id": "cfp-2016-06",
+  "source_name": "Alabama"
+ },
+ "2017": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-400955155",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955155",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-400955151",
+    "name": "UCF",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955151",
+    "team_id": "cfbd-2116"
+   },
+   "big-12": {
+    "game_id": "cfbd-400955157",
+    "name": "Oklahoma",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955157",
+    "team_id": "cfbd-201"
+   },
+   "big-ten": {
+    "game_id": "cfbd-400955156",
+    "name": "Ohio State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955156",
+    "team_id": "cfbd-194"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-400955152",
+    "name": "Florida Atlantic",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955152",
+    "team_id": "cfbd-2226"
+   },
+   "mid-american": {
+    "game_id": "cfbd-400955150",
+    "name": "Toledo",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955150",
+    "team_id": "cfbd-2649"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-400955154",
+    "name": "Boise State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955154",
+    "team_id": "cfbd-68"
+   },
+   "pac-12": {
+    "game_id": "cfbd-400955149",
+    "name": "USC",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955149",
+    "team_id": "cfbd-30"
+   },
+   "sec": {
+    "game_id": "cfbd-400955153",
+    "name": "Georgia",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/400955153",
+    "team_id": "cfbd-61"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 1,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 2,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 3,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 4,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 5,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Wisconsin",
+    "rank": 6,
+    "team_id": "cfbd-275"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Auburn",
+    "rank": 7,
+    "team_id": "cfbd-2"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 8,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 9,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Miami",
+    "rank": 10,
+    "team_id": "cfbd-2390"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington",
+    "rank": 11,
+    "team_id": "cfbd-264"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "UCF",
+    "rank": 12,
+    "team_id": "cfbd-2116"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Stanford",
+    "rank": 13,
+    "team_id": "cfbd-24"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 14,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "TCU",
+    "rank": 15,
+    "team_id": "cfbd-2628"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan State",
+    "rank": 16,
+    "team_id": "cfbd-127"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 17,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington State",
+    "rank": 18,
+    "team_id": "cfbd-265"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 19,
+    "team_id": "cfbd-197"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Memphis",
+    "rank": 20,
+    "team_id": "cfbd-235"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Northwestern",
+    "rank": 21,
+    "team_id": "cfbd-77"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Virginia Tech",
+    "rank": 22,
+    "team_id": "cfbd-259"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Mississippi State",
+    "rank": 23,
+    "team_id": "cfbd-344"
+   },
+   {
+    "conference_id": "acc",
+    "name": "NC State",
+    "rank": 24,
+    "team_id": "cfbd-152"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "Boise State",
+    "rank": 25,
+    "team_id": "cfbd-68"
+   }
+  ],
+  "release_id": "cfp-2017-06",
+  "source_name": "Clemson"
+ },
+ "2018": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401056697",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056697",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401056699",
+    "name": "UCF",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056699",
+    "team_id": "cfbd-2116"
+   },
+   "big-12": {
+    "game_id": "cfbd-401056698",
+    "name": "Oklahoma",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056698",
+    "team_id": "cfbd-201"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401056702",
+    "name": "Ohio State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056702",
+    "team_id": "cfbd-194"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401056703",
+    "name": "UAB",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056703",
+    "team_id": "cfbd-5"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401056696",
+    "name": "Northern Illinois",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056696",
+    "team_id": "cfbd-2459"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401056700",
+    "name": "Fresno State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056700",
+    "team_id": "cfbd-278"
+   },
+   "pac-12": {
+    "game_id": "cfbd-401056704",
+    "name": "Washington",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056704",
+    "team_id": "cfbd-264"
+   },
+   "sec": {
+    "game_id": "cfbd-401056705",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056705",
+    "team_id": "cfbd-333"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401056701",
+    "name": "App State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401056701",
+    "team_id": "cfbd-2026"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 1,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 2,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 3,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 4,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 5,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 6,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 7,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "UCF",
+    "rank": 8,
+    "team_id": "cfbd-2116"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington",
+    "rank": 9,
+    "team_id": "cfbd-264"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Florida",
+    "rank": 10,
+    "team_id": "cfbd-57"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 11,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 12,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington State",
+    "rank": 13,
+    "team_id": "cfbd-265"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Kentucky",
+    "rank": 14,
+    "team_id": "cfbd-96"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Texas",
+    "rank": 15,
+    "team_id": "cfbd-251"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "West Virginia",
+    "rank": 16,
+    "team_id": "cfbd-277"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 17,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Mississippi State",
+    "rank": 18,
+    "team_id": "cfbd-344"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Texas A&M",
+    "rank": 19,
+    "team_id": "cfbd-245"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Syracuse",
+    "rank": 20,
+    "team_id": "cfbd-183"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "Fresno State",
+    "rank": 21,
+    "team_id": "cfbd-278"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Northwestern",
+    "rank": 22,
+    "team_id": "cfbd-77"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Missouri",
+    "rank": 23,
+    "team_id": "cfbd-142"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Iowa State",
+    "rank": 24,
+    "team_id": "cfbd-66"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "Boise State",
+    "rank": 25,
+    "team_id": "cfbd-68"
+   }
+  ],
+  "release_id": "cfp-2018-06",
+  "source_name": "Alabama"
+ },
+ "2019": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401132975",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132975",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401132976",
+    "name": "Memphis",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132976",
+    "team_id": "cfbd-235"
+   },
+   "big-12": {
+    "game_id": "cfbd-401132974",
+    "name": "Oklahoma",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132974",
+    "team_id": "cfbd-201"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401132983",
+    "name": "Ohio State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132983",
+    "team_id": "cfbd-194"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401132980",
+    "name": "Florida Atlantic",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132980",
+    "team_id": "cfbd-2226"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401132982",
+    "name": "Miami (OH)",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132982",
+    "team_id": "cfbd-193"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401132979",
+    "name": "Boise State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132979",
+    "team_id": "cfbd-68"
+   },
+   "pac-12": {
+    "game_id": "cfbd-401132973",
+    "name": "Oregon",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132973",
+    "team_id": "cfbd-2483"
+   },
+   "sec": {
+    "game_id": "cfbd-401132981",
+    "name": "LSU",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132981",
+    "team_id": "cfbd-99"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401132984",
+    "name": "App State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401132984",
+    "team_id": "cfbd-2026"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 1,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 2,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 3,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 4,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 5,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 6,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Baylor",
+    "rank": 7,
+    "team_id": "cfbd-239"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Wisconsin",
+    "rank": 8,
+    "team_id": "cfbd-275"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Florida",
+    "rank": 9,
+    "team_id": "cfbd-57"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 10,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 11,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Auburn",
+    "rank": 12,
+    "team_id": "cfbd-2"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 13,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 14,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 15,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Iowa",
+    "rank": 16,
+    "team_id": "cfbd-2294"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Memphis",
+    "rank": 17,
+    "team_id": "cfbd-235"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Minnesota",
+    "rank": 18,
+    "team_id": "cfbd-135"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "Boise State",
+    "rank": 19,
+    "team_id": "cfbd-68"
+   },
+   {
+    "conference_id": "sun-belt",
+    "name": "App State",
+    "rank": 20,
+    "team_id": "cfbd-2026"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Cincinnati",
+    "rank": 21,
+    "team_id": "cfbd-2132"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 22,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Navy",
+    "rank": 23,
+    "team_id": "cfbd-2426"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Virginia",
+    "rank": 24,
+    "team_id": "cfbd-258"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 25,
+    "team_id": "cfbd-197"
+   }
+  ],
+  "release_id": "cfp-2019-06",
+  "source_name": "LSU"
+ },
+ "2020": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401256001",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401256001",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401264085",
+    "name": "Cincinnati",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401264085",
+    "team_id": "cfbd-2132"
+   },
+   "big-12": {
+    "game_id": "cfbd-401262060",
+    "name": "Oklahoma",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401262060",
+    "team_id": "cfbd-201"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401247349",
+    "name": "Ohio State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401247349",
+    "team_id": "cfbd-194"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401240101",
+    "name": "UAB",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401240101",
+    "team_id": "cfbd-5"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401249854",
+    "name": "Ball State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401249854",
+    "team_id": "cfbd-2050"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401249043",
+    "name": "San Jos\u00e9 State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401249043",
+    "team_id": "cfbd-23"
+   },
+   "pac-12": {
+    "game_id": "cfbd-401249434",
+    "name": "Oregon",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401249434",
+    "team_id": "cfbd-2483"
+   },
+   "sec": {
+    "game_id": "cfbd-401237074",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401237074",
+    "team_id": "cfbd-333"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 1,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 2,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 3,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Notre Dame",
+    "rank": 4,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Texas A&M",
+    "rank": 5,
+    "team_id": "cfbd-245"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 6,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Florida",
+    "rank": 7,
+    "team_id": "cfbd-57"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Cincinnati",
+    "rank": 8,
+    "team_id": "cfbd-2132"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 9,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Iowa State",
+    "rank": 10,
+    "team_id": "cfbd-66"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Indiana",
+    "rank": 11,
+    "team_id": "cfbd-84"
+   },
+   {
+    "conference_id": "sun-belt",
+    "name": "Coastal Carolina",
+    "rank": 12,
+    "team_id": "cfbd-324"
+   },
+   {
+    "conference_id": "acc",
+    "name": "North Carolina",
+    "rank": 13,
+    "team_id": "cfbd-153"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Northwestern",
+    "rank": 14,
+    "team_id": "cfbd-77"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Iowa",
+    "rank": 15,
+    "team_id": "cfbd-2294"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "BYU",
+    "rank": 16,
+    "team_id": "cfbd-252"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 17,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Miami",
+    "rank": 18,
+    "team_id": "cfbd-2390"
+   },
+   {
+    "conference_id": "sun-belt",
+    "name": "Louisiana",
+    "rank": 19,
+    "team_id": "cfbd-309"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Texas",
+    "rank": 20,
+    "team_id": "cfbd-251"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 21,
+    "team_id": "cfbd-197"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "San Jos\u00e9 State",
+    "rank": 22,
+    "team_id": "cfbd-23"
+   },
+   {
+    "conference_id": "acc",
+    "name": "NC State",
+    "rank": 23,
+    "team_id": "cfbd-152"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Tulsa",
+    "rank": 24,
+    "team_id": "cfbd-202"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 25,
+    "team_id": "cfbd-2483"
+   }
+  ],
+  "release_id": "cfp-2020-05",
+  "source_name": "Alabama"
+ },
+ "2021": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401331163",
+    "name": "Pittsburgh",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401331163",
+    "team_id": "cfbd-221"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401331162",
+    "name": "Cincinnati",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401331162",
+    "team_id": "cfbd-2132"
+   },
+   "big-12": {
+    "game_id": "cfbd-401287953",
+    "name": "Baylor",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401287953",
+    "team_id": "cfbd-239"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401331447",
+    "name": "Michigan",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401331447",
+    "team_id": "cfbd-130"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401282156",
+    "name": "UTSA",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401282156",
+    "team_id": "cfbd-2636"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401331160",
+    "name": "Northern Illinois",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401331160",
+    "team_id": "cfbd-2459"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401310676",
+    "name": "Utah State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401310676",
+    "team_id": "cfbd-328"
+   },
+   "pac-12": {
+    "game_id": "cfbd-401331159",
+    "name": "Utah",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401331159",
+    "team_id": "cfbd-254"
+   },
+   "sec": {
+    "game_id": "cfbd-401282154",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401282154",
+    "team_id": "cfbd-333"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401331161",
+    "name": "Louisiana",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401331161",
+    "team_id": "cfbd-309"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 1,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 2,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 3,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Cincinnati",
+    "rank": 4,
+    "team_id": "cfbd-2132"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 5,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 6,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Baylor",
+    "rank": 7,
+    "team_id": "cfbd-239"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Ole Miss",
+    "rank": 8,
+    "team_id": "cfbd-145"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 9,
+    "team_id": "cfbd-197"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan State",
+    "rank": 10,
+    "team_id": "cfbd-127"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 11,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Pittsburgh",
+    "rank": 12,
+    "team_id": "cfbd-221"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "BYU",
+    "rank": 13,
+    "team_id": "cfbd-252"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 14,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Iowa",
+    "rank": 15,
+    "team_id": "cfbd-2294"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 16,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Wake Forest",
+    "rank": 17,
+    "team_id": "cfbd-154"
+   },
+   {
+    "conference_id": "acc",
+    "name": "NC State",
+    "rank": 18,
+    "team_id": "cfbd-152"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 19,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Houston",
+    "rank": 20,
+    "team_id": "cfbd-248"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Arkansas",
+    "rank": 21,
+    "team_id": "cfbd-8"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Kentucky",
+    "rank": 22,
+    "team_id": "cfbd-96"
+   },
+   {
+    "conference_id": "sun-belt",
+    "name": "Louisiana",
+    "rank": 23,
+    "team_id": "cfbd-309"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "San Diego State",
+    "rank": 24,
+    "team_id": "cfbd-21"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Texas A&M",
+    "rank": 25,
+    "team_id": "cfbd-245"
+   }
+  ],
+  "release_id": "cfp-2021-06",
+  "source_name": "Alabama"
+ },
+ "2022": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401437009",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437009",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401437008",
+    "name": "Tulane",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437008",
+    "team_id": "cfbd-2655"
+   },
+   "big-12": {
+    "game_id": "cfbd-401437030",
+    "name": "Kansas State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437030",
+    "team_id": "cfbd-2306"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401437031",
+    "name": "Michigan",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437031",
+    "team_id": "cfbd-130"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401437032",
+    "name": "UTSA",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437032",
+    "team_id": "cfbd-2636"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401437033",
+    "name": "Toledo",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437033",
+    "team_id": "cfbd-2649"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401437034",
+    "name": "Fresno State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437034",
+    "team_id": "cfbd-278"
+   },
+   "pac-12": {
+    "game_id": "cfbd-401437035",
+    "name": "Utah",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437035",
+    "team_id": "cfbd-254"
+   },
+   "sec": {
+    "game_id": "cfbd-401437036",
+    "name": "Georgia",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437036",
+    "team_id": "cfbd-61"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401437037",
+    "name": "Troy",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401437037",
+    "team_id": "cfbd-2653"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 1,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 2,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "TCU",
+    "rank": 3,
+    "team_id": "cfbd-2628"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 4,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 5,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Tennessee",
+    "rank": 6,
+    "team_id": "cfbd-2633"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 7,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Utah",
+    "rank": 8,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Kansas State",
+    "rank": 9,
+    "team_id": "cfbd-2306"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "USC",
+    "rank": 10,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 11,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington",
+    "rank": 12,
+    "team_id": "cfbd-264"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Florida State",
+    "rank": 13,
+    "team_id": "cfbd-52"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon State",
+    "rank": 14,
+    "team_id": "cfbd-204"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 15,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Tulane",
+    "rank": 16,
+    "team_id": "cfbd-2655"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 17,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "UCLA",
+    "rank": 18,
+    "team_id": "cfbd-26"
+   },
+   {
+    "conference_id": "sec",
+    "name": "South Carolina",
+    "rank": 19,
+    "team_id": "cfbd-2579"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Texas",
+    "rank": 20,
+    "team_id": "cfbd-251"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 21,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Mississippi State",
+    "rank": 22,
+    "team_id": "cfbd-344"
+   },
+   {
+    "conference_id": "acc",
+    "name": "NC State",
+    "rank": 23,
+    "team_id": "cfbd-152"
+   },
+   {
+    "conference_id": "sun-belt",
+    "name": "Troy",
+    "rank": 24,
+    "team_id": "cfbd-2653"
+   },
+   {
+    "conference_id": "conference-usa",
+    "name": "UTSA",
+    "rank": 25,
+    "team_id": "cfbd-2636"
+   }
+  ],
+  "release_id": "cfp-2022-06",
+  "source_name": "Georgia"
+ },
+ "2023": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401539478",
+    "name": "Florida State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539478",
+    "team_id": "cfbd-52"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401539477",
+    "name": "SMU",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539477",
+    "team_id": "cfbd-2567"
+   },
+   "big-12": {
+    "game_id": "cfbd-401539479",
+    "name": "Texas",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539479",
+    "team_id": "cfbd-251"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401539480",
+    "name": "Michigan",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539480",
+    "team_id": "cfbd-130"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401539476",
+    "name": "Liberty",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539476",
+    "team_id": "cfbd-2335"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401539481",
+    "name": "Miami (OH)",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539481",
+    "team_id": "cfbd-193"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401539482",
+    "name": "Boise State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539482",
+    "team_id": "cfbd-68"
+   },
+   "pac-12": {
+    "game_id": "cfbd-401539475",
+    "name": "Washington",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539475",
+    "team_id": "cfbd-264"
+   },
+   "sec": {
+    "game_id": "cfbd-401539483",
+    "name": "Alabama",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539483",
+    "team_id": "cfbd-333"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401539484",
+    "name": "Troy",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401539484",
+    "team_id": "cfbd-2653"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 1,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Washington",
+    "rank": 2,
+    "team_id": "cfbd-264"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Texas",
+    "rank": 3,
+    "team_id": "cfbd-251"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 4,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Florida State",
+    "rank": 5,
+    "team_id": "cfbd-52"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 6,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 7,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon",
+    "rank": 8,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Missouri",
+    "rank": 9,
+    "team_id": "cfbd-142"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 10,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Ole Miss",
+    "rank": 11,
+    "team_id": "cfbd-145"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma",
+    "rank": 12,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "sec",
+    "name": "LSU",
+    "rank": 13,
+    "team_id": "cfbd-99"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Arizona",
+    "rank": 14,
+    "team_id": "cfbd-12"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Louisville",
+    "rank": 15,
+    "team_id": "cfbd-97"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 16,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Iowa",
+    "rank": 17,
+    "team_id": "cfbd-2294"
+   },
+   {
+    "conference_id": "acc",
+    "name": "NC State",
+    "rank": 18,
+    "team_id": "cfbd-152"
+   },
+   {
+    "conference_id": "pac-12",
+    "name": "Oregon State",
+    "rank": 19,
+    "team_id": "cfbd-204"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Oklahoma State",
+    "rank": 20,
+    "team_id": "cfbd-197"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Tennessee",
+    "rank": 21,
+    "team_id": "cfbd-2633"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 22,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "conference-usa",
+    "name": "Liberty",
+    "rank": 23,
+    "team_id": "cfbd-2335"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "SMU",
+    "rank": 24,
+    "team_id": "cfbd-2567"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Kansas State",
+    "rank": 25,
+    "team_id": "cfbd-2306"
+   }
+  ],
+  "release_id": "cfp-2023-06",
+  "source_name": "Michigan"
+ },
+ "2024": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401673463",
+    "name": "Clemson",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673463",
+    "team_id": "cfbd-228"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401673462",
+    "name": "Army",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673462",
+    "team_id": "cfbd-349"
+   },
+   "big-12": {
+    "game_id": "cfbd-401673465",
+    "name": "Arizona State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673465",
+    "team_id": "cfbd-9"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401673464",
+    "name": "Oregon",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673464",
+    "team_id": "cfbd-2483"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401673466",
+    "name": "Jacksonville State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673466",
+    "team_id": "cfbd-55"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401673467",
+    "name": "Ohio",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673467",
+    "team_id": "cfbd-195"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401673468",
+    "name": "Boise State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673468",
+    "team_id": "cfbd-68"
+   },
+   "sec": {
+    "game_id": "cfbd-401673469",
+    "name": "Georgia",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673469",
+    "team_id": "cfbd-61"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401673470",
+    "name": "Marshall",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401673470",
+    "team_id": "cfbd-276"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "big-ten",
+    "name": "Oregon",
+    "rank": 1,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 2,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Texas",
+    "rank": 3,
+    "team_id": "cfbd-251"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Penn State",
+    "rank": 4,
+    "team_id": "cfbd-213"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 5,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 6,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Tennessee",
+    "rank": 7,
+    "team_id": "cfbd-2633"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Indiana",
+    "rank": 8,
+    "team_id": "cfbd-84"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "Boise State",
+    "rank": 9,
+    "team_id": "cfbd-68"
+   },
+   {
+    "conference_id": "acc",
+    "name": "SMU",
+    "rank": 10,
+    "team_id": "cfbd-2567"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 11,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Arizona State",
+    "rank": 12,
+    "team_id": "cfbd-9"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Miami",
+    "rank": 13,
+    "team_id": "cfbd-2390"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Ole Miss",
+    "rank": 14,
+    "team_id": "cfbd-145"
+   },
+   {
+    "conference_id": "sec",
+    "name": "South Carolina",
+    "rank": 15,
+    "team_id": "cfbd-2579"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Clemson",
+    "rank": 16,
+    "team_id": "cfbd-228"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "BYU",
+    "rank": 17,
+    "team_id": "cfbd-252"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Iowa State",
+    "rank": 18,
+    "team_id": "cfbd-66"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Missouri",
+    "rank": 19,
+    "team_id": "cfbd-142"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Illinois",
+    "rank": 20,
+    "team_id": "cfbd-356"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Syracuse",
+    "rank": 21,
+    "team_id": "cfbd-183"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Army",
+    "rank": 22,
+    "team_id": "cfbd-349"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Colorado",
+    "rank": 23,
+    "team_id": "cfbd-38"
+   },
+   {
+    "conference_id": "mountain-west",
+    "name": "UNLV",
+    "rank": 24,
+    "team_id": "cfbd-2439"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Memphis",
+    "rank": 25,
+    "team_id": "cfbd-235"
+   }
+  ],
+  "release_id": "cfp-2024-06",
+  "source_name": "Oregon"
+ },
+ "2025": {
+  "champions": {
+   "acc": {
+    "game_id": "cfbd-401777328",
+    "name": "Duke",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777328",
+    "team_id": "cfbd-150"
+   },
+   "american-athletic": {
+    "game_id": "cfbd-401777324",
+    "name": "Tulane",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777324",
+    "team_id": "cfbd-2655"
+   },
+   "big-12": {
+    "game_id": "cfbd-401777327",
+    "name": "Texas Tech",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777327",
+    "team_id": "cfbd-2641"
+   },
+   "big-ten": {
+    "game_id": "cfbd-401777353",
+    "name": "Indiana",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777353",
+    "team_id": "cfbd-84"
+   },
+   "conference-usa": {
+    "game_id": "cfbd-401777325",
+    "name": "Kennesaw State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777325",
+    "team_id": "cfbd-338"
+   },
+   "mid-american": {
+    "game_id": "cfbd-401777329",
+    "name": "Western Michigan",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777329",
+    "team_id": "cfbd-2711"
+   },
+   "mountain-west": {
+    "game_id": "cfbd-401777326",
+    "name": "Boise State",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777326",
+    "team_id": "cfbd-68"
+   },
+   "sec": {
+    "game_id": "cfbd-401777351",
+    "name": "Georgia",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777351",
+    "team_id": "cfbd-61"
+   },
+   "sun-belt": {
+    "game_id": "cfbd-401777352",
+    "name": "James Madison",
+    "source_url": "https://www.espn.com/college-football/game/_/gameId/401777352",
+    "team_id": "cfbd-256"
+   }
+  },
+  "order": [
+   {
+    "conference_id": "big-ten",
+    "name": "Indiana",
+    "rank": 1,
+    "team_id": "cfbd-84"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Ohio State",
+    "rank": 2,
+    "team_id": "cfbd-194"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Georgia",
+    "rank": 3,
+    "team_id": "cfbd-61"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Texas Tech",
+    "rank": 4,
+    "team_id": "cfbd-2641"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Oregon",
+    "rank": 5,
+    "team_id": "cfbd-2483"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Ole Miss",
+    "rank": 6,
+    "team_id": "cfbd-145"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Texas A&M",
+    "rank": 7,
+    "team_id": "cfbd-245"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Oklahoma",
+    "rank": 8,
+    "team_id": "cfbd-201"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Alabama",
+    "rank": 9,
+    "team_id": "cfbd-333"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Miami",
+    "rank": 10,
+    "team_id": "cfbd-2390"
+   },
+   {
+    "conference_id": "fbs-independents",
+    "name": "Notre Dame",
+    "rank": 11,
+    "team_id": "cfbd-87"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "BYU",
+    "rank": 12,
+    "team_id": "cfbd-252"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Texas",
+    "rank": 13,
+    "team_id": "cfbd-251"
+   },
+   {
+    "conference_id": "sec",
+    "name": "Vanderbilt",
+    "rank": 14,
+    "team_id": "cfbd-238"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Utah",
+    "rank": 15,
+    "team_id": "cfbd-254"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "USC",
+    "rank": 16,
+    "team_id": "cfbd-30"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Arizona",
+    "rank": 17,
+    "team_id": "cfbd-12"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Michigan",
+    "rank": 18,
+    "team_id": "cfbd-130"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Virginia",
+    "rank": 19,
+    "team_id": "cfbd-258"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "Tulane",
+    "rank": 20,
+    "team_id": "cfbd-2655"
+   },
+   {
+    "conference_id": "big-12",
+    "name": "Houston",
+    "rank": 21,
+    "team_id": "cfbd-248"
+   },
+   {
+    "conference_id": "acc",
+    "name": "Georgia Tech",
+    "rank": 22,
+    "team_id": "cfbd-59"
+   },
+   {
+    "conference_id": "big-ten",
+    "name": "Iowa",
+    "rank": 23,
+    "team_id": "cfbd-2294"
+   },
+   {
+    "conference_id": "sun-belt",
+    "name": "James Madison",
+    "rank": 24,
+    "team_id": "cfbd-256"
+   },
+   {
+    "conference_id": "american-athletic",
+    "name": "North Texas",
+    "rank": 25,
+    "team_id": "cfbd-249"
+   }
+  ],
+  "release_id": "cfp-2025-06",
+  "source_name": "Indiana"
+ },
+ "_about": "Final committee orders from the verified CFP release tables in the lake (the last release of each season); each team's conference is its membership on 1 December; champions are the winners of the title games listed in data/title_games.csv. Top fours, the 2024 and 2025 top 25s and seeds were checked against collegefootballplayoff.com on 25 Nov 2026; champions were checked against a secondary source only."
+}

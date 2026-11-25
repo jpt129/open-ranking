@@ -1,0 +1,10 @@
+# BR-2024: five highest-ranked conference champions plus seven at-large.
+# The four highest-ranked champions are seeds 1-4 and get byes; the rest are placed in rank order.
+seasons: {first: 2024, last: 2024}
+field_size: 12
+auto:
+  - {kind: highest_ranked_champions, count: 5}
+seeding: champions_first
+byes: [1, 2, 3, 4]
+hosts: {1: [5, 6, 7, 8]}
+source: https://collegefootballplayoff.com/news/2024/12/8/cfp-rankings-241208

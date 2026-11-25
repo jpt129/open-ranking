@@ -1,0 +1,9 @@
+# BR-2014: the final committee top four, in rank order. No automatic bids, no byes, no campus games.
+seasons: {first: 2014, last: 2023}
+field_size: 4
+auto: []
+at_large_route: top_four
+seeding: rank
+byes: []
+hosts: {}
+source: https://collegefootballplayoff.com/documents/download/2022/12/4/CFP_HISTORICAL_MEDIA_GUIDE.pdf

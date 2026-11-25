@@ -1,0 +1,18 @@
+# BR-2027, BR-SCHED: 24 teams. Four named champions, one place for the other six conferences, 19 at-large.
+# Seeds 1-8 get byes and host in round two; seeds 9-16 host in round one. The ten-game scheduling standard
+# is recorded against a team but a raw count alone never excludes it. How each league names its champion
+# is data for that season and is not yet published (S-l). Also unpublished as of 25 Nov 2026: any Notre Dame
+# provision, where an unranked automatic qualifier is seeded, and what missing the standard costs.
+seasons: {first: 2027, last: null}
+field_size: 24
+auto:
+  - {kind: named_champions, conferences: [acc, big-ten, big-12, sec]}
+  - kind: group_place
+    of: team  # the highest-ranked team from these conferences, champion or not
+    conferences: [american-athletic, conference-usa, mid-american, mountain-west, pac-12, sun-belt]
+seeding: rank
+byes: [1, 2, 3, 4, 5, 6, 7, 8]
+hosts: {1: [9, 10, 11, 12, 13, 14, 15, 16], 2: [1, 2, 3, 4, 5, 6, 7, 8]}
+schedule_standard: 10
+fcs_wins_given_weight: 1  # "will not give any weight to a win over more than one (1) FCS opponent"
+source: https://collegefootballplayoff.com/sports/2026/11/9/24-team-format
