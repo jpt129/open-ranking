@@ -84,6 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="issue even if games that should be final are still scheduled, and list them in the edition",
     )
 
+    ranking = commands.add_parser("open-ranking", help="Open Ranking editions")
+    ranking_kinds = ranking.add_subparsers(dest="kind", metavar="<action>", required=True)
+    build = ranking_kinds.add_parser("build", help="build one edition and write it once")
+    build.add_argument("--season", type=int, required=True)
+    build.add_argument("--cutoff", required=True, help="ISO time with a UTC offset; nothing later is read")
+    build.add_argument("--mode", choices=("live", "replay"), default="live")
+    build.add_argument("--revision", type=int, default=1)
+    build.add_argument("--previous", help="edition to measure revisions against; 'none' for no comparison")
+    build.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
+
     calibrate = commands.add_parser(
         "calibrate", help="Open Ranking link scale and penalties (game results only)"
     )
@@ -447,6 +457,113 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
     return 3 if problems else 0
 
 
+def _open_ranking_build(args: argparse.Namespace, clock: Callable[[], datetime] | None = None) -> int:
+    import re
+    from datetime import UTC
+
+    import polars as pl
+
+    from cfp.common.draw import load_draw
+    from cfp.common.timeutil import utc_now
+    from cfp.ingest.upsert import upsert
+    from cfp.open_ranking import RULE_VERSION_ID
+    from cfp.open_ranking.frozen import FrozenError, load_frozen
+    from cfp.open_ranking.release import PRODUCT, ReleaseError, build_edition, load_built
+    from cfp.release.edition import EditionExists, write_edition
+    from cfp.snapshot.build import SnapshotBlocked, build_snapshot
+    from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+    from cfp.store.lake import Lake
+    from cfp.store.schemas import TABLES
+
+    clock = clock or utc_now
+    now = clock()
+    cutoff = datetime.fromisoformat(args.cutoff)
+    if cutoff.tzinfo is None:
+        print("--cutoff needs a UTC offset", file=sys.stderr)
+        return 2
+    cutoff = cutoff.astimezone(UTC)
+    if cutoff > now:
+        print(f"refused: the cutoff {cutoff.isoformat()} has not passed", file=sys.stderr)
+        return 1
+    data, lake = Path(args.data), Lake(args.lake, clock=clock)
+    folder = lake.root / "editions"
+    live = args.mode == "live"
+    tail = "" if live else "-replay"
+    name = re.compile(rf"^or-{args.season}-(\d{{8}}t\d{{4}}z){tail}-e(\d+)$")
+    try:
+        previous = None
+        if args.previous != "none":
+            chosen = args.previous
+            if chosen is None and folder.is_dir():  # the latest earlier edition of the same kind
+                stamp = cutoff.strftime("%Y%m%dt%H%Mz")
+                held = [
+                    (m.group(1), int(m.group(2)), p.name)
+                    for p in folder.iterdir()
+                    if (m := name.match(p.name))
+                ]
+                earlier = sorted(item for item in held if item[0] < stamp)
+                chosen = earlier[-1][2] if earlier else None
+            if chosen is not None:
+                previous = load_built((folder / chosen / "edition.json").read_bytes())
+        snapshot = build_snapshot(
+            lake.open_ranking_view(cutoff, args.mode),
+            args.season,
+            title_games=load_title_games(data / "title_games.csv"),
+            forfeits=load_forfeits(data / "forfeits.csv"),
+            unplayed=load_unplayed(data / "unplayed_games.csv"),
+        )
+        built = build_edition(
+            snapshot,
+            load_frozen(args.frozen, args.season),
+            load_draw(data / f"preseason_draw_{args.season}.csv", args.season),
+            code_hash=_code_hash(),
+            revision=args.revision,
+            previous=previous,
+        )
+    except (ReleaseError, FrozenError, SnapshotBlocked, OSError, ValueError) as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    superseded = built.doc["supersedes"]
+    if superseded and not (folder / superseded).is_dir():
+        print(
+            f"refused: revision {args.revision} would supersede {superseded}, which does not exist",
+            file=sys.stderr,
+        )
+        return 1
+    receipt = {"edition_id": built.edition_id, "product": PRODUCT, "sha256": built.sha256}
+    try:
+        write_edition(folder, built.edition_id, built.body, receipt | {"issued_utc": now.isoformat()})
+    except EditionExists as error:
+        print(str(error), file=sys.stderr)
+        return EXIT_EXISTS
+    row = {
+        "edition_id": built.edition_id,
+        "season": args.season,
+        "product": PRODUCT,
+        "issue_utc": cutoff,
+        "input_ids": built.inputs,
+        "seed": None,
+        "code_hash": built.doc["manifest"]["code_hash"],
+        "rule_version_id": RULE_VERSION_ID,
+        "sha256": built.sha256,
+        "source_id": "cfp:open-ranking build",
+        "event_time": cutoff,
+        "first_public_time": now,
+        "raw_hash": lake.put_raw(built.body),
+        "vintage": "live" if live else "reconstructed",
+    }
+    keep = ("correction_version", "ingest_time")
+    schema = {k: v for k, v in TABLES["editions"].schema.items() if k not in keep}
+    upsert(lake, "editions", pl.DataFrame([row], schema=schema), clock(), "asserted")
+    manifest = built.doc["manifest"]
+    print(f"edition {built.edition_id}  sha256 {built.sha256}")
+    print(f"  games {manifest['games']}  teams {len(built.doc['teams'])}")
+    print(f"  rows on a rounding boundary: {manifest['boundary_rows']}")
+    print(f"  measured against: {previous.edition_id if previous else 'nothing'}")
+    print("  second implementation: not run")
+    return 0
+
+
 def _calibrate(args: argparse.Namespace) -> int:
     from datetime import UTC
 
@@ -643,6 +760,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _forecast_issue(args)
     elif args.command == "ingest" and args.kind == "cfbd":
         return _ingest_cfbd(args)
+    elif args.command == "open-ranking":
+        return _open_ranking_build(args)
     elif args.command == "calibrate":
         return _calibrate(args)
     elif args.command == "snapshot":
