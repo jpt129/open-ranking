@@ -1,8 +1,8 @@
 # SPEC — numbered requirements
 
-Source: `docs/PROPOSAL.md` (authoritative; page numbers refer to it). Numbers are the proposal's own.
+Source: `docs/PROPOSAL.md`, a transcription of `docs/source/CFP_Rankings_Revised_Proposal.pdf`; page numbers refer to it. Precedence: the PDF, then PROPOSAL.md, then this file. Numbers are the proposal's own.
 
-Tags: **[P]** stated in the proposal. **[S-x]** accepted suggestion *x* from the final build package §1.4, accepted by John on 2026-11-25 (`docs/DECISIONS.md`). **[S-pilot]** pilot decision accepted 2026-11-25.
+Tags: **[P]** stated in the proposal. **[S-x]** accepted suggestion *x* from the final build package §1.4, accepted by John on 2026-11-25 (`docs/DECISIONS.md`). **[S-pilot]** pilot decision accepted 2026-11-25. **[K]** constraint taken from the final build package (its CLAUDE.md, architecture or prompt text), adopted when John approved building with the pack; it tightens the proposal and is not proposal text. **[OPEN]** awaiting John's decision.
 
 Units: proposal "points" are hundredths of a win. Code stores **centipoints (cp)**: 1 point = 100 cp, one win = 10000 cp. Where a requirement quotes points, the cp value follows in parentheses.
 
@@ -14,11 +14,11 @@ Defined terms [S-e]:
 
 ---
 
-## OR — Open Ranking (pp. 2–3)
+## OR — Open Ranking (pp. 1–3)
 
 **OR-01 [P] Unit.** Game points = 100 × (actual win − bubble win probability). A win counts as 1 and a loss as 0. A team's total is the sum of its game points. For ordinary FBS games, 100 points equals one win above the bubble team's expected total.
 
-**OR-01a [S-d] Fixed point.** q = round_half_even(p × 10⁴), an integer in 0..10000. Win = 10000 − q cp; loss = −q cp. If |p × 10⁴ − (⌊p × 10⁴⌋ + 0.5)| < 10⁻⁶ the game is flagged as a boundary case. The Python value is canonical. Totals, gaps and tiebreak comparisons are integer cp. Display rounds half-even and happens only at render.
+**OR-01a [S-d] Fixed point.** q = round_half_even(p × 10⁴), an integer in 0..10000. Win = 10000 − q cp; loss = −q cp. If |p × 10⁴ − (⌊p × 10⁴⌋ + 0.5)| < 10⁻⁶ the game is flagged as a boundary case. The Python value is canonical. Totals, gaps and tiebreak comparisons are integer cp. Display rounds half-even. [K] Display rounding happens only at render.
 
 **OR-02 [P] Opponent strength, evaluated team removed.** For each FBS team A:
 - (a) remove every game involving A from the strength fit;
@@ -45,12 +45,12 @@ Defined terms [S-e]:
 - (a) The first table is released after Week 7, using completed games through the announced cutoff.
 - (b) Each game stores game ID, opponents, final score, official site, home designation, FBS/FCS status and conference membership on the game date.
 - (c) Canceled games, no-contests and postseason playoff or bowl games are omitted.
-- (d) A forfeit uses the certified result; its administrative margin is omitted from strength fitting.
-- (e) [S-e] A game that ends after the cutoff is excluded. Omissions are logged with reasons.
+- (d) A forfeit uses the certified result; its administrative margin is omitted from strength fitting. [K, interpretation] In the ledger a forfeit is scored as a win or loss at its reference probability like any other game and carries the policy exception "forfeit". Because a forfeit is not an ordinary FBS game, VT-01 is not asserted for it.
+- (e) [K] A game that ends after the cutoff is excluded. Omissions are logged with reasons.
 
 **OR-08 [P] Ledger.** One row per game: opponent, venue, result, reference probability, points, policy exception, revision since last week. Per team: total, raw rank, head-to-head decision, final open rank, rule-version ID. Old wins are recalculated as evidence about opponents changes. Each edition publishes its input snapshot and formula hash.
 
-**OR-09 [P] What-if.** A reader can flip a result and regenerate all ledgers and the bracket.
+**OR-09 [P] What-if.** A reader can flip a result and regenerate all ledgers and the bracket. [S-pilot] Not delivered in the pilot; the pilot ledger page says so.
 
 **OR-10 [P] Settings.** v1 uses the same band for selection and seeding. Alternatives are published for the strength band, the 24-point margin cap and the 25-point head-to-head window, with each setting's historical field turnover.
 
@@ -59,6 +59,10 @@ Defined terms [S-e]:
 - (b) Ten wins against an expected 7.45 yield +255 points (Σq = 74500 → +25500 cp).
 
 **OR-12 [P] Independence of settings.** Open Ranking weights and policy settings are chosen independently of committee rankings, poll votes and betting odds. Historical committee agreement has no role in selecting them.
+
+**OR-13 [P] Reference monotonicity.** A stronger reference raises its expected wins and lowers the absolute points awarded for any fixed win.
+
+**OR-14 [P] Adoption decision.** Before kickoff the governing group ranks anonymized example résumés under alternate settings. Its rationale and each setting's historical field turnover are published, and the values are chosen in public.
 
 ## TB — Tiebreaks (p. 3)
 
@@ -80,11 +84,11 @@ Defined terms [S-e]:
 
 **VT-04 [P] Ordering cases.** Tests exercise a split series, a three-team cycle, chained 25-point gaps and an exact tie at the cutoff.
 
-**VT-05 [P] Rank-reversal audit.** Every historical loss-to-win flip is replayed through all teams and tiebreaks. Every case where the winner's rank falls is published. "Winning cannot lower rank" is treated as unproved unless established for the entire procedure. The test asserts the report is complete, not that it is empty.
+**VT-05 [P] Rank-reversal audit.** Every historical loss-to-win flip is replayed through all teams and tiebreaks. Every case where the winner's rank falls is published. "Winning cannot lower rank" is treated as unproved unless established for the entire procedure. [K] The test asserts the report is complete, not that it is empty.
 
-**VT-06 [P] Point-in-time replay.** Each available weekly snapshot from 2014–25 is rebuilt with source hashes, league membership, rule version, dependencies, fixed-point precision and rounding pinned. Row sums are exact. Two implementations match on canonical ledgers, ranks and bracket decisions; [S-d] mismatches are tolerated only on boundary-flagged games.
+**VT-06 [P] Point-in-time replay.** Each available weekly snapshot from 2014–25 is rebuilt with source hashes, league membership, rule version, dependencies, fixed-point precision and rounding pinned. Row sums are exact. Two implementations match on canonical ledgers, ranks and bracket decisions. [S-d] The Python value is canonical and the cross-check tolerates mismatches only on boundary-flagged games.
 
-**VT-07 [P] Probability calibration.** Rolling, pregame FBS predictions for real teams are scored by Brier score and log loss against a venue-only model, with observed wins plotted by probability bin, venue and season. Closing lines are an external schedule-strength benchmark where available. Calibration is frozen before grading the next year.
+**VT-07 [P] Probability calibration.** Rolling, pregame FBS predictions for real teams are scored by Brier score and log loss against a venue-only model, with observed wins plotted by probability bin, venue and season. Closing lines are an external schedule-strength benchmark where available. Calibration is frozen before grading the next year. [K] The closing-line comparison is a report computed outside `cfp.open_ranking` (in `cfp.scoring`); it never selects t, the penalties or any setting (OR-12).
 
 **VT-07a [S-b] Retrospective diagnostic.** Leave-one-game-out retrospective calibration is reported as a diagnostic only. The frozen pregame t stands for v1; the question is decided before the 2027 freeze.
 
@@ -96,13 +100,13 @@ Defined terms [S-e]:
 
 **VT-11 [P] Weekly rank score.** Score cumulative P(rank ≤ k) for k = 1…25 against the observed indicator and average squared errors over cutoffs and teams: S = (1/(25·N)) Σ_i Σ_{k=1..25} (P_i(r ≤ k) − 1[r_i ≤ k])². Also report top-25 entrants and exits, exact slots, and rank error on jointly ranked teams with its coverage. Compare AP-as-issued, prior-CFP update and the fitted model.
 
-**VT-11a [S-j] Secondary weekly score.** The same score is also reported on the union of the forecast top 35 and the actual top 25. The season's FBS team count is verified from the source, not assumed.
+**VT-11a [S-j] Secondary weekly score.** The same score is also reported on the union of the forecast top 35 and the actual top 25. The 2026 FBS team count is verified from the source (reports conflict: 136 vs 138), and each season's count is read from data, not assumed.
 
 **VT-12 [P] Final-field score.** Field and bye probabilities are scored with Brier score and log loss, reported by lead time, season, rules era, automatic/at-large route and bubble. The bubble is defined in advance as teams within five baseline rank positions of the projected last at-large team, and the same cohort is used for every model. [S-k] The cohort is Baseline 2's, frozen at issue.
 
 **VT-13 [P] Bracket integrity.** Seeds, hosts and byes are unique per path. Field and bye probabilities sum to their respective counts. Simulated win rates match input probabilities within Monte Carlo error; within-team dependence is tested against historical residuals. The release hash replays.
 
-**VT-14 [P] Promotion rule.** A component is promoted only if the primary held-out score improves (weekly rank score or final-field log loss) and bubble Brier worsens by no more than 0.01. One live season is a pilot.
+**VT-14 [P] Promotion rule.** A component is promoted only if the primary held-out score improves (weekly rank score or final-field log loss) and bubble Brier worsens by no more than 0.01. One live season is a pilot. Replication is looked for across seasons.
 
 ## SC — Shadow Committee, next reveal (p. 5)
 
@@ -118,6 +122,8 @@ Defined terms [S-e]:
 - For probability comparisons, a rank-noise temperature is fitted for each baseline on earlier seasons and its full order is sampled. Deterministic rank accuracy is also shown.
 
 **SC-04 [P] Plackett–Luce.** Each team gets a weighted score from available AP vote share, prior CFP position and unranked flag, losses, open points, and the latest result adjusted for opponent, site and capped margin. Features are standardized on prior training seasons. The model is a regularized Plackett–Luce: draw one team at a time with chance proportional to exp(score) among remaining teams, fitted against the observed first 25 picks. On the opening week the prior-CFP feature is omitted.
+
+**SC-04a [OPEN] Open-points vintage.** The Open Ranking cutoff is Monday 06:00 ET, but the Sunday 02:00 ET issue uses open points as a feature. Proposed: each forecast issue computes open points itself from the as-of snapshot at its own cutoff with the frozen formula, records it as a feature build (not a published edition), and names the snapshot in its input IDs. Alternative: use the latest published Open Ranking edition, which would lag Saturday's games.
 
 **SC-05 [P] Distribution.** Sample 10,000 ordered lists with a recorded random seed. Count each team's rank frequencies, grouping lower ranks as "outside 25". If a team's median is outside the published list, print that category. Produce pairwise probabilities for bubble comparisons. Any sampling temperature is calibrated on earlier validation folds. Public outputs: median rank category, probability of entering the top 25, and probabilities at the bye and hosting cutoffs.
 
@@ -141,7 +147,7 @@ Defined terms [S-e]:
 
 **MK-01 [P] Filters and scoring.** Match team, event and issue. Pilot filters require two-sided quotes within 30 minutes and exchange spreads ≤5 percentage points. Remove book margins or use the exchange midpoint. Archive quotes, depth and exclusions. For log loss only, clip all probabilities to [0.000001, 0.999999] and report clip counts; raw field totals are preserved. Compare paired log loss against the median qualifying venue probability.
 
-**MK-02 [P] Preregistration.** Venues, settlement events, timestamps and scoring weights are preregistered before the first scored issue.
+**MK-02 [P] Preregistration.** Venues, settlement events, timestamps and scoring weights are preregistered, and each test's benchmark, timestamp and scoring rule is specified before the outcome is known. [K] The preregistration is hashed before the first scored issue.
 
 **MK-03 [P] Reporting.** Report each venue, Brier scores and bubble calibration. Weight seasons equally and average repeated issues within each team, event and horizon. Show matched counts and paired season-level differences. Season-block intervals are used only with sufficient seasons. Any market claim identifies the venues, events and period beaten.
 
@@ -173,7 +179,9 @@ Defined terms [S-e]:
 
 **CG-04 [P] Aggregation.** Use that season's conference membership. Report entrants, exits, shared-list mean lift and its coverage. Bound missing ranks. Estimate variability in season blocks. Show how the association changes when poll and conference labels are removed.
 
-## DS — Data store (p. 10)
+**CG-05 [P] Governance.** The shadow ranking launches first. In the next phase a written explanation is sought for every change to a bid, a bye or hosting. The governing body decides on adoption after public review.
+
+## DS — Data store (pp. 1, 10, 11)
 
 **DS-01 [P] Provenance.** Every record keeps source ID, event time, first-public time, ingest time, correction version and raw hash.
 
@@ -181,21 +189,37 @@ Defined terms [S-e]:
 
 **DS-03 [P] Point-in-time query.** A forecast query requires first-public time at or before issue time, and a record actually available to the live system then.
 
-**DS-04 [P] Boundary.** Both products read the same dated game records and bracket rules. The forecast can use the public résumé score. The Open Ranking does not read committee rankings, poll votes or betting odds (OR-12).
+**DS-04 [P] Boundary.** Both products read the same dated game records and bracket rules. The forecast can use the public résumé score. Open Ranking weights and policy settings are chosen independently of committee rankings, poll votes and betting odds (OR-12). [K] Enforcement: `cfp.open_ranking` reads only games, teams and membership through `OpenRankingView`, which refuses committee releases, polls, lines, market tables and chair remarks; an edition built with those tables deleted is byte-identical.
 
-**DS-05 [P] Stack and separation.** Python, Polars and DuckDB over versioned Parquet; NumPy for opponent fits; a seeded simulator. Forecast issues are stored separately from subsequent outcomes and scorecards. Any approximation is validated against exact paths near the cutoff before use.
+**DS-05 [P] Stack and separation.** Python, Polars and DuckDB over versioned Parquet; NumPy for opponent fits; a regularized likelihood fitter for committee ranks; a seeded simulator for field paths. Repeated fit inputs are cached and linear solves batched where possible. Full path recomputation is benchmarked, and any approximation is validated against exact paths near the cutoff before use. Forecast issues are stored separately from subsequent outcomes and scorecards. Code, data manifests and public-source reconstruction instructions are published, subject to feed rights.
+
+**DS-06 [P] Source record.** The release manifest stores the exact source and its effective season for rules, historical fixtures and market conventions. Committee release tables are verified against individual releases. Each conference's tiebreak procedures are archived separately. Scores are reconciled to independent official box scores.
+
+**DS-07 [K] Determinism.** Every random draw uses a recorded seed.
 
 ## RL — Release (pp. 4, 10)
 
 **RL-01 [P] Gate.** A release is blocked by broken invariants, missing provenance, conflicting scores or bracket errors. Calibration, sensitivity and rank reversals are published.
 
-**RL-01a [S-pilot] Second implementation state.** Until the second implementation exists, the gate records "second implementation: not run" in the edition manifest and the public page, and does not fail on it. Once it exists, a cross-implementation mismatch outside boundary flags blocks the release.
+**RL-01a [S-pilot] Second implementation state.** Until the second implementation exists, the gate records "second implementation: not run" in the edition manifest and the public page, and does not fail on it. [K] Once it exists, a cross-implementation mismatch outside boundary flags blocks the release, as does a frozen-hash mismatch.
 
-**RL-02 [P] Corrections.** A missed forecast deadline is not repaired retrospectively. A verified score correction is published with its own audit trail. Published editions are never modified; a correction creates a new edition citing the one it supersedes.
+**RL-02 [P] Corrections.** A missed forecast deadline is not repaired retrospectively. A verified score correction is published with its own audit trail. [K] Published editions are never modified; a correction creates a new edition citing the one it supersedes.
 
-**RL-03 [S-i] Issue proof.** The SHA-256 of the edition bundle is published before the reveal through a signed git tag pushed publicly, an RFC 3161 timestamp token and a public post.
+**RL-03 [P] Issue proof.** Timestamped hashes are posted before reveals. [S-i] The SHA-256 of the edition bundle is published before the reveal through a signed git tag pushed publicly, an RFC 3161 timestamp token and a public post.
 
 **RL-04 [P] Missing issues.** Missing forecasts and unverified price history are marked explicitly.
+
+**RL-05 [P] Before binding use.** Independent replication and public review are required before binding use.
+
+**RL-06 [P] Pilot (Nov. 24–Dec. 6, 2026).** Feeds are frozen. A ledger and rule tests are published. A simple forecast is issued before the Dec. 1 reveal and Dec. 6 Selection Day. Matched quotes are archived.
+
+**RL-07 [P] Historical replay (Dec. 2026–Mar. 2027).** 2014–25 is rebuilt, including 2023 Florida State and 2025 Miami/Notre Dame case files. Expanding-season forecast tests are run. Official past fields are reproduced. Exceptions, input gaps and model versions are cataloged.
+
+**RL-08 [P] Audit and freeze (Apr.–Aug. 2027).** Independent reviewers attack scheduling incentives, cross-conference dependence, rule exceptions and leakage; results, proposed changes and responses are published. The 2027 policy, metrics, source rules, code hash and forecast contest are frozen before kickoff.
+
+**RL-09 [P] 2027 season.** Open rankings start after Week 7. Two forecast editions are published for each announced reveal. Every eligible issue is graded; the full season scorecard, independent replication and any failed tests are published before requesting adoption.
+
+**RL-10 [P] Trading.** Staff trading stays outside the project's covered markets.
 
 ---
 
@@ -216,22 +240,26 @@ Test names are the planned acceptance tests; each build prompt creates them befo
 | OR-09 | `whatif.flip.spec.ts` | `ts/` |
 | OR-10 | `test_field_turnover_by_setting` | `cfp.open_ranking.sensitivity` |
 | OR-11 | `test_two_paths_same_total`, `test_ten_wins_25500` | `cfp.open_ranking.ledger` |
+| OR-13 | `test_stronger_reference_lowers_points` | `cfp.open_ranking.band`, `cfp.open_ranking.link` |
+| OR-14, CG-05, RL-05, RL-10 | process requirements; evidence recorded in `docs/DECISIONS.md` and release notes | — |
 | OR-12, DS-04 | `test_import_boundary`, `test_open_ranking_view_refuses_forbidden_tables`, `test_open_ranking_runs_without_forbidden_tables` | `pyproject.toml` contracts, `cfp.store.views` |
-| TB-01..04 | `test_groups_join_within_2500`, `test_isolated_pair_h2h`, `test_split_series_keeps_points_order`, `test_three_team_cycle`, `test_chained_gaps`, `test_exact_tie_shared_rank_and_draw` | `cfp.open_ranking.ordering` |
+| TB-01..04 | `test_groups_join_within_2500`, `test_isolated_pair_h2h`, `test_split_series_keeps_points_order`, `test_three_team_cycle`, `test_chained_gaps`, `test_exact_tie_at_cutoff_shared_rank_and_draw` | `cfp.open_ranking.ordering` |
 | VT-01..03 | `test_flip_exact_10000`, `test_margin_invariance`, `test_relabel_permutation_neutral_reversal` | `tests/property` |
 | VT-04 | as TB-01..04 | `cfp.open_ranking.ordering` |
 | VT-05 | `test_rank_reversal_report_complete` | `cfp.open_ranking.audit` |
 | VT-06 | `test_replay_rowsums_exact`, `crosscheck` harness | `tests/replay`, `ts/crosscheck` |
-| VT-07, VT-07a | `test_calibration_rolling_pregame_only`, `test_calibration_report` | `cfp.open_ranking.calibration` |
-| VT-08, VT-09 | `test_refit_weights_reused_across_folds`, `test_sensitivity_outputs`, `test_disconnected_components` | `cfp.open_ranking.sensitivity` |
+| VT-07, VT-07a | `test_calibration_rolling_pregame_only`, `test_calibration_report`, `test_closing_line_report_outside_boundary` | `cfp.open_ranking.calibration`, `cfp.scoring.strength_benchmark` |
+| VT-08 | `test_refit_weights_reused_across_folds`, `test_sensitivity_outputs` | `cfp.open_ranking.sensitivity` |
+| VT-09 | `test_leave_one_interconference_game_out`, `test_no_league_fit`, `test_disconnected_components`, `test_optional_game_skip`, `test_2020_reported_separately` | `cfp.open_ranking.sensitivity` |
 | VT-10 | `test_expanding_replay_no_future_seasons` | `cfp.scoring` |
 | VT-11, VT-11a | `test_weekly_score_perfect_is_zero`, `test_weekly_score_uniform_hand_computed`, `test_secondary_cohort` | `cfp.scoring.weekly` |
 | VT-12 | `test_field_scores_by_stratum`, `test_bubble_cohort_frozen_at_issue` | `cfp.scoring.field` |
-| VT-13 | `test_integrity_sums_and_uniqueness`, `test_sim_win_rates_within_3se` | `cfp.scoring.integrity` |
+| VT-13 | `test_integrity_sums_and_uniqueness`, `test_sim_win_rates_within_mc_error`, `test_within_team_dependence_vs_residuals` | `cfp.scoring.integrity` |
 | VT-14 | `test_promotion_rule` | `cfp.forecast.promotion` |
 | SC-01 | `test_observation_denominator`, `test_eligibility_flag` | `cfp.forecast.observations` |
 | SC-02, SC-02a | `test_cutoffs_sun0200_tminus60`, `test_leaked_label_ineligible`, `test_dst_sunday` | `cfp.forecast.observations`, `cfp.release` |
 | SC-03 | `test_baseline1_latest_ap`, `test_baseline2_two_losses_move_ten`, `test_baseline_tiebreak_draw` | `cfp.forecast.baselines` |
+| SC-04a | pending decision | `cfp.forecast.observations` |
 | SC-04 | `test_pl_gradient`, `test_pl_recovers_weights`, `test_opening_week_drops_prior_cfp` | `cfp.forecast.pl` |
 | SC-05 | `test_pl_sample_seed_reproducible`, `test_rank_dist_outputs` | `cfp.forecast.pl` |
 | SC-06 | `test_remarks_eligible_next_issue` | `cfp.forecast` |
@@ -239,7 +267,7 @@ Test names are the planned acceptance tests; each build prompt creates them befo
 | FF-02 | `test_devig_moneylines`, `test_a_zero_independent`, `test_no_tied_scores` | `cfp.forecast.simulator` |
 | FF-03 | `test_path_recomputes_open_points` | `cfp.forecast.final_field` |
 | FF-04 | `test_baseline_same_paths`, `test_scenarios_when_tiebreak_input_missing` | `cfp.forecast.final_field`, `cfp.forecast.standings` |
-| FF-05 | `test_field_sum_12_bye_sum_4`, `test_conditionals_with_path_counts` | `cfp.forecast.final_field` |
+| FF-05 | `test_field_and_bye_sums_match_era`, `test_conditionals_with_path_counts` | `cfp.forecast.final_field` |
 | FF-06, BR-2025 | `test_rules_2025_official_field` | `cfp.rules.engine` |
 | BR-2014 | `test_rules_top_four_2014_2023` | `cfp.rules.engine` |
 | BR-2024 | `test_rules_2024_official_field` | `cfp.rules.engine` |
@@ -252,8 +280,14 @@ Test names are the planned acceptance tests; each build prompt creates them befo
 | CG-03, CG-04 | `test_gap_reasons_present`, `test_gap_aggregation_coverage` | `cfp.gap` |
 | DS-01, DS-02 | `test_schema_has_provenance`, `test_scored_mode_drops_unknown_vintage` | `cfp.store.schemas`, `cfp.store.asof` |
 | DS-03 | `test_row_public_after_t_invisible`, `test_late_correction_invisible_live` | `cfp.store.asof` |
-| DS-05 | `test_issues_stored_apart_from_scorecards` | `cfp.release` |
+| DS-05 | `test_issues_stored_apart_from_scorecards`, `test_approximation_matches_exact_near_cutoff` | `cfp.release`, `cfp.forecast.final_field` |
+| DS-06 | `test_manifest_records_sources`, `test_release_cross_checked`, `test_score_conflict_blocks` | `cfp.release`, `cfp.ingest` |
+| DS-07 | `test_seed_recorded_and_reproducible` | `cfp.common` |
 | RL-01, RL-01a | `test_gate_fails_on_planted_break`, `test_gate_second_impl_not_run_state` | `cfp.release.gate` |
 | RL-02 | `test_editions_write_once`, `test_correction_creates_new_edition` | `cfp.release` |
 | RL-03 | `test_issue_refuses_after_reveal`, `test_hash_replays_bytewise` | `cfp.release.issue` |
 | RL-04 | `test_missing_issue_marked` | `cfp.release` |
+| RL-06 | pilot runbook `docs/PILOT.md` and its issue checklist | `cfp.release` |
+| RL-07 | `test_rules_official_fields_2014_2025`, case files under `reports/` | `tests/replay`, `cfp.rules.engine` |
+| RL-08 | `test_frozen_hash`, freeze checklist | `cfp.release` |
+| RL-09 | season scorecard | `cfp.scoring` |
