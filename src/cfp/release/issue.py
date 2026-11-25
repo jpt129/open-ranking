@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import polars as pl
@@ -18,6 +19,7 @@ from cfp.common.timeutil import require_utc
 from cfp.forecast.baselines import FINAL_LAG, ap_order, baseline1, baseline2, initial_order, losses_since
 from cfp.forecast.cutoffs import ET, ISSUES, issue_time
 from cfp.forecast.designations import Designations, designated_for, needs_designation
+from cfp.forecast.final_field import FieldError
 from cfp.forecast.noise_params import MODEL, Noise, NoiseError, release_kind
 from cfp.forecast.observations import (
     RANKED,
@@ -25,7 +27,9 @@ from cfp.forecast.observations import (
     fbs_field,
     label_leaked,
     open_points_feature,
+    strength_estimator,
 )
+from cfp.forecast.pairings import PairingError, resolve_pairings
 from cfp.forecast.rank_noise import published_probability, rank_frequencies, sample_orders
 from cfp.ingest.public_time import tuesday_after
 from cfp.open_ranking.band import BandError
@@ -33,6 +37,7 @@ from cfp.open_ranking.frozen import Frozen
 from cfp.open_ranking.ledger import LedgerError
 from cfp.open_ranking.strength import StrengthError
 from cfp.release.edition import canonical, input_id
+from cfp.release.field import build_field
 from cfp.rules.engine import RulesError, load_rules
 from cfp.snapshot.build import SnapshotBlocked
 from cfp.store.lake import Lake
@@ -87,6 +92,7 @@ def build_issue(
     open_points_note: str | None = None,
     noise: Noise | None = None,
     designations: Designations | None = None,
+    pairing_files: tuple[Path, Path] | None = None,
 ) -> Issue:
     """The forecast for the committee release revealed at `reveal`, from inputs public at the issue cutoff.
 
@@ -280,6 +286,55 @@ def build_issue(
             "note": "A count of no paths or every path is published half a path short of 0 or 1.",
         }
     inputs = [input_id(name, read[name], lake.spec(name).key) for name in TABLES]
+    field_section: dict[str, Any] | None = None
+    field_error: str | None = None
+    if noise is not None and pairing_files is not None:
+        try:
+            all_games = lake.as_of("games", cutoff, mode).frame
+            all_lines = lake.as_of("lines", cutoff, mode).frame
+            members: dict[str, str] = dict(
+                read["membership"]
+                .sort("valid_from")
+                .select("team_id", "conference_id")
+                .drop_nulls()
+                .iter_rows()
+            )
+            found = resolve_pairings(
+                pairing_files[0],
+                pairing_files[1],
+                season,
+                cutoff,
+                {name: team for team, name in names.items()},
+                games.filter(pl.col("season") == season),
+                members,
+            )
+            estimate = None
+            if frozen is not None and lists is not None and feature is not None:
+                estimate = strength_estimator(lake.open_ranking_view(cutoff, mode), season, frozen, lists)
+            field_section = build_field(
+                season=season,
+                issue=issue,
+                cutoff=cutoff,
+                target=target,
+                total=len(schedule),
+                boundary=schedule[-2] if len(schedule) > 1 else schedule[-1],
+                rows=second,
+                names=names,
+                conference_of=members,
+                games=all_games,
+                lines=all_lines,
+                noise=noise,
+                pairings=found,
+                estimate=estimate,
+                stem=stem,
+                paths=PATHS,
+            )
+            inputs.append(input_id("lines", all_lines, lake.spec("lines").key))
+            inputs.append(f"pairings:{found.sha256}")
+        except (FieldError, PairingError, RulesError, ValueError) as error:
+            field_error = f"{type(error).__name__}: {error}"
+        except Exception as error:  # the field forecast must not cost the weekly forecast its deadline
+            field_error = f"unexpected {type(error).__name__}: {error}"
     inputs.append(f"draw:{len(draw)}:{sha256_hex(canonical(dict(sorted(draw.items()))))}")
     if noise is not None:
         inputs.append(f"rank-noise:{noise.sha256}")
@@ -291,7 +346,7 @@ def build_issue(
         inputs.append(f"feature-params:{feature.params_sha256}")
         inputs.append(f"feature-rule:{feature.rule_version_id}")
     doc: dict[str, Any] = {
-        "schema": 3,
+        "schema": 4,
         "edition_id": edition_id,
         "product": PRODUCT,
         "public_name": "Open Ranking Models",
@@ -322,6 +377,8 @@ def build_issue(
         ),
         "open_points_error": feature_error,
         "rank_noise": sampled,
+        "final_field": field_section,
+        "final_field_error": field_error,
         "ap_week": ap_week,
         "fbs_teams": len(teams),
         "forecasts": {

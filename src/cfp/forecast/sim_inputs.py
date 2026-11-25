@@ -8,7 +8,7 @@ season being forecast is never part of that history. Only game lines are read: n
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
@@ -139,7 +139,7 @@ def fit_history(games: pl.DataFrame, lines: pl.DataFrame, *, season: int) -> Fit
 class Slate:
     games: tuple[Game, ...]
     sources: dict[str, str]  # game id -> moneyline, spread or strength
-    in_progress: tuple[str, ...]  # kicked off before the cutoff with no final score: not simulated
+    in_progress: tuple[str, ...]  # kicked off before the cutoff with no final score: priced pre-kickoff
     invalid_quotes: int
     books: dict[str, int]  # game id -> books quoting it; one book is a thin price and is shown as such
 
@@ -151,8 +151,13 @@ def slate(
     season: int,
     curve: SpreadCurve,
     strength: Mapping[str, float] | None = None,
+    estimate: Callable[[str, str, bool], float | None] | None = None,
 ) -> Slate:
-    """The season's games not yet started at the cutoff that involve an FBS team, each with a probability."""
+    """The season's games not yet final at the cutoff that involve an FBS team, each with a probability.
+
+    A game in progress at the cutoff is unplayed: it is priced from each book's last quote before kickoff.
+    A game with no usable quote takes `strength[game_id]`, else `estimate(home, away, neutral)`.
+    """
     if not lines.is_empty() and lines["first_public_time"].max() > cutoff:  # type: ignore[operator]
         raise ValueError("a line was published after the cutoff")
     open_ = games.filter(
@@ -170,13 +175,20 @@ def slate(
         gid = row["game_id"]
         if row["start_utc"] <= cutoff:
             started.append(gid)
-            continue
-        found = quotes.get(gid, Quotes())
+            before = lines.filter(
+                (pl.col("game_id") == gid) & (pl.col("first_public_time") <= row["start_utc"])
+            )
+            found = consensus(before).get(gid, Quotes())
+        else:
+            found = quotes.get(gid, Quotes())
         invalid += found.invalid
         books[gid] = found.books
         try:
+            fallback = (strength or {}).get(gid)
+            if fallback is None and estimate is not None and not (found.moneylines or found.spreads):
+                fallback = estimate(row["home_id"], row["away_id"], bool(row["neutral"]))
             p, source = game_probability(
-                curve, moneylines=found.moneylines, spreads=found.spreads, strength=(strength or {}).get(gid)
+                curve, moneylines=found.moneylines, spreads=found.spreads, strength=fallback
             )
         except ValueError as error:
             raise ValueError(

@@ -430,6 +430,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             open_points_note=note,
             noise=noise,
             designations=designations,
+            pairing_files=(data / "title_games.csv", data / "title_scenarios.csv"),
         )
     except TooEarly as error:
         print(str(error), file=sys.stderr)
@@ -440,6 +441,8 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
     except (IssueRefused, OSError, ValueError) as error:
         print(f"refused: {error}", file=sys.stderr)
         return 1
+    if built.doc["final_field_error"]:
+        print(f"WARNING: no field forecast: {built.doc['final_field_error']}", file=sys.stderr)
     if built.doc["open_points_error"]:
         print(f"WARNING: open points are missing: {built.doc['open_points_error']}", file=sys.stderr)
     folder = lake.root / "editions"

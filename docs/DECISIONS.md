@@ -546,3 +546,16 @@ John accepted the simulator as built and ruled on the plan for P18 and P19. What
 - The baseline's weakness shows in both: SMU (2024) and Alabama (2025) lost title games and stayed in; the baseline gave them 617 of 4,422 and 734 of 5,517 losing paths.
 
 **Not built yet:** the field edition itself (document, command, workflow step); title pairings with first-public times, scenarios and manifest hash; the strength estimate for unquoted games; the issue-trigger changes (item 7).
+
+## 2026-11-25 — Field forecast in the issue document (FF-01 to FF-05)
+
+John confirmed the position-26 rule and the CFBD schedule as a labelled fallback for title pairings.
+
+- **One edition, one hash.** The field forecast is a section (`final_field`) of the weekly issue document, schema 4, not a separate edition. It shares the issue's cutoff, proof and write-once rule. If it cannot be built, `final_field` is null, `final_field_error` gives the reason, and the weekly forecast goes out whole. It is issued only when the target release is one of the season's last two (the temperatures cover one or two releases back).
+- **Pairings** (`cfp.forecast.pairings`), in order: a hand row in `data/title_games.csv` with a source and a new `first_public_utc` at or before the cutoff ("official"); else the schedule in the store at the cutoff when exactly one game on the title date has both teams from that conference ("cfbd_schedule", secondary, labelled); else scenarios from `data/title_scenarios.csv`, each run on its own and never weighted (at most eight combinations); else open. A named conference with no champion, game or scenario stops the section. An open pairing in another conference is disclosed and its teams take no title-game result. The files' hash is in the inputs.
+- The three 2026 pairings on file (ACC, Conference USA, Pac-12) are dated 25 Nov 21:00 UTC, when the rows were recorded, not when each league announced.
+- **Prices.** A game in progress at the cutoff is unplayed and priced from each book's last quote before kickoff. A game with no quote takes a strength estimate: the Open Ranking's strength fit on the snapshot at the cutoff, through the frozen link (`strength_estimator`). Every game's source and book count is in the document.
+- **A title game already final** at the cutoff gives its champion directly. A pairing with no game on the schedule is simulated as a neutral-site game priced from strength.
+- **Conditionals** use each team's earliest remaining game.
+- **Six-conference place:** filled on every path by the highest-placed team of the group in that path's sampled order (a test asserts one per path). The Open Ranking ranks every team; the forecast predicts the committee's field, so its order starts from the committee's list and uses open points only below it.
+- **End-to-end check on real data** with invented pairings in a scratch file (not data): 74 games, 70 from moneylines and 4 from strength, ΣP(field) = 12 and ΣP(bye) = 4, under four seconds. With the real files today the section is refused: "no champion or title game for big-ten: its pairing is not known".

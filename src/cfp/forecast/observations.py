@@ -6,7 +6,7 @@ denominator. Bid eligibility is a separate flag and never removes a team.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date, datetime
 from typing import Any
 
@@ -15,6 +15,8 @@ import polars as pl
 from cfp.common.timeutil import require_utc
 from cfp.open_ranking.feature import FeatureBuild, feature_build
 from cfp.open_ranking.frozen import Frozen
+from cfp.open_ranking.link import Site, probability
+from cfp.open_ranking.strength import fit
 from cfp.snapshot.build import build_snapshot
 from cfp.store.views import OpenRankingView
 
@@ -65,6 +67,32 @@ def label_leaked(visible_releases: pl.DataFrame, reveal: datetime) -> bool:
     """True if the release being forecast (or a later one) was already visible at the cutoff (SC-02)."""
     reveal = require_utc(reveal, "reveal")
     return visible_releases.filter(pl.col("reveal_utc") >= reveal).height > 0
+
+
+def strength_estimator(
+    view: OpenRankingView, season: int, frozen: Frozen, lists: Mapping[str, Any]
+) -> Callable[[str, str, bool], float | None]:
+    """Home-win probability for a game with no quote (FF-02), from the Open Ranking's own strength fit.
+
+    Strengths are fitted on the snapshot at the cutoff with the frozen penalties; the frozen link turns a
+    strength gap and the site into a probability. A team with no fitted strength gets no estimate.
+    """
+    snapshot = build_snapshot(
+        view,
+        season,
+        title_games=lists["title_games"],
+        forfeits=lists["forfeits"],
+        unplayed=lists["unplayed"],
+    )
+    found = fit(snapshot.games, frozen.params)
+
+    def estimate(home: str, away: str, neutral: bool) -> float | None:
+        if home not in found.theta or away not in found.theta:
+            return None
+        site: Site = "neutral" if neutral else "home"
+        return probability(found.theta[home], found.theta[away], found.home_adv, site, frozen.t)
+
+    return estimate
 
 
 def open_points_feature(

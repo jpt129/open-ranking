@@ -182,19 +182,24 @@ def test_slate_is_the_games_still_to_play() -> None:
             quote("ml", "a", 2, (-150, 130), -3.0),
             quote("sp", "a", 2, None, -7.0),
             quote("done", "a", 40, (-300, 250), -7.0),
+            quote("started", "a", 1, (-120, 100), None),  # before its kickoff half an hour before the cutoff
+            quote("started", "a", 0.2, (-900, 600), None),  # in-game: ignored,
         ],
         schema_overrides=LINE_SCHEMA,
     )
     curve = SpreadCurve(14.0)
     made = slate(games, lines, CUT, 2026, curve, strength={"st": 0.4})
-    assert [g.game_id for g in made.games] == ["ml", "sp", "st"]
-    assert made.sources == {"ml": "moneyline", "sp": "spread", "st": "strength"}
+    assert [g.game_id for g in made.games] == ["ml", "sp", "st", "started"]
+    assert made.sources == {"ml": "moneyline", "sp": "spread", "st": "strength", "started": "moneyline"}
     by = {g.game_id: g for g in made.games}
     assert by["ml"].p_home == pytest.approx(devig(-150, 130))
     assert by["sp"].p_home == pytest.approx(curve.probability(-7.0))
     assert (by["st"].p_home, by["st"].home_id, by["st"].away_id) == (0.4, "st-h", "st-a")
-    assert made.books == {"ml": 1, "sp": 1, "st": 0}
-    assert made.in_progress == ("started",)  # reported, never simulated from a pregame line
+    assert made.books == {"ml": 1, "sp": 1, "st": 0, "started": 1}
+    assert made.in_progress == ("started",)  # unplayed: priced from the last quote before kickoff
+    assert by["started"].p_home == pytest.approx(devig(-120, 100))
+    est = slate(games, lines, CUT, 2026, curve, estimate=lambda home, away, neutral: 0.3 if neutral else None)
+    assert {g.game_id: g.p_home for g in est.games}["st"] == 0.3
     with pytest.raises(ValueError, match="no probability for st"):
         slate(games, lines, CUT, 2026, curve)
     late = lines.with_columns(first_public_time=pl.lit(CUT + timedelta(minutes=1)))

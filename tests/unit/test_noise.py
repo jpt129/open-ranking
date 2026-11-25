@@ -77,7 +77,7 @@ def test_issue_publishes_sampled_probabilities(tmp_path: Path) -> None:
     lake = world(tmp_path)
     built = issue(lake, noise=noise)
     doc = built.doc
-    assert doc["schema"] == 3
+    assert doc["schema"] == 4
     assert "rank_noise_temperature" not in doc["missing_inputs"]
     info = doc["rank_noise"]
     assert info["paths"] == PATHS
@@ -133,3 +133,17 @@ def test_final_seen_from_two_releases_back() -> None:
     assert two["releases"] == 3
     assert 1.0 < two["tau"] < 9.0
     assert "final_two_back" in doc["temperatures"]["baseline2"]["tminus60"]
+
+
+def test_a_field_forecast_that_cannot_be_made_is_disclosed_not_fatal(tmp_path: Path) -> None:
+    write_noise(tmp_path / "p", 2026, fit_noise(examples(), 2026))
+    noise = load_noise(tmp_path / "p", 2026)
+    titles = tmp_path / "title_games.csv"
+    titles.write_text(
+        "season,conference,game_date,team_a,team_b,site,site_type,basis,source_url,notes,first_public_utc\n"
+    )
+    built = issue(world(tmp_path), noise=noise, pairing_files=(titles, tmp_path / "none.csv"))
+    assert built.doc["final_field"] is None
+    assert built.doc["final_field_error"]  # the reason is in the document
+    assert built.doc["forecasts"]["baseline2"]["rows"][0]["p_top25"] > 0.9  # the weekly forecast is whole
+    assert issue(world(tmp_path / "b"), noise=noise).doc["final_field_error"] is None  # not asked for
