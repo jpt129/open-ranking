@@ -445,3 +445,5 @@ Replay on a scratch copy (tminus60 for the 24 Nov reveal): all 138 teams carry o
 Left open: no test that a row ingested late is invisible to the feature build specifically (the reviewer probed it by hand and it held); the forbidden-tables test removes only the two forbidden tables its world holds; simulation does not exist yet.
 
 Rehearsal on Actions (25 Nov 19:11 UTC, run 45682742188, code `ffe752c`): every step passed and no open-points warning was printed.
+
+**John's rulings (25 Nov, evening).** (1) If the open-points build fails for any reason, the forecast issue still goes out, without open points and with the reason disclosed; an unexpected fault is labelled as such. (2) SC-04a's "byte-identical ledgers" covers every row field except `revision_cp`, which is an edition's comparison with its predecessor.
