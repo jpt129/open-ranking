@@ -135,6 +135,7 @@ def poll_rows(got: Fetched, kickoffs: Sequence[tuple[int, datetime]], live: bool
         last[week] = max(last.get(week, kickoff), kickoff)
     first = min(kickoff for _, kickoff in kickoffs)
     rows: list[dict[str, Any]] = []
+    dated: dict[int, datetime] = {}
     for item in got.json():
         if item["seasonType"] != "regular":
             continue
@@ -143,6 +144,12 @@ def poll_rows(got: Fetched, kickoffs: Sequence[tuple[int, datetime]], live: bool
             public = poll_public(week, last, first)
         except ValueError as error:
             raise SourceError(f"cfbd: {error}") from error
+        if public in dated.values() and week not in dated:
+            raise SourceError(
+                f"cfbd: the week-{week} poll gets the same public time as another week's ({public}); "
+                "a game is filed under the wrong week"
+            )
+        dated[week] = public
         vintage = vintage_at(live, public, got.fetched_at)
         for poll in item["polls"]:
             name = POLLS.get(poll["poll"])

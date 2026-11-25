@@ -67,6 +67,9 @@ def build_parser() -> argparse.ArgumentParser:
     fit_noise.add_argument("--first-season", type=int, default=2014)
     fit_noise.add_argument("--frozen", default="frozen")
     fit_noise.add_argument("--report", action="store_true", help="print the fit and write nothing")
+    fit_noise.add_argument(
+        "--correct", metavar="REASON", help="write a numbered correction beside the earlier fit"
+    )
     draw = forecast_kinds.add_parser("draw", help="write the season's tiebreak draw to the data directory")
     draw.add_argument("--season", type=int, required=True)
     due = forecast_kinds.add_parser("due", help="print the issue due now, its reveal date and cutoff, if any")
@@ -308,7 +311,7 @@ def _forecast_fit_noise(args: argparse.Namespace) -> int:
         if args.report:
             path, digest = None, None
         else:
-            path, digest = write_noise(args.frozen, args.season, document)
+            path, digest = write_noise(args.frozen, args.season, document, correction_reason=args.correct)
     except NoiseError as error:
         print(f"refused: {error}", file=sys.stderr)
         return 1

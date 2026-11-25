@@ -147,3 +147,31 @@ def test_a_field_forecast_that_cannot_be_made_is_disclosed_not_fatal(tmp_path: P
     assert built.doc["final_field_error"]  # the reason is in the document
     assert built.doc["forecasts"]["baseline2"]["rows"][0]["p_top25"] > 0.9  # the weekly forecast is whole
     assert issue(world(tmp_path / "b"), noise=noise).doc["final_field_error"] is None  # not asked for
+
+
+def test_a_corrected_fit_is_a_new_numbered_file(tmp_path: Path) -> None:
+    doc = fit_noise(examples(), 2026)
+    path = tmp_path / "first" / "x"
+    # a corrected fit is a new numbered file that names the one it replaces; the first stays as it was
+    fresh = Path(str(path.parent) + "-corrected")
+    path, digest = write_noise(fresh, 2026, doc)
+    with pytest.raises(NoiseError, match="reason"):
+        write_noise(fresh, 2026, doc, correction_reason=" ")
+    with pytest.raises(NoiseError, match="nothing to correct"):
+        write_noise(fresh / "empty", 2026, doc, correction_reason="x")
+    again, second = write_noise(fresh, 2026, doc, correction_reason="polls were misdated")
+    assert again.name == "rank_noise_2026.c1.json"
+    assert path.exists()
+    latest = load_noise(fresh, 2026)
+    assert latest.sha256 == second != digest
+    assert latest.document["supersedes_sha256"] == digest
+    assert latest.document["correction"] == 1
+    third, _ = write_noise(fresh, 2026, doc, correction_reason="again")
+    assert third.name == "rank_noise_2026.c2.json"
+    assert load_noise(fresh, 2026).document["supersedes_sha256"] == second
+
+
+def test_noise_fitted_for_another_season_is_refused(tmp_path: Path) -> None:
+    write_noise(tmp_path / "p", 2027, fit_noise(examples(), 2027))
+    with pytest.raises(ValueError, match="2027, not 2026"):
+        issue(world(tmp_path), noise=load_noise(tmp_path / "p", 2027))

@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import polars as pl
 import pytest
 
 from cfp.ingest.cfbd import RESERVE, allowance
@@ -163,10 +164,35 @@ def test_polls_keep_ap_and_coaches_and_are_dated_by_rule(tmp_path: Path) -> None
     assert set(preseason["first_public_time"].to_list()) == {datetime(2025, 8, 30, 16, 0, tzinfo=UTC)}
     assert set(rows["vintage"].to_list()) == {"reconstructed"}
     upsert(lake, "polls", rows, NOW, "asserted")
+    # a poll stored with a wrong public time is put right by a new version, and only when asked
+    wrong = datetime(2025, 12, 16, 22, 0, tzinfo=UTC)
+    late = Lake(tmp_path / "late", clock=Clock(NOW))
+    rows = poll_rows(fetched(late, payload), kickoffs, live=False)
+    upsert(
+        late,
+        "polls",
+        rows.with_columns(first_public_time=pl.lit(wrong).cast(rows.schema["first_public_time"])),
+        NOW,
+        "asserted",
+    )
+    between = datetime(2025, 11, 30, 7, 0, tzinfo=UTC)
+    assert late.as_of("polls", between, "replay").frame.height == 0
+    assert upsert(late, "polls", rows, NOW, "asserted").corrected == 0
+    fixed = upsert(late, "polls", rows, NOW, "asserted", redate=True)
+    assert fixed.corrected == rows.height
+    seen = late.as_of("polls", between, "replay").frame
+    assert seen.filter(seen["week"] == 13).height == 4
+    assert set(seen["correction_version"].to_list()) == {1}
+    assert upsert(late, "polls", rows, NOW, "asserted", redate=True).corrected == 0
     with pytest.raises(SourceError):
         poll_rows(fetched(lake, payload), [], live=False)
     with pytest.raises(SourceError, match="week 12"):  # week 12's games are missing
         poll_rows(fetched(lake, payload), kickoffs[:1], live=False)
+    # a December game filed under week 1 would date every later poll after the season: refused
+    stray = [*kickoffs, (1, datetime(2025, 12, 13, 18, 0, tzinfo=UTC))]
+    later = [*payload, {"season": 2025, "seasonType": "regular", "week": 2, "polls": polls[:2]}]
+    with pytest.raises(SourceError, match="same public time"):
+        poll_rows(fetched(lake, later), stray, live=False)
 
 
 def test_lines_one_row_per_provider(tmp_path: Path) -> None:

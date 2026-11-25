@@ -154,12 +154,18 @@ def ingest_cfbd_season(lake: Lake, cfbd: Cfbd, season: int, what: Sequence[str])
             games = games.filter(~pl.col("game_id").is_in(reverted["game_id"].to_list()))
         report.results.append(upsert(lake, "games", games, max(seen_at), how))
     if "rankings" in what:
+        # only games with an FBS side date a poll: CFBD files lower-division playoff games in December
+        # under regular-season week 1, which dated every 2025 poll after the season
         regular = lake.scan("games").filter(
-            (pl.col("season") == season) & (pl.col("season_type") == "regular")
+            (pl.col("season") == season)
+            & (pl.col("season_type") == "regular")
+            & ((pl.col("home_div") == "fbs") | (pl.col("away_div") == "fbs"))
         )
         kickoffs = regular.select("week", "start_utc").unique().collect().rows()
         got = cfbd.rankings(season, "regular", reuse=reuse)
-        report.results.append(upsert(lake, "polls", norm.poll_rows(got, kickoffs, live), got.fetched_at, how))
+        report.results.append(
+            upsert(lake, "polls", norm.poll_rows(got, kickoffs, live), got.fetched_at, how, redate=not live)
+        )
     if "lines" in what:
         for season_type in norm.SEASON_TYPES:
             got = cfbd.lines(season, season_type, reuse=reuse)

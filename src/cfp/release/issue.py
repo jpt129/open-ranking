@@ -108,6 +108,8 @@ def build_issue(
     break ties among teams level on AP standing. If that build cannot be made, the issue still goes out:
     open points are listed as a missing input and the reason is in `open_points_error`.
     """
+    if noise is not None and noise.season != season:
+        raise ValueError(f"the rank-noise parameters are for {noise.season}, not {season}")
     if revision < 1:
         raise IssueRefused(f"revision must be 1 or more; got {revision}")
     if mode == "live" and not dry_run and (code_hash == "unknown" or code_hash.endswith("-dirty")):

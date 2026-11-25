@@ -124,16 +124,44 @@ class Noise:
             raise NoiseError(f"no temperature for {baseline}, {issue}, {kind}") from error
 
 
-def _paths(root: Path | str, season: int) -> tuple[Path, Path]:
+def _paths(root: Path | str, season: int, correction: int = 0) -> tuple[Path, Path]:
     folder = Path(root)
-    return folder / f"rank_noise_{season}.json", folder / f"rank_noise_{season}.sha256"
+    stem = f"rank_noise_{season}" + (f".c{correction}" if correction else "")
+    return folder / f"{stem}.json", folder / f"{stem}.sha256"
 
 
-def write_noise(root: Path | str, season: int, document: Mapping[str, Any]) -> tuple[Path, str]:
-    """Write the season's rank-noise parameters once. Returns the file and its SHA-256."""
-    path, side = _paths(root, season)
+def _latest(root: Path | str, season: int) -> int:
+    """The highest correction on file (0 is the first fit); -1 when there is none."""
+    n = -1
+    while _paths(root, season, n + 1)[0].exists():
+        n += 1
+    return n
+
+
+def write_noise(
+    root: Path | str, season: int, document: Mapping[str, Any], *, correction_reason: str | None = None
+) -> tuple[Path, str]:
+    """Write the season's rank-noise parameters once. Returns the file and its SHA-256.
+
+    A file is never rewritten. With `correction_reason`, a corrected fit is written beside the earlier one
+    as the next numbered correction, naming the file it replaces and why; the loader reads the latest.
+    """
     if int(document["season"]) != season:
         raise NoiseError(f"the document is for {document['season']}, not {season}")
+    path, side = _paths(root, season)
+    if correction_reason is not None:
+        if not correction_reason.strip():
+            raise NoiseError("a correction needs a reason")
+        last = _latest(root, season)
+        if last < 0:
+            raise NoiseError(f"there is nothing to correct for {season} in {Path(root)}")
+        earlier = load_noise(root, season)
+        path, side = _paths(root, season, last + 1)
+        document = dict(document) | {
+            "correction": last + 1,
+            "supersedes_sha256": earlier.sha256,
+            "correction_reason": correction_reason.strip(),
+        }
     text = json.dumps(dict(document), sort_keys=True, indent=1, ensure_ascii=True, allow_nan=False)
     body = (text + "\n").encode()
     digest = sha256_hex(body)
@@ -155,7 +183,8 @@ def write_noise(root: Path | str, season: int, document: Mapping[str, Any]) -> t
 
 
 def load_noise(root: Path | str, season: int) -> Noise:
-    path, side = _paths(root, season)
+    """The season's parameters: the latest correction on file, or the first fit."""
+    path, side = _paths(root, season, max(_latest(root, season), 0))
     if not path.exists() or not side.exists():
         raise NoiseError(f"no rank-noise parameters for {season} in {Path(root)}")
     body = path.read_bytes()

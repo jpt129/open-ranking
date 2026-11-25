@@ -570,3 +570,20 @@ John confirmed the position-26 rule and the CFBD schedule as a labelled fallback
 - The per-path cache never hit and is removed.
 
 Left open: the CFBD fallback cannot tell a title game from a makeup game between two teams of one conference on the title date (it needs exactly one such game; labelled secondary). `cfp.scoring` and a promotion module do not exist, so the promotion figures above came from scratch scripts and cannot yet be rerun from the repo; VT-12 and VT-14's named tests are missing with them. SC-05's pairwise probabilities for bubble comparisons are not built. A fitted temperature at a search bound is not flagged. A missing temperature for an issue's kind refuses the weekly issue rather than disclosing.
+
+## 2026-11-25 — Leakage audit of the forecast path; 2025 polls re-dated; rank noise corrected (DS-03, DS-07, SC-05)
+
+The audit traced every table read in 2025 replays and found no input public after its cutoff. It found one data fault.
+
+- **Fault.** CFBD files lower-division playoff games in December under regular-season week 1. The poll-dating rule took the latest kickoff of all earlier weeks, so every 2025 AP and Coaches poll for weeks 2–16 was stored as public on 16 Dec 2025. Every 2025 training issue therefore ran on the preseason poll. The error was late, not early, so nothing leaked; it corrupted 12 of 144 training issues.
+- **Fix.** Polls are dated from games with an FBS side only. The normaliser refuses two weeks with the same public time. A backfill may now write a re-dated record as a new correction version (`upsert(..., redate=True)`, asserted times only). Re-dated in the working store through the CLI, no API calls: 750 rows for 2025, 100 for 2019 (week 13 was a week late), and the preseason poll of 2014, 2015, 2017, 2019, 2020 and 2024 (first FBS kickoff, later than before).
+- **Rank noise corrected.** Frozen parameters are never rewritten, so the refit is `frozen/rank_noise_2026.c1.json` (SHA-256 `b7663e78…27f5`), which names the file it replaces and the reason; the loader reads the latest correction. `cfp forecast fit-noise --correct REASON` writes one. No edition was published from the first file. Baseline 2: sun0200 weekly 2.995 → 2.916, opening 4.647 → 4.073, final 1.305 (unchanged), two-back 3.004 → 2.894; tminus60 weekly 2.629 → 2.549, opening 3.443 → 2.707, two-back 2.845 → 2.737. Baseline 1: sun0200 weekly 11.53 → 9.32, tminus60 weekly 7.21 → 4.45. **For John to confirm.**
+- `build_issue` refuses rank-noise parameters fitted for another season.
+
+Open, recorded not fixed:
+- The promotion figures and the 2024/2025 rehearsal above were run before the re-dating and are stale for 2025.
+- The cloud store still holds the old poll dates for past seasons. No 2026 issue reads them.
+- Hand files (`title_games.csv`, `title_scenarios.csv`, `committee_designations.csv`) carry a first-public time but no recorded-at time, so live mode cannot prove a row was on file before the cutoff. The commit that the issue is built from is the only evidence.
+- A replay cannot see a past game before its result (one final row per game), so games in progress at a past cutoff and future title games are absent; a two-back field replay of a past season is refused. Live issues are not affected.
+- Open points in the training issues use the 2026 parameters, which were calibrated on the same seasons. The temperatures roughly double without open points, so the "held-out" label on 2017–2025 figures is not clean.
+- The import contract and the futures test cover `cfp.forecast` but not `cfp.release`.
