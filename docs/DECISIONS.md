@@ -609,3 +609,17 @@ The issue document now carries these as notes (`rank_noise.notes`, field notes).
 **Referee: promotion.** Protocol sound; figures reproduce after the re-dating (27.59 / 28.53 / 24.90). Specified pilot against baseline: +0.94 (season-bootstrap 90% +0.18 to +1.71), bubble Brier +0.0029: not promoted. Unshrunk: −2.68 (−4.55 to −0.86), but examined after the failure, resting on three team-seasons, and outside FF-03's shrinkage: not published. The field note now says this plainly. A nine-place regular-week drop gains 137.3 forward-chained, positive in 8 of 9 seasons; it waits for VT-11 scoring.
 
 Open: `cfp.forecast.pl` and SC-05's named tests (`test_pl_sample_seed_reproducible`, `test_rank_dist_outputs`) do not exist under those names; tests for the duplicate-conference refusal and for field inputs recorded only on success; the 2026 preseason poll is dated from a non-FBS game (27 Aug, live row, still later than the real release).
+
+## 2026-11-25 — John's rulings on calibration and the order of work (SC-05, VT-14)
+
+- **No bound on published probabilities.** The raw baseline is published exactly as the spec defines it, with the calibration notes.
+- **A second, labelled "calibrated" column** for P(top 25), P(rank ≤ 4) and P(rank ≤ 12): one monotone (isotonic) map per cutoff from published probability to observed frequency, fitted on the 2014–25 weekly issues. Verified leave-one-season-out, reliability shown before and after per cutoff. Frozen as a hashed file from committed code. It is a **disclosure column, not a promoted model**; both columns will be scored. No map for field probabilities (27 forecasts is too few; the note that forecasts near 0.09 came in near 0.19 stays). Deadline Sat 28 Nov 18:00 ET: if the maps are not verified by then, raw only. An unverified column is not shipped.
+- **Confirmed:** `frozen/rank_noise_2026.c2.json` is the file for Sunday's issue.
+- **Agreed:** the baseline alone is published; the unshrunk variant stays a note. The nine-place drop waits for the weekly scoring module and then goes through the promotion rule as a candidate; the baseline stays at five.
+- **Rule for Sunday:** any output whose test is missing is left out of the edition and listed in its notes.
+
+Done under item 1 of the order of work:
+- `cfp.forecast.pl` is the spec-named module for SC-05's published side (sampling and fitting stay in `rank_noise`). `tests/unit/test_pl.py` has `test_pl_sample_seed_reproducible` and `test_rank_dist_outputs`. The per-team summary moved from the issue builder into `pl.rank_summary`.
+- **Pairwise bubble probabilities** (`rank_noise.pairwise` in the issue document). The bubble is fixed before sampling, as VT-12 defines it: the teams within five Baseline 2 places of the last at-large team in the field as it stands today under the season's rules (stand-in champions for undecided titles). For each pair: paths on which the row team is ranked ahead of the column team, and the probability. If the field today cannot be worked out the pairs are left out and `pairwise_error` gives the reason.
+- Tests added for the duplicate-conference refusal and for field inputs being recorded only when the section is built. `tests/unit/test_issue_field.py` builds a whole issue with a field forecast from a store (four title games, two past seasons of lines) and checks field and bye sums, the six-conference place on every path, recorded inputs and byte-identical rebuilds.
+- The hourly capture job fired at 21:17:07 UTC on 25 Nov and its run succeeded.

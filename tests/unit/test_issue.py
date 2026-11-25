@@ -59,7 +59,14 @@ def release_rows(lake: Lake, number: int, reveal: datetime, ranked: list[str]) -
     ]
 
 
-def world(root: Path, *, others: bool = True, prior: bool = True, ingested: datetime | None = None) -> Lake:
+def world(
+    root: Path,
+    *,
+    others: bool = True,
+    prior: bool = True,
+    ingested: datetime | None = None,
+    leagues: dict[str, str] | None = None,
+) -> Lake:
     """Thirty FBS teams, the 24 Nov release, the week-13 AP poll and one Saturday loss by T03."""
     lake = Lake(root / "lake", clock=Clock(ingested or CUTOFF - timedelta(hours=1)))
     lake.append(
@@ -82,7 +89,7 @@ def world(root: Path, *, others: bool = True, prior: bool = True, ingested: date
                     "team_id": t,
                     "valid_from": date(2026, 8, 1),
                     "valid_to": date(2027, 7, 31),
-                    "conference_id": "sec",
+                    "conference_id": (leagues or {}).get(t, "sec"),
                     "division": "fbs",
                     "cfp_group": None,
                     "source_url": "https://example.test/m",

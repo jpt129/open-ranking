@@ -19,7 +19,7 @@ from cfp.common.timeutil import require_utc
 from cfp.forecast.baselines import FINAL_LAG, ap_order, baseline1, baseline2, initial_order, losses_since
 from cfp.forecast.cutoffs import ET, ISSUES, issue_time
 from cfp.forecast.designations import Designations, designated_for, needs_designation
-from cfp.forecast.final_field import FieldError
+from cfp.forecast.final_field import FieldError, Setup, field_today
 from cfp.forecast.noise_params import MODEL, Noise, NoiseError, release_kind
 from cfp.forecast.observations import (
     RANKED,
@@ -30,7 +30,16 @@ from cfp.forecast.observations import (
     strength_estimator,
 )
 from cfp.forecast.pairings import PairingError, resolve_pairings
-from cfp.forecast.rank_noise import published_probability, rank_frequencies, sample_orders
+from cfp.forecast.pl import (
+    BUBBLE_WIDTH,
+    Ints,
+    bubble_places,
+    pairwise_counts,
+    published_probability,
+    rank_frequencies,
+    rank_summary,
+    sample_orders,
+)
 from cfp.ingest.public_time import tuesday_after
 from cfp.open_ranking.band import BandError
 from cfp.open_ranking.frozen import Frozen
@@ -80,6 +89,48 @@ class Issue:
     sha256: str
     cutoff: datetime
     reveal: datetime
+
+
+def _bubble_pairs(
+    season: int, rows: Sequence[Mapping[str, Any]], membership: pl.DataFrame, orders: Ints
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Pairwise probabilities for the bubble (SC-05), or the reason there are none.
+
+    The bubble is fixed before sampling (VT-12): teams within five places, in Baseline 2's order, of the
+    last at-large team in the field as it would stand today under the season's rules.
+    """
+    order = [str(row["team_id"]) for row in rows]
+    members: dict[str, str] = dict(
+        membership.sort("valid_from").select("team_id", "conference_id").drop_nulls().iter_rows()
+    )
+    eligible = {str(row["team_id"]): bool(row["cfp_eligible"]) for row in rows}
+    try:
+        today = field_today(
+            Setup(season, order, members, eligible, {}, {}, {}, {}, frozenset()), load_rules(season)
+        )
+    except (FieldError, RulesError) as error:
+        return None, f"{type(error).__name__}: {error}"
+    at_large = [e.team_id for e in today.entries if e.qualifier and e.route in ("at_large", "top_four")]
+    if not at_large:
+        return None, "the field today has no at-large team"
+    last = max(order.index(team) for team in at_large)
+    places = bubble_places(last, len(order))
+    ahead = pairwise_counts(orders, places)
+    paths = int(orders.shape[0])
+    return {
+        "definition": f"teams within {BUBBLE_WIDTH} Baseline 2 places of the last at-large team in the "
+        "field as it stands today",
+        "last_at_large": order[last],
+        "last_at_large_place": last + 1,
+        "stand_ins": dict(sorted(today.stand_ins.items())),
+        "teams": [order[place] for place in places],
+        "ahead_paths": [[int(c) for c in line] for line in ahead],
+        "p_ahead": [
+            [None if i == j else published_probability(int(c), paths) for j, c in enumerate(line)]
+            for i, line in enumerate(ahead)
+        ],
+        "reading": "row team ranked ahead of column team",
+    }, None
 
 
 def build_issue(
@@ -263,29 +314,16 @@ def build_issue(
         except NoiseError as error:
             raise IssueRefused(str(error)) from error
         counts1 = rank_frequencies(sample_orders(len(first), taus["baseline1"], PATHS, seed=seed), RANKED)
-        counts2 = rank_frequencies(
-            sample_orders(len(second), taus["baseline2"], PATHS, seed=seed + 1), RANKED
-        )
+        orders2 = sample_orders(len(second), taus["baseline2"], PATHS, seed=seed + 1)
+        counts2 = rank_frequencies(orders2, RANKED)
         first_block["rank_counts"] = {
             team: [int(c) for c in counts1[place]]
             for place, team in enumerate(first)
             if counts1[place, RANKED] < PATHS
         }
         for place, row in enumerate(second):
-            counts = [int(c) for c in counts2[place]]
-            inside = PATHS - counts[RANKED]
-            running, median = 0, None
-            for rank, count in enumerate(counts[:RANKED], start=1):
-                running += count
-                if median is None and 2 * running >= PATHS:
-                    median = rank
-            row["rank_counts"] = counts
-            row["top25_paths"] = inside
-            row["p_top25"] = published_probability(inside, PATHS)
-            row["median_rank"] = median if median is not None else "outside 25"
-            row["p_rank_at_most"] = {
-                str(k): published_probability(sum(counts[:k]), PATHS) for k in CUTS if k <= RANKED
-            }
+            row.update(rank_summary([int(c) for c in counts2[place]], PATHS, CUTS, RANKED))
+        pairwise, pairwise_error = _bubble_pairs(season, second, read["membership"], orders2)
         sampled = {
             "model": MODEL,
             "kind": release,
@@ -296,6 +334,8 @@ def build_issue(
             "params_sha256": noise.sha256,
             "trained_on": list(noise.document["trained_on"]),
             "notes": list(CALIBRATION_NOTES),
+            "pairwise": pairwise,
+            "pairwise_error": pairwise_error,
             "note": "A count of no paths or every path is published half a path short of 0 or 1.",
         }
     inputs = [input_id(name, read[name], lake.spec(name).key) for name in TABLES]

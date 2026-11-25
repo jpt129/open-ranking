@@ -105,6 +105,9 @@ def test_bad_rows_are_refused(tmp_path: Path) -> None:
     )
     with pytest.raises(PairingError, match="Zulu"):
         resolve_pairings(*files(tmp_path, unknown), 2026, CUT, NAMES, schedule(), LEAGUE)
+    twice = TITLES + next(line for line in TITLES.splitlines(keepends=True) if line.startswith("2026,"))
+    with pytest.raises(PairingError, match="listed twice"):
+        resolve_pairings(*files(tmp_path, twice), 2026, CUT, NAMES, schedule(), LEAGUE)
     unsourced = "2026,ACC,one,Echo,Fox,,2026-11-28T12:00:00+00:00,\n"
     with pytest.raises(PairingError, match="label and a source"):
         resolve_pairings(*files(tmp_path, TITLES, unsourced), 2026, CUT, NAMES, schedule(), LEAGUE)
