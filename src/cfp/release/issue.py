@@ -17,6 +17,8 @@ from cfp.common.hashing import sha256_hex
 from cfp.common.timeutil import require_utc
 from cfp.forecast.baselines import FINAL_LAG, ap_order, baseline1, baseline2, initial_order, losses_since
 from cfp.forecast.cutoffs import ET, ISSUES, issue_time
+from cfp.forecast.designations import Designations, designated_for, needs_designation
+from cfp.forecast.noise_params import MODEL, Noise, NoiseError, release_kind
 from cfp.forecast.observations import (
     RANKED,
     ObservationError,
@@ -24,12 +26,14 @@ from cfp.forecast.observations import (
     label_leaked,
     open_points_feature,
 )
+from cfp.forecast.rank_noise import published_probability, rank_frequencies, sample_orders
 from cfp.ingest.public_time import tuesday_after
 from cfp.open_ranking.band import BandError
 from cfp.open_ranking.frozen import Frozen
 from cfp.open_ranking.ledger import LedgerError
 from cfp.open_ranking.strength import StrengthError
 from cfp.release.edition import canonical, input_id
+from cfp.rules.engine import RulesError, load_rules
 from cfp.snapshot.build import SnapshotBlocked
 from cfp.store.lake import Lake
 from cfp.store.types import Mode
@@ -38,6 +42,8 @@ PRODUCT = "shadow_committee_weekly"
 RULE_VERSION = "sc-baselines-1"
 STALE_WINDOW = timedelta(days=7)
 TABLES = ("teams", "membership", "eligibility", "committee_releases", "polls", "games")
+PATHS = 10_000  # sampled orders per public forecast (SC-05)
+CUTS = (4, 8, 12, 25)  # bye, first-round host, field size by rank alone, the published list
 
 
 class IssueRefused(RuntimeError):
@@ -79,6 +85,8 @@ def build_issue(
     frozen: Frozen | None = None,
     lists: Mapping[str, Any] | None = None,
     open_points_note: str | None = None,
+    noise: Noise | None = None,
+    designations: Designations | None = None,
 ) -> Issue:
     """The forecast for the committee release revealed at `reveal`, from inputs public at the issue cutoff.
 
@@ -121,7 +129,7 @@ def build_issue(
     eligible: dict[str, bool] = dict(field.iter_rows())
     if not teams:
         raise IssueRefused(f"no FBS teams are on record for {season} at the cutoff")
-    missing = ["rank_noise_temperature"]
+    missing = [] if noise is not None else ["rank_noise_temperature"]
     feature = None
     feature_error: str | None = open_points_note  # why the caller could not supply parameters or lists
     if frozen is not None and lists is not None:
@@ -169,6 +177,7 @@ def build_issue(
     ]
     if expected_ap and ap_week < max(expected_ap):
         missing.append("latest_ap_poll")
+    named = None
     try:
         if earlier:
             release_id = f"cfp-{season}-{len(earlier):02d}"
@@ -176,6 +185,22 @@ def build_issue(
             if last.height != RANKED or last["release_id"].unique().to_list() != [release_id]:
                 raise IssueRefused(f"{release_id} (revealed {earlier[-1].isoformat()}) is not in the store")
             prior = last["team_id"].to_list()
+            release_day = earlier[-1].astimezone(ET).date()
+            if designations is not None:
+                named = designated_for(designations, season, release_day, cutoff)
+            try:
+                group = load_rules(season).group
+            except RulesError:
+                group = ()
+            league: dict[str, str] = dict(
+                read["membership"]
+                .filter(pl.col("team_id").is_in(teams))
+                .sort("valid_from")
+                .select("team_id", "conference_id")
+                .iter_rows()
+            )
+            if named is None and needs_designation(prior, league, group):
+                missing.append("designated_group_team")
             anchor = {"kind": "cfp_release", "release_id": release_id, "since_utc": earlier[-1].isoformat()}
             losses = losses_since(games, teams, since=earlier[-1])
         else:
@@ -186,10 +211,13 @@ def build_issue(
 
     try:
         first = baseline1(teams, ap, draw)
-        placed = baseline2(initial_order(teams, prior, ap, open_points, draw), losses)
+        start = initial_order(
+            teams, prior, ap, open_points, draw, designated=named.team_id if named is not None else None
+        )
+        placed = baseline2(start, losses)
     except ValueError as error:
         raise IssueRefused(str(error)) from error
-    second = [
+    second: list[dict[str, Any]] = [
         {
             "team_id": p.team_id,
             "name": names[p.team_id],
@@ -202,19 +230,68 @@ def build_issue(
         }
         for p in placed
     ]
+    anchor["designated_team"] = named.team_id if named is not None else None
+    anchor["designated_source"] = named.source_url if named is not None else None
     target = len(earlier) + 1
     kind = "-dry" if dry_run else ("-replay" if mode == "replay" else "")
     stem = f"scw-{season}-r{target:02d}-{issue}{kind}"
     edition_id = f"{stem}-e{revision}"
+    first_block: dict[str, Any] = {"top25": first[:RANKED], "order": first}
+    sampled: dict[str, Any] | None = None
+    if noise is not None:
+        release = release_kind(target, len(schedule))
+        seed = int(sha256_hex(f"rank-noise|{stem}".encode())[:12], 16)
+        try:
+            taus = {name: noise.tau(name, issue, release) for name in ("baseline1", "baseline2")}
+        except NoiseError as error:
+            raise IssueRefused(str(error)) from error
+        counts1 = rank_frequencies(sample_orders(len(first), taus["baseline1"], PATHS, seed=seed), RANKED)
+        counts2 = rank_frequencies(
+            sample_orders(len(second), taus["baseline2"], PATHS, seed=seed + 1), RANKED
+        )
+        first_block["rank_counts"] = {
+            team: [int(c) for c in counts1[place]]
+            for place, team in enumerate(first)
+            if counts1[place, RANKED] < PATHS
+        }
+        for place, row in enumerate(second):
+            counts = [int(c) for c in counts2[place]]
+            inside = PATHS - counts[RANKED]
+            running, median = 0, None
+            for rank, count in enumerate(counts[:RANKED], start=1):
+                running += count
+                if median is None and 2 * running >= PATHS:
+                    median = rank
+            row["rank_counts"] = counts
+            row["top25_paths"] = inside
+            row["p_top25"] = published_probability(inside, PATHS)
+            row["median_rank"] = median if median is not None else "outside 25"
+            row["p_rank_at_most"] = {
+                str(k): published_probability(sum(counts[:k]), PATHS) for k in CUTS if k <= RANKED
+            }
+        sampled = {
+            "model": MODEL,
+            "kind": release,
+            "tau": taus,
+            "paths": PATHS,
+            "seed": seed,
+            "params_sha256": noise.sha256,
+            "trained_on": list(noise.document["trained_on"]),
+            "note": "A count of no paths or every path is published half a path short of 0 or 1.",
+        }
     inputs = [input_id(name, read[name], lake.spec(name).key) for name in TABLES]
     inputs.append(f"draw:{len(draw)}:{sha256_hex(canonical(dict(sorted(draw.items()))))}")
+    if noise is not None:
+        inputs.append(f"rank-noise:{noise.sha256}")
+    if designations is not None:
+        inputs.append(f"designations:{designations.sha256}")
     if feature is not None:
         inputs.append(f"feature:{feature.feature_build_id}")
         inputs.append(f"feature-snapshot:{feature.snapshot_hash}")
         inputs.append(f"feature-params:{feature.params_sha256}")
         inputs.append(f"feature-rule:{feature.rule_version_id}")
     doc: dict[str, Any] = {
-        "schema": 2,
+        "schema": 3,
         "edition_id": edition_id,
         "product": PRODUCT,
         "public_name": "Open Ranking Models",
@@ -244,10 +321,11 @@ def build_issue(
             else None
         ),
         "open_points_error": feature_error,
+        "rank_noise": sampled,
         "ap_week": ap_week,
         "fbs_teams": len(teams),
         "forecasts": {
-            "baseline1": {"top25": first[:RANKED], "order": first},
+            "baseline1": first_block,
             "baseline2": {
                 "anchor": anchor,
                 "top25": [row["team_id"] for row in second[:RANKED]],

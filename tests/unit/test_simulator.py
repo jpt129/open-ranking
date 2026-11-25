@@ -82,11 +82,26 @@ def slate() -> list[Game]:
 
 
 def test_sim_win_rates_within_mc_error() -> None:
+    """One pooled test: the squared z-scores of every game's win rate against a chi-square (VT-13).
+
+    A per-game three-standard-error check passes or fails by luck of seed once there are many games. The
+    forty games share no team, so their win rates are independent whatever the dependence weight is.
+    """
+    from scipy.stats import chi2
+
+    rng = np.random.default_rng(2026)
+    games = [Game(f"g{k:02d}", f"H{k}", f"A{k}", float(p)) for k, p in enumerate(rng.uniform(0.05, 0.95, 40))]
+    p = np.array([g.p_home for g in games])
+    total, df = 0.0, 0
     for a in (0.0, 0.6, 1.0):
-        paths = simulate(slate(), N, a=a, seed=5)
-        assert paths.home_won.shape == (N, 6)
-        for k, game in enumerate(slate()):
-            assert abs(paths.home_won[:, k].mean() - game.p_home) < 3 * se(game.p_home), (a, game.game_id)
+        for seed in (5, 6, 7):
+            paths = simulate(games, N, a=a, seed=seed)
+            assert paths.home_won.shape == (N, 40)
+            z = (paths.home_won.mean(axis=0) - p) / np.sqrt(p * (1 - p) / N)
+            total += float((z**2).sum())
+            df += 40
+    assert chi2.sf(total, df) > 0.001, (total, df)
+    assert chi2.cdf(total, df) > 0.001, (total, df)  # nor suspiciously close
 
 
 def test_a_zero_independent() -> None:

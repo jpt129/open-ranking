@@ -61,6 +61,7 @@ def initial_order(
     ap: pl.DataFrame,
     open_points: Mapping[str, int] | None,
     draw: Mapping[str, int],
+    designated: str | None = None,
 ) -> list[str]:
     """Baseline 2's starting order over `teams`.
 
@@ -68,6 +69,10 @@ def initial_order(
     team by AP standing: ranked teams in rank order, then by votes. Equal ranks or votes fall to open points
     when given (a team without open points sorts after those with), then to the draw. Votes for a team outside
     the field (AP voters sometimes name an FCS team) are ignored.
+
+    `designated` is the team the committee named as the highest-ranked of a conference group when none
+    of that group is in its 25. The committee has placed it above every other unranked team of the
+    group, and nothing says where it stands against the rest, so it starts 26th.
     """
     field = set(teams)
     head = list(prior_cfp or [])
@@ -78,6 +83,14 @@ def initial_order(
     missing = sorted(field - set(draw))
     if missing:
         raise ValueError(f"the draw does not cover {missing[0]}")
+    if designated is not None:
+        if not head:
+            raise ValueError("a designated team needs a committee release to follow")
+        if designated in head:
+            raise ValueError(f"{designated} is designated but is already in the committee's 25")
+        if designated not in field:
+            raise ValueError(f"the designated team {designated} is not in the field")
+        head.append(designated)
     placed = set(head)
     points = open_points or {}
     unranked = max(ranks.values(), default=0) + 1

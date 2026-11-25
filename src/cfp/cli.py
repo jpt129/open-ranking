@@ -62,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     forecast = commands.add_parser("forecast", help="Open Ranking Models: forecast issues")
     forecast_kinds = forecast.add_subparsers(dest="kind", metavar="<action>", required=True)
+    fit_noise = forecast_kinds.add_parser("fit-noise", help="fit rank-noise temperatures on earlier seasons")
+    fit_noise.add_argument("--season", type=int, required=True)
+    fit_noise.add_argument("--first-season", type=int, default=2014)
+    fit_noise.add_argument("--frozen", default="frozen")
+    fit_noise.add_argument("--report", action="store_true", help="print the fit and write nothing")
     draw = forecast_kinds.add_parser("draw", help="write the season's tiebreak draw to the data directory")
     draw.add_argument("--season", type=int, required=True)
     due = forecast_kinds.add_parser("due", help="print the issue due now, its reveal date and cutoff, if any")
@@ -276,6 +281,46 @@ EXIT_UNRESOLVED = 18  # results look stale: games that should be final are still
 TOKEN_ATTEMPTS = 3
 
 
+def _forecast_fit_noise(args: argparse.Namespace) -> int:
+    """Fit rank-noise temperatures on the seasons before --season and write them once."""
+    from cfp.common.timeutil import utc_now
+    from cfp.forecast.noise_params import NoiseError, fit_noise, write_noise
+    from cfp.open_ranking.frozen import load_frozen
+    from cfp.release.history import past_examples
+    from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+    from cfp.store.lake import Lake
+
+    data = Path(args.data)
+    lake = Lake(args.lake)
+    lists = {
+        "title_games": load_title_games(data / "title_games.csv"),
+        "forfeits": load_forfeits(data / "forfeits.csv"),
+        "unplayed": load_unplayed(data / "unplayed_games.csv"),
+    }
+    seasons = list(range(args.first_season, args.season))
+    examples, problems = past_examples(
+        lake, data, seasons, utc_now(), frozen=load_frozen(args.frozen, args.season), lists=lists
+    )
+    for line in problems:
+        print(f"note: {line}", file=sys.stderr)
+    try:
+        document = fit_noise(examples, args.season) | {"problems": problems, "code_hash": _code_hash()}
+        if args.report:
+            path, digest = None, None
+        else:
+            path, digest = write_noise(args.frozen, args.season, document)
+    except NoiseError as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    for baseline, issues in document["temperatures"].items():
+        for issue, kinds in issues.items():
+            for kind, fit in kinds.items():
+                print(f"{baseline} {issue} {kind}: tau {fit['tau']:.3f} from {fit['releases']} releases")
+    if path is not None:
+        print(f"{path}: sha256 {digest}")
+    return 0
+
+
 def _forecast_due(args: argparse.Namespace) -> int:
     from datetime import datetime
 
@@ -350,6 +395,22 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
         }
     except (FrozenError, OSError, ValueError) as error:
         frozen, lists, note = None, None, f"{type(error).__name__}: {error}"
+    designations = None
+    if (data / "committee_designations.csv").exists():
+        from cfp.forecast.designations import load_designations
+
+        try:
+            designations = load_designations(data / "committee_designations.csv")
+        except ValueError as error:
+            print(f"refused: {error}", file=sys.stderr)
+            return 1
+    noise = None
+    try:  # fitted rank noise; without it the issue goes out with no probabilities and says so
+        from cfp.forecast.noise_params import NoiseError, load_noise
+
+        noise = load_noise(args.frozen, args.season)
+    except (NoiseError, OSError, ValueError) as error:
+        print(f"WARNING: no rank-noise parameters: {error}", file=sys.stderr)
     try:
         built = build_issue(
             lake,
@@ -367,6 +428,8 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             frozen=frozen,
             lists=lists,
             open_points_note=note,
+            noise=noise,
+            designations=designations,
         )
     except TooEarly as error:
         print(str(error), file=sys.stderr)
@@ -803,6 +866,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ingest_odds(args)
     elif args.command == "ingest" and args.kind == "ap-others":
         return _ingest_ap_others(args)
+    elif args.command == "forecast" and args.kind == "fit-noise":
+        return _forecast_fit_noise(args)
     elif args.command == "forecast" and args.kind == "draw":
         return _forecast_draw(args)
     elif args.command == "forecast" and args.kind == "due":

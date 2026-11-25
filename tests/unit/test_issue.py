@@ -163,13 +163,15 @@ def test_issue_builds_baselines_at_the_cutoff(tmp_path: Path) -> None:
     )
     assert (doc["target_release_no"], doc["prospective_eligible"], doc["label_leaked"]) == (2, True, False)
     assert doc["headline_forecast"] == "baseline2"
-    assert doc["missing_inputs"] == ["open_points", "rank_noise_temperature"]
+    assert doc["missing_inputs"] == ["open_points", "rank_noise_temperature", "designated_group_team"]
     assert doc["forecasts"]["baseline1"]["top25"] == TEAMS[:25]
     b2 = doc["forecasts"]["baseline2"]
     assert b2["anchor"] == {
         "kind": "cfp_release",
         "release_id": "cfp-2026-01",
         "since_utc": PRIOR.isoformat(),
+        "designated_team": None,
+        "designated_source": None,
     }
     t03 = next(row for row in b2["rows"] if row["team_id"] == "T03")
     assert (t03["initial"], t03["losses"], t03["adjusted"], t03["position"]) == (3, 1, 8, 7)
