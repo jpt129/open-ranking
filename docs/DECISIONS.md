@@ -181,5 +181,11 @@ Verified on recorded responses: CFBD's week-1 poll is the preseason poll, and it
 
 - **2023 is checked against ESPN, not CFBD** (John, 2026-11-25: "use ESPN as the second source for 2023 if we need to"). CFBD's copy repeats a rank in two 2023 releases. The exception is a named list in code (`ESPN_SEASONS`); no command-line switch changes the check. Past seasons are read from ESPN's core API, which keeps history; its site API holds only the current season.
 - **A postseason entry in CFBD that is identical to the final regular-season release is treated as a copy, not a release** (Claude). Seen in 2014. Alternative: fail the season.
-- **2019 is not ingested.** CFBD lacks the 26 Nov 2019 release. Awaiting John's decision on ESPN for 2019.
+- **2019 is checked against ESPN** (John, 2026-11-25). CFBD lacks the 26 Nov 2019 release.
 - **A Wayback outage fails the season's ingest** rather than marking its releases reconstructed, because vintage is fixed at first write. Rerunning fixes it (2017 needed one rerun).
+
+## 2026-11-25 — John's confirmations
+
+- **Selection Day edition (OR-07a):** confirmed. Cutoff Sun 6 Dec 2026 02:00 ET (07:00 UTC), published before 11:00 ET.
+- **Selection Day public time:** stays at the scheduled show start, like every other release.
+- **"live" label:** John left the choice to Claude. Kept: a row is "live" only when the live system captured it within seven days of its public time; the catch-up of earlier 2026 games and polls is "reconstructed". Reason: the label should mean we held the record when it was fresh, which is what a scorecard reader will assume.

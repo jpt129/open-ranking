@@ -42,7 +42,7 @@ Defined terms [S-e]:
 **OR-06 [P] FCS games.** Every FCS win earns 0. Every FCS loss costs 99 points (−9900 cp). FCS games are excluded from the FBS strength fit.
 
 **OR-07 [P] Snapshot.**
-- (a) The first table is released after Week 7, using completed games through the announced cutoff.
+- (a) The first table is released after Week 7, using completed games through the announced cutoff. [S, ruling 2026-11-25] Selection Day has its own edition: in 2026 the cutoff is Sun 6 Dec 02:00 ET, published before 11:00 ET, because the Monday cutoff falls after the reveal.
 - (b) Each game stores game ID, opponents, final score, official site, home designation, FBS/FCS status and conference membership on the game date.
 - (c) Canceled games, no-contests and postseason playoff or bowl games are omitted.
 - (d) A forfeit uses the certified result; its administrative margin is omitted from strength fitting. [S, ruling 2026-11-25] A forfeit is scored as a normal win or loss at the scheduled site at its reference probability, labelled "forfeit", with no special arithmetic. It is outside the ordinary-FBS population VT-01 is required for. An unplayed forfeit is not a meeting for head-to-head (TB-03). Vacated wins are not forfeits; a ruling made public after a cutoff is a later correction, invisible to replay at that cutoff. Forfeits are a hand-verified list kept as data; a game that looks like a forfeit and is not on the list blocks the snapshot and is logged in DATA_GAPS.md.

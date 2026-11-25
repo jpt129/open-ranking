@@ -26,8 +26,9 @@ ESPN_REGULAR_WEEKS = range(8, 18)
 UNMETERED = 100_000
 LIVE_SEASON = 2026
 # Past seasons checked against ESPN instead of CFBD, each approved by John. 2023: CFBD's copy repeats a
-# rank in two releases (week 15 and the final), so it cannot confirm their order (2026-11-25).
-ESPN_SEASONS = frozenset({2023})
+# rank in two releases (week 15 and the final), so it cannot confirm their order. 2019: CFBD has no copy
+# of the 26 Nov release. Both approved 2026-11-25.
+ESPN_SEASONS = frozenset({2019, 2023})
 # Calls per season: games (regular, postseason), rankings; reference payloads; lines (regular, postseason).
 CALLS = {"games": 2, "rankings": 1, "reference": 3, "lines": 2}
 
