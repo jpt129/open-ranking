@@ -39,7 +39,8 @@ def upsert(
     `now`. With corrections="observed" (live capture) a changed row becomes public at `now`, the moment we
     saw it; with "asserted" (backfill) the caller's rule-based time stands. Columns in `ignore` are stored
     but do not make a row count as changed. With `redate`, a row whose rule-based first_public_time differs
-    from the stored one is written as a correction too: that is how a wrongly dated record is put right.
+    from the stored one is written as a correction too. That puts right a record dated too late. A record
+    dated too early stays visible, at its old version, between the two dates: versions are never withdrawn.
     """
     spec = lake.spec(table)
     now = require_utc(now, "now")

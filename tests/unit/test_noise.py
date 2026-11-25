@@ -169,6 +169,15 @@ def test_a_corrected_fit_is_a_new_numbered_file(tmp_path: Path) -> None:
     third, _ = write_noise(fresh, 2026, doc, correction_reason="again")
     assert third.name == "rank_noise_2026.c2.json"
     assert load_noise(fresh, 2026).document["supersedes_sha256"] == second
+    # every file in the chain is checked: a gap or a changed earlier file stops the load
+    (fresh / "rank_noise_2026.c4.sha256").write_text("x  y\n")
+    with pytest.raises(NoiseError, match="gap"):
+        load_noise(fresh, 2026)
+    (fresh / "rank_noise_2026.c4.sha256").unlink()
+    path.chmod(0o644)
+    path.write_text(path.read_text() + " ")
+    with pytest.raises(NoiseError, match="recorded hash"):
+        load_noise(fresh, 2026)
 
 
 def test_noise_fitted_for_another_season_is_refused(tmp_path: Path) -> None:

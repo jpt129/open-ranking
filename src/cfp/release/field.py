@@ -78,6 +78,8 @@ def build_field(
     initial = [str(row["team_id"]) for row in ordered]
     known = {str(row["team_id"]): int(row["losses"]) for row in ordered if row["losses"]}
     eligible = {str(row["team_id"]): bool(row["cfp_eligible"]) for row in ordered}
+    if seasonal["start_utc"].null_count():
+        raise FieldError("a game of the season has no kickoff time")
     # a game that kicks off after the final list is revealed cannot move it (Army-Navy, the bowls)
     before_reveal = seasonal.filter(pl.col("start_utc") < final_reveal)
     made = slate(
@@ -150,7 +152,9 @@ def build_field(
             title_games,
             title_week,
         )
-        tag = stem  # every scenario shares the same draws, so they differ only by the pairing
+        # One seed for every scenario. The draws line up game for game only when the scenarios have the
+        # same number of teams and games, as title-week pairings do; otherwise they are independent runs.
+        tag = stem
         simulated = simulate(slate_games, paths, a=fitted.dependence.a, seed=_seed(f"field-games|{tag}"))
         upcoming: dict[str, tuple[datetime, str]] = {}
         for (

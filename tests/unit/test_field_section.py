@@ -187,6 +187,11 @@ def test_a_title_game_already_played_gives_its_champion() -> None:
     assert run["champions_decided"] == {"sec": "R06"}
     assert "t-sec" not in [g["game_id"] for g in run["games"]]
     assert {t["team_id"]: t for t in run["teams"]}["R06"]["field_paths"] == 2000
+    tied = done.with_columns(
+        away_pts=pl.when(pl.col("game_id") == "t-sec").then(20).otherwise(pl.col("away_pts"))
+    )
+    with pytest.raises(FieldError, match="no winner"):
+        section(games=tied, lines=lines, pairings=pairings(), cutoff=CUT)
 
 
 def test_games_after_the_final_reveal_are_not_simulated() -> None:

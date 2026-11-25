@@ -184,6 +184,8 @@ def test_polls_keep_ap_and_coaches_and_are_dated_by_rule(tmp_path: Path) -> None
     assert seen.filter(seen["week"] == 13).height == 4
     assert set(seen["correction_version"].to_list()) == {1}
     assert upsert(late, "polls", rows, NOW, "asserted", redate=True).corrected == 0
+    with pytest.raises(ValueError, match="asserted"):
+        upsert(late, "polls", rows, NOW, "observed", redate=True)
     with pytest.raises(SourceError):
         poll_rows(fetched(lake, payload), [], live=False)
     with pytest.raises(SourceError, match="week 12"):  # week 12's games are missing

@@ -132,10 +132,29 @@ def _paths(root: Path | str, season: int, correction: int = 0) -> tuple[Path, Pa
 
 def _latest(root: Path | str, season: int) -> int:
     """The highest correction on file (0 is the first fit); -1 when there is none."""
-    n = -1
-    while _paths(root, season, n + 1)[0].exists():
-        n += 1
-    return n
+    folder = Path(root)
+    found: set[int] = set()
+    for item in folder.glob(f"rank_noise_{season}*") if folder.is_dir() else ():
+        middle = item.name.removeprefix(f"rank_noise_{season}").removesuffix(item.suffix)
+        if item.suffix not in (".json", ".sha256"):
+            continue
+        if middle == "":
+            found.add(0)
+        elif middle.startswith(".c") and middle[2:].isdigit():
+            found.add(int(middle[2:]))
+        else:
+            raise NoiseError(f"{item} is not a rank-noise file name")
+    if not found:
+        return -1
+    if found != set(range(max(found) + 1)):
+        raise NoiseError(f"the rank-noise corrections for {season} have a gap: {sorted(found)}")
+    for n in sorted(found):  # every file in the chain is whole, not just the one read
+        path, side = _paths(root, season, n)
+        if not path.exists() or not side.exists():
+            raise NoiseError(f"{path} or its recorded hash is missing")
+        if side.read_text().split()[0] != sha256_hex(path.read_bytes()):
+            raise NoiseError(f"{path} does not match its recorded hash")
+    return max(found)
 
 
 def write_noise(

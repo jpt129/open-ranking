@@ -306,6 +306,9 @@ def _forecast_fit_noise(args: argparse.Namespace) -> int:
     )
     for line in problems:
         print(f"note: {line}", file=sys.stderr)
+    if args.report and args.correct:
+        print("refused: --report writes nothing; drop it to write a correction", file=sys.stderr)
+        return 1
     try:
         document = fit_noise(examples, args.season) | {"problems": problems, "code_hash": _code_hash()}
         if args.report:
