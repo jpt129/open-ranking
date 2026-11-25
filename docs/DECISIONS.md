@@ -31,6 +31,16 @@ John accepted all twelve. These are tagged [S] in SPEC.md.
 
 - CFBD API key: available. Odds API key: available. Both live in `.env` (git-ignored).
 
+## 2026-11-25 — Pack installation: departures from the final build package
+
+Made by Claude while installing §5.1–5.5; flagged here for John's review.
+
+- **guard.py is anchored to the project root** instead of substring matching. Reason: the pack's version blocked `ts/src/` in the clean-room session and read-only shell commands naming the frozen-parameters folder. Edits and writes under the editions and frozen folders are still blocked, as are shell commands that name those paths together with a mutating verb (including interpreters and redirects). The hook matcher also covers Grep and Glob so a clean-room session cannot search `src/`. Alternative: keep the pack's version and avoid a `src/` folder under `ts/`.
+- **CLAUDE.md has a "Project notes" section** appended after the pack's verbatim text (decision overrides, CLI-only writes to frozen paths, display names, where the prompts live, key names).
+- **docs/PROPOSAL.md** is a transcription of the Revised Proposal PDF with page markers; reference URLs were taken from the PDF's link annotations.
+
+Still open from docs/PLAN.md §5 (not yet decided): P11-lite, P14-lite, P20-lite and P22-lite in the pilot track; a "second implementation: not run" state for the pilot release gate.
+
 ## 2026-11-25 — Trading policy
 
 - John confirmed that nobody on the project trades the covered markets (playoff qualifier, seed and related futures on the venues the project benchmarks against).
