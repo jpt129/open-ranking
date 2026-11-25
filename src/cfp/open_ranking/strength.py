@@ -117,6 +117,11 @@ class Engine:
         other._penalty = self._penalties(params)
         return other
 
+    def games_in_fold(self, team: str, exclude: str | None = None) -> int:
+        """How many of `team`'s games remain in the fit once `exclude`'s games are removed."""
+        pairs = zip(self._home, self._away, strict=True)
+        return sum(1 for pair in pairs if team in pair and exclude not in pair)
+
     def fit(self, exclude: str | None = None) -> Fit:
         keep = np.array([exclude not in pair for pair in zip(self._home, self._away, strict=True)])
         x, y = self._x[keep], self._y[keep]

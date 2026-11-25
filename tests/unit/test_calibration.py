@@ -13,7 +13,7 @@ import pytest
 from cfp.common.hashing import sha256_hex
 from cfp.open_ranking.calibration import Grid, brier, log_loss, pregame, report, search, venue_only
 from cfp.open_ranking.frozen import FrozenError, load_frozen, write_frozen
-from cfp.open_ranking.strength import Params
+from cfp.open_ranking.strength import Params, fit
 
 GRID = Grid(lambda_c=(0.5, 2.0, 8.0), lambda_u=(0.5, 2.0, 8.0), t=tuple(4.0 + 0.5 * i for i in range(33)))
 PARAMS = Params(lambda_c=2.0, lambda_u=2.0)
@@ -80,11 +80,13 @@ def test_a_team_with_no_earlier_games_gets_its_league_effect() -> None:
     without = (pl.col("home_id") != "T00") & (pl.col("away_id") != "T00")
     late = games.filter((pl.col("week") >= 9) | without)  # T00 first plays in week 9
     first = next(p for p in pregame(late, PARAMS, 2020, first_week=9) if p.week == 9 and "T00" in p.teams)
-    other = first.teams[1] if first.teams[0] == "T00" else first.teams[0]
-    assert abs(first.d) < 40
-    # T00 is in league c0; swapping in the league effect is what makes this differ from treating it as zero
-    alone = next(p for p in pregame(late, PARAMS, 2020, first_week=9) if p.week == 9 and other in p.teams)
-    assert alone == first
+    earlier = fit(late.filter(pl.col("week") < 9), PARAMS)
+    assert "T00" not in earlier.theta
+    home, away = first.teams
+    side = {team: earlier.theta.get(team, earlier.conference["c0"]) for team in first.teams}  # T00 is in c0
+    expected = side[home] - side[away] + (0.0 if first.neutral else earlier.home_adv)
+    assert first.d == pytest.approx(expected, abs=1e-12)
+    assert earlier.conference["c0"] != 0.0
 
 
 def test_scores() -> None:

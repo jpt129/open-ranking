@@ -167,55 +167,6 @@ def test_site_moves_the_reference_probability() -> None:
     assert q_home > q_neutral  # a bubble team is likelier to win at home than on a neutral field
 
 
-def test_flip_exact_10000() -> None:
-    """VT-01: flipping any ordinary FBS result moves each team's own total by exactly 10000."""
-    rows = league()
-    base = totals(rows)
-    for index in (0, 17, 40, 95):
-        changed = [*rows[:index], flipped(rows[index]), *rows[index + 1 :]]
-        after = totals(changed)
-        home, away = rows[index]["home_id"], rows[index]["away_id"]
-        home_won = rows[index]["winner_id"] == home
-        assert after[home] - base[home] == (-10000 if home_won else 10000)
-        assert after[away] - base[away] == (10000 if home_won else -10000)
-
-
-def test_margin_invariance() -> None:
-    """VT-02: a team's own margins never change its total."""
-    rows = league()
-    base = totals(rows)
-    for team in ("T00", "T15", "T31"):
-        changed = []
-        for r in rows:
-            if team in (r["home_id"], r["away_id"]):
-                home_won = r["winner_id"] == r["home_id"]
-                r = r | {"home_pts": 59 if home_won else 3, "away_pts": 3 if home_won else 59}
-            changed.append(r)
-        after = totals(changed)
-        assert after[team] == base[team]
-        assert after != base  # other teams' ledgers do see those margins
-
-
-def test_relabel_permutation_neutral_reversal() -> None:
-    """VT-03: renaming teams, permuting rows and reversing a neutral game leave totals in agreement."""
-    rows = league()
-    rows.append(game("n1", "T04", "T05", 31, 17, week=7, neutral=True))
-    base = totals(rows)
-    shuffled = rows[:]
-    random.Random(9).shuffle(shuffled)
-    assert totals(shuffled) == base
-    reversed_neutral = [*rows[:-1], game("n1", "T05", "T04", 17, 31, week=7, neutral=True)]
-    assert totals(reversed_neutral) == base
-
-    def rename(value: Any) -> Any:
-        return f"X{TEAMS.index(value):02d}" if value in TEAMS else value
-
-    renamed = [{k: rename(v) for k, v in r.items()} for r in rows]
-    moved = totals(renamed)
-    for team in TEAMS:
-        assert abs(moved[rename(team)] - base[team]) <= 1  # same up to floating point at a rounding boundary
-
-
 def test_loss_to_first_year_fbs_member_scores_minus_q() -> None:
     """John's ruling, 2026-11-25: a reclassifying member in an FBS conference is an ordinary FBS opponent."""
     rows = league()
@@ -261,7 +212,7 @@ def test_ledger_revision_since_last_edition() -> None:
         else:
             assert r.revision_cp is None  # new since the last edition
     assert any(r.revision_cp not in (None, 0) for team in after.values() for r in team.rows)
-    assert ledger.total_cp == after["T00"].total_cp
+    assert ledger.total_cp == build_ledgers(frame(rows), PARAMS, T, 2026)["T00"].total_cp
 
 
 # --- ordering (TB-01..04) --------------------------------------------------------------
@@ -346,3 +297,32 @@ def test_exact_tie_at_cutoff_shared_rank_and_draw() -> None:
 def test_forfeits_are_not_meetings() -> None:
     games = met(("B", "A")).with_columns(forfeit=pl.lit(True))
     assert [t for t, _, _ in order({"A": 30000, "B": 28000}, games)] == ["A", "B"]
+
+
+def test_ordering_refuses_bad_inputs() -> None:
+    with pytest.raises(ValueError, match="same position"):
+        rank_teams({"A": 1, "B": 1}, met(), {"A": 1, "B": 1})
+    with pytest.raises(ValueError, match="forfeit flag"):
+        rank_teams({"A": 1, "B": 1}, met(("A", "B")).with_columns(forfeit=pl.lit(None, pl.Boolean)), DRAW)
+
+
+def test_opponent_with_no_other_game_stops_the_build() -> None:
+    rows = league()
+    rows.append(game("solo", "T00", "T99", 30, 10, week=7, away_conf="c0"))  # T99 plays only T00
+    with pytest.raises(LedgerError, match="T99 has no game"):
+        build_ledgers(frame(rows), PARAMS, T, 2026)
+    odd = game("x", "T00", "Q", 30, 10, away_div=None, ordinary_fbs=False)
+    with pytest.raises(LedgerError, match="no division"):
+        build_ledgers(frame([*league(), odd]), PARAMS, T, 2026)
+
+
+def test_open_ranking_runs_without_forbidden_tables() -> None:
+    """OR-12: built from game rows and the draw alone; no lake, release, poll or line is read."""
+    from cfp.open_ranking import RULE_VERSION_ID
+
+    games = frame(league())
+    ledgers = build_ledgers(games, PARAMS, T, 2026)
+    draw = {team: place for place, team in enumerate(TEAMS, start=1)}
+    ranked = rank_teams({team: ledger.total_cp for team, ledger in ledgers.items()}, games, draw)
+    assert len(ranked) == 32
+    assert all(ledger.rule_version_id == RULE_VERSION_ID for ledger in ledgers.values())

@@ -379,3 +379,16 @@ Real-data check with placeholder penalties (not calibrated): 697 games, home adv
 Real-data check, 2026 season to 25 Nov with the unfrozen parameters above: 138 ledgers in 0.05 s; no row on a rounding boundary; q from 815 to 9971. Not compared with any committee ranking or poll.
 
 Process note: for P11-lite, P07 and P08 the tests were written first, but the code was written before a failing run was shown.
+
+**Spec review of P05–P08 (25 Nov).** No wrong total or order was produced; flips were exact in 294 of 294 cases across three band eras. Fixed:
+- An FBS opponent whose only usable games are against the evaluated team now stops the build (before, it was scored at strength zero).
+- A null division stops the ledger; duplicate draw positions and a null forfeit flag stop the ordering.
+- `rule_version_id` is on every ledger (OR-08).
+- The frozen file's hash is written before the parameters, and a reader checks the season inside the file.
+- VT-01..03 tests moved to `tests/property`; the relabel test now scrambles names and leagues and checks mapped ranks. Added `test_import_boundary` (renamed) and `test_open_ranking_runs_without_forbidden_tables`. Two tests that asserted nothing were rewritten.
+
+Left open:
+- Head-to-head ignores every forfeit, played or not. OR-07(d) excludes only unplayed ones, and `data/forfeits.csv` has no column to tell them apart. The list is empty, so nothing is affected today; a played-then-forfeited game needs a column and a ruling.
+- A forfeit against an FCS team is labelled `fcs_win` or `fcs_loss`, not `forfeit`.
+- A conflicting conference on a row outside the fit is not checked.
+- Calibration orders games by week number, not kickoff time. The reviewer found no scored game in 2015–2025 with a later kickoff in its fit.

@@ -34,7 +34,7 @@ def lint(cwd: Path) -> subprocess.CompletedProcess[str]:
     )  # fmt: skip
 
 
-def test_import_contracts_hold() -> None:
+def test_import_boundary() -> None:
     result = lint(ROOT)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "5 kept, 0 broken" in result.stdout, result.stdout

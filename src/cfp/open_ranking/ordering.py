@@ -1,7 +1,7 @@
 """Ordering (TB-01..04).
 
 Teams are sorted by total centipoints. Adjacent totals at most 2500 apart join into one group. In a group of
-exactly two, a team that won the season series (every meeting, title games included; unplayed forfeits are not
+exactly two, a team that won the season series (every meeting, title games included; forfeits are not
 meetings) goes first. A split series and any larger group keep points order. Teams still exactly tied share a
 rank; the preseason draw gives the total order a bracket needs.
 """
@@ -46,8 +46,13 @@ def rank_teams(totals_cp: Mapping[str, int], games: pl.DataFrame, draw: Mapping[
     missing = sorted(set(totals_cp) - set(draw))
     if missing:
         raise ValueError(f"the draw has no position for: {', '.join(missing)}")
+    places = [draw[team] for team in totals_cp]
+    if len(set(places)) != len(places):
+        raise ValueError("the draw gives two teams the same position")
     if games["game_id"].is_duplicated().any():
         raise ValueError("a game appears twice")
+    if games["forfeit"].null_count() or games["winner_id"].null_count():
+        raise ValueError("a game has no forfeit flag or no winner")
     teams = sorted(totals_cp, key=lambda team: (-totals_cp[team], draw[team]))
     raw: dict[str, int] = {}
     group: dict[str, int] = {}

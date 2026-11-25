@@ -43,16 +43,19 @@ def write_frozen(root: Path | str, season: int, document: Mapping[str, Any]) -> 
         raise FrozenError(f"the document is for {document['season']}, not {season}")
     text = json.dumps(dict(document), sort_keys=True, indent=1, ensure_ascii=True, allow_nan=False)
     body = (text + "\n").encode()
+    digest = sha256_hex(body)
+    already = f"{season} is already frozen at {path}; frozen parameters are never rewritten"
+    if path.exists():
+        raise FrozenError(already)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if side.exists():  # left by a write that stopped before the parameters were written
+        side.chmod(0o644)
+    side.write_text(f"{digest}  {path.name}\n")  # the hash first: a parameters file never exists without it
     try:
         with path.open("xb") as handle:
             handle.write(body)
     except FileExistsError as error:
-        raise FrozenError(
-            f"{season} is already frozen at {path}; frozen parameters are never rewritten"
-        ) from error
-    digest = sha256_hex(body)
-    side.write_text(f"{digest}  {path.name}\n")
+        raise FrozenError(already) from error
     path.chmod(0o444)
     side.chmod(0o444)
     return path, digest
@@ -67,6 +70,8 @@ def load_frozen(root: Path | str, season: int) -> Frozen:
     if side.read_text().split()[0] != digest:
         raise FrozenError(f"{path} does not match its recorded hash")
     doc = json.loads(body)
+    if doc.get("season") != season:
+        raise FrozenError(f"{path} is for season {doc.get('season')}, not {season}")
     params = Params(
         float(doc["lambda_c"]), float(doc["lambda_u"]), int(doc["cap"]), doc["independent_penalty"]
     )

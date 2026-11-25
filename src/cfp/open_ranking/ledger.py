@@ -16,6 +16,7 @@ from typing import Final
 
 import polars as pl
 
+from cfp.open_ranking import RULE_VERSION_ID
 from cfp.open_ranking.band import field_size, reference_band
 from cfp.open_ranking.link import SCALE, Site, probability, quantize
 from cfp.open_ranking.strength import Engine, Params
@@ -51,6 +52,7 @@ class Ledger:
     band: tuple[str, ...]  # the reference band's members, strongest first
     band_strength: float
     home_adv: float
+    rule_version_id: str = RULE_VERSION_ID
 
 
 def points_cp(won: bool, q: int) -> int:
@@ -73,6 +75,8 @@ def build_ledgers(games: pl.DataFrame, params: Params, t: float, season: int) ->
         if g["winner_id"] not in (g["home_id"], g["away_id"]):
             raise LedgerError(f"game {g['game_id']} has no winner among its teams")
         for side in ("home", "away"):
+            if g[f"{side}_div"] is None:
+                raise LedgerError(f"game {g['game_id']} has a team with no division")
             if g[f"{side}_div"] == "fbs":
                 mine.setdefault(g[f"{side}_id"], []).append(g)
     out: dict[str, Ledger] = {}
@@ -89,8 +93,10 @@ def build_ledgers(games: pl.DataFrame, params: Params, t: float, season: int) ->
             q: int | None = None
             boundary = False
             if g[f"{other}_div"] == "fbs":
-                if opponent not in fold.theta:
-                    raise LedgerError(f"{opponent} has no fitted strength in the fold for {team}")
+                if opponent not in fold.theta or not engine.games_in_fold(opponent, exclude=team):
+                    raise LedgerError(
+                        f"{opponent} has no game with a usable margin outside its games with {team}"
+                    )
                 p = probability(band.strength, fold.theta[opponent], fold.home_adv, site, t)
                 q, boundary = quantize(p)
                 points = points_cp(won, q)
