@@ -84,7 +84,7 @@ Decisions: John approved ESPN for 2019, confirmed the Selection Day edition (cut
 
 Done
 - `cfp.identity`: builder, exact-match resolver, dated membership lookup, `cfp identity build`. In the lake: 777 teams, 2,334 aliases, 5,985 membership rows (2014–2026). Every team ID in games, polls and releases resolves; FBS counts match the sourced figures (138 in 2026).
-- `cfp.markets`: read-only Kalshi and Polymarket parsers, `cfp markets snapshot` and `cfp markets history`. First snapshot 25 Nov 17:01 UTC: 1,582 contracts, 1,999 quotes including 417 order books.
+- `cfp.markets`: read-only Kalshi and Polymarket parsers, `cfp markets snapshot` and `cfp markets history`. First snapshot 25 Nov 16:51–16:55 UTC: 1,582 contracts, 1,999 quotes including 417 order books. Venue history back to 26 Oct: 58,394 Kalshi candles and 68,365 Polymarket price points.
 - New tables `market_catalogue`; `market_quotes` keyed with `kind`. Fifth import contract: forecasts cannot import market code.
 - spec-guardian review: twelve findings fixed (DECISIONS.md).
 
