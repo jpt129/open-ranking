@@ -55,7 +55,8 @@ if command and MUTATORS.search(command) and any(shell_mentions(command, top) for
     block("Published editions and frozen parameters are immutable; create a new edition via the cfp CLI.")
 
 if os.environ.get("CFP_CLEANROOM") == "1":
-    if under(path, "src") or (tool in ("Grep", "Glob") and (path == "" or not ti.get("path"))) or (command and shell_mentions(command, "src")):
+    whole_repo_search = tool in ("Grep", "Glob") and (path == "" or not ti.get("path"))
+    if under(path, "src") or whole_repo_search or (command and shell_mentions(command, "src")):
         block("Clean-room session: src/ is off limits; work from docs/SPEC.md.")
 
 sys.exit(0)

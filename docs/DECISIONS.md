@@ -39,7 +39,10 @@ Made by Claude while installing §5.1–5.5; flagged here for John's review.
 - **CLAUDE.md has a "Project notes" section** appended after the pack's verbatim text (decision overrides, CLI-only writes to frozen paths, display names, where the prompts live, key names).
 - **docs/PROPOSAL.md** is a transcription of the Revised Proposal PDF with page markers; reference URLs were taken from the PDF's link annotations.
 
-Still open from docs/PLAN.md §5 (not yet decided): P11-lite, P14-lite, P20-lite and P22-lite in the pilot track; a "second implementation: not run" state for the pilot release gate.
+## 2026-11-25 — Pilot scope (accepted by John)
+
+- **Pilot track additions.** Cut-down P11 (frozen parameters, labelled provisional), P14 (public ledger edition without the TypeScript what-if), P20 (scoring) and P22 (Gap) join the pilot track. Reason: the pilot cannot produce a ledger or score the 1 Dec reveal without them. Alternative: ship forecasts only.
+- **RL-01a.** Until the second implementation exists, the release gate records "second implementation: not run" in the manifest and public page and does not fail on it. Alternative: every pilot release fails the gate.
 
 ## 2026-11-25 — Trading policy
 
