@@ -317,3 +317,17 @@ def test_outlets_are_named_when_the_url_is_a_carrier(tmp_path: Path) -> None:
     bad = rows.replace("Associated Press; Second Outlet", "Associated Press")
     with pytest.raises(PairingError, match="outlets must name"):
         resolve_pairings(*files(tmp_path, TITLES, bad), 2026, CUT, NAMES, schedule(), LEAGUE)
+
+
+def test_the_real_hand_files_are_well_formed() -> None:
+    """Every row of the two files in data/ has the header's width, and the title list loads."""
+    import csv
+
+    from cfp.snapshot.data import load_title_games
+
+    data = Path(__file__).resolve().parents[2] / "data"
+    for name in ("title_games.csv", "title_scenarios.csv"):
+        with (data / name).open(newline="") as handle:
+            rows = list(csv.reader(handle))
+        assert {len(row) for row in rows} == {len(rows[0])}, name
+    assert load_title_games(data / "title_games.csv")
