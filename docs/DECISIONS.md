@@ -832,3 +832,4 @@ Open, not fixed:
 - No test plants a membership or eligibility row made public after the edition's data time; the store's as-of read is tested elsewhere.
 - `test_sensitivity_outputs` works its expected values with the same bracket helpers; the cut-line and stand-in rules have their own direct tests.
 - The sensitivity file is not recorded in the store's editions table.
+- **Worker processes are spawned, never forked (26 Nov).** The first push hung the code repository's CI in the two-process test: on Linux a forked child of a process that has used polars can deadlock. The pool now uses the spawn start method on every platform. The numbers are unchanged; macOS already spawned.

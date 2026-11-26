@@ -17,6 +17,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import multiprocessing
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
@@ -196,7 +197,9 @@ def run(
     if workers == 1 or len(wanted) < 2:
         return _batch((games, params, t, season, dict(draw), seed, wanted))
     share = [wanted[k::workers] for k in range(workers) if wanted[k::workers]]
-    with ProcessPoolExecutor(max_workers=len(share)) as pool:
+    # spawn, never fork: a forked child of a process that has used polars can deadlock (seen on Linux)
+    fresh = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=len(share), mp_context=fresh) as pool:
         found = pool.map(_batch, [(games, params, t, season, dict(draw), seed, part) for part in share])
         by_index = {one.index: one for part in found for one in part}
     return [by_index[k] for k in wanted]
