@@ -948,3 +948,29 @@ John accepted `18aee0d` and ruled. This entry replaces the earlier wording where
 - Big 12: TCU at Texas Tech had not been played at the time of checking.
 
 **Spec review (26 Nov).** No crash path; the schedule can no longer settle a named conference. Fixed: shares are per run and use the published-probability rule; the edition carries both URLs; host comparison ignores "www." and case; warnings use team names; the cross-check also covers scenarios and an empty file; misses are listed on the scorecard and printed as a warning. Open: outlet independence cannot be checked by code; the cross-check can fire on any one intra-conference game within a day of the title date; `resolve_pairings` treats no conference as named unless told.
+
+## 2026-11-26 — Annotation lists accepted; Big Ten and SEC scenarios entered (DS-04, OR-07, FF-04)
+
+John accepted `2caa375` and ruled:
+
+- **Allow-list (DS-04).** The Open Ranking reads games, with the three hand-verified annotation lists; teams; membership. The title, forfeit and unplayed lists are game annotations of the same kind as the forfeit ruling. No hashed code changed. SPEC DS-04 is amended. The public page names the three files and what each does. The page says none changes the scoring formula; it does not say none changes how a game is scored, because the forfeit list does two things by the 25 Nov ruling: the certified result is the one scored, and its margin is left out of the strength fit. CLAUDE.md's boundary line still reads "games, teams, membership" and was not edited; John to say if it should match.
+- **Test.** `test_annotation_rows_and_columns_change_no_number`: the same store built with an empty title list and with a title list carrying a row for a December game, a blank-team row and the `result_url` column gives identical team rows, totals, ranks, games, games hash, snapshot hash and omissions; only `lists_hash` differs.
+- **After the pilot:** split the title file. Played-game annotations feed the Open Ranking; pairings and scenarios feed the forecast only. Fix the empty or unreadable case in the same change.
+- **Unreadable title file and open points in Issue 1:** deferral accepted. The check before every push is the control. Monday's Open Ranking build reads the same file: rerun `cfp forecast pairings` on Sunday afternoon.
+- **Entry from now to Saturday.** As soon as a conference announces a pairing, or a result settles one under the rules, Claude proposes the row with its URLs and John approves each one. Leagues that need a pairing or scenarios: Big Ten, SEC, Big 12, Mountain West, American, and the Sun Belt (close to the line and overstated while open). If time runs short: in that order. At 19:00 ET Saturday: shares, scenario count per conference, the product, and whether the section would be delivered.
+- **Cross-check on other intra-conference games near the title date:** left as it is; a warning only.
+- **Friday's dry run also reports:** the time for the eight-combination case from ingest to finished issue, and what a reader sees when the section is not delivered.
+
+**Entered (John's instruction).**
+- Big Ten: eight scenarios under `conference_scenarios`, source the conference's 23 Nov clinch release. The notes say the pairings are derived from per-team conditions and cross-checked against the Associated Press. The two pairings that include the SportSource-rating branch (UCLA or Iowa against Indiana) say it stays a scenario until the conference announces. First-public time is 26 Nov 19:00 UTC, when the page was read (the page stamp has no zone). Prune after each result that removes a pairing, with the result's URL in the notes of the commit and of the remaining rows.
+- SEC: three scenarios under `two_outlets`: the Associated Press (read on abcnews.com) and Sports Illustrated. First-public time is the later publication, 25 Nov 12:00 UTC. A new optional `outlets` column names the outlets when a URL is a carrier's site, so the edition reads "per Associated Press (abcnews.com) and Sports Illustrated (si.com); not published by the SEC".
+- The check now shows 24 combinations (8 × 3) with the Big 12 still open: not delivered as things stand.
+
+**Spec review of the annotation wording and the scenario rows (26 Nov).** No hashed file changed. Fixed:
+- The page now says everything the lists do: the title list also keeps a title game the source files as postseason from being omitted (latent today: the source files them as regular season), and a forfeit is also left out of the head-to-head tiebreak. SPEC DS-04 says the same, and that the lists arrive through `cfp.snapshot.data`, not the view.
+- "A hash of the lists" is a hash of their parsed entries; columns the Open Ranking does not read (site, notes, basis, URLs added for the forecast) are not in it. The page and SPEC say "entries".
+- The Big Ten statement no longer says the conference published the pairings: `conference_scenarios` now reads "possible pairings worked out from the conference's published scenarios", and the Big Ten rows carry the Associated Press story as a named cross-check, so the edition shows both URLs.
+- SEC rows: first-public time moved to the Sports Illustrated page's modified time (25 Nov 12:46:48 UTC), the latest; the notes cite the SEC release's URL and say that page has not been opened (Georgia's berth rests on the two outlets until it is).
+- Outlet names are compared without regard to case.
+
+Open: the new test covers a listed game that is absent from the store, not one that is present and not final (safe by the order of the snapshot's checks, by reading); whether the eight and the three are complete, and whether the two outlets are independent, are judgments the code cannot make.

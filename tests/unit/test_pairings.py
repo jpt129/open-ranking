@@ -12,7 +12,9 @@ from cfp.forecast.pairings import PairingError, conference_id, resolve_pairings,
 
 CUT = datetime(2026, 11, 29, 7, tzinfo=UTC)
 HEAD = "season,conference,game_date,team_a,team_b,site,site_type,basis,source_url,notes,first_public_utc\n"
-SCEN = "season,conference,scenario,team_a,team_b,source_url,first_public_utc,notes,basis,source_url_2\n"
+SCEN = (
+    "season,conference,scenario,team_a,team_b,source_url,first_public_utc,notes,basis,source_url_2,outlets\n"
+)
 NAMES = {
     "Alpha": "A",
     "Beta": "B",
@@ -82,7 +84,7 @@ def test_sources_in_order(tmp_path: Path) -> None:
     assert found.decided["sec"].source_url == "https://example.test/sec"
     assert (found.decided["big-ten"].basis, found.decided["big-ten"].team_a) == ("cfbd_schedule", "G")
     assert found.scenarios["acc"][0].listed_by == (
-        "possible pairings per the conference's published scenarios (https://example.test/acc-tb)"
+        "possible pairings worked out from the conference's published scenarios (https://example.test/acc-tb)"
     )
     assert [p.scenario for p in found.scenarios["acc"]] == ["if Echo wins", "if Echo loses"]
     assert found.open == ["big-12"]
@@ -282,3 +284,36 @@ def test_the_pairings_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     assert "PROBLEM" in said.err
     assert "title_games.csv" in said.err
     assert said.out.rstrip().splitlines()[-1].startswith("NOT OK")
+
+
+def test_outlets_are_named_when_the_url_is_a_carrier(tmp_path: Path) -> None:
+    """A wire story is read on a carrier's site; the edition names the outlet and keeps the site."""
+    row = (
+        "2026,ACC,{label},Echo,{b},https://carrier.example.test/ap,2026-11-28T12:00:00+00:00,,two_outlets,"
+        "https://two.example.org/y,Associated Press; Second Outlet\n"
+    )
+    rows = row.format(label="F in", b="Fox") + row.format(label="Z in", b="Zeta")
+    found = resolve_pairings(*files(tmp_path, TITLES, rows), 2026, CUT, NAMES, schedule(), LEAGUE)
+    assert found.scenarios["acc"][0].listed_by == (
+        "possible pairings per Associated Press (carrier.example.test) and Second Outlet (two.example.org); "
+        "not published by the ACC"
+    )
+    checked = (
+        "2026,ACC,F in,Echo,Fox,https://example.test/acc,2026-11-28T12:00:00+00:00,,conference_scenarios,"
+        "https://carrier.example.test/ap,Associated Press\n"
+    )
+    found = resolve_pairings(*files(tmp_path, TITLES, checked), 2026, CUT, NAMES, schedule(), LEAGUE)
+    assert found.scenarios["acc"][0].listed_by == (
+        "possible pairings worked out from the conference's published scenarios (https://example.test/acc); "
+        "cross-checked against Associated Press (carrier.example.test)"
+    )
+    assert found.scenarios["acc"][0].source_url.split() == [
+        "https://example.test/acc",
+        "https://carrier.example.test/ap",
+    ]
+    same = rows.replace("Associated Press; Second Outlet", "Associated Press; associated press")
+    with pytest.raises(PairingError, match="outlets must name"):
+        resolve_pairings(*files(tmp_path, TITLES, same), 2026, CUT, NAMES, schedule(), LEAGUE)
+    bad = rows.replace("Associated Press; Second Outlet", "Associated Press")
+    with pytest.raises(PairingError, match="outlets must name"):
+        resolve_pairings(*files(tmp_path, TITLES, bad), 2026, CUT, NAMES, schedule(), LEAGUE)

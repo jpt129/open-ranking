@@ -237,3 +237,5 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Second rulings the same day: schedule fallback off for named conferences (cross-check only); scenario lists from the conference or two outlets; misses logged; shares of the shared place per run; command test; Pac-12 and Conference USA rows re-sourced to the conferences. 562 tests pass.
 - Open for after Issue 1: an unreadable title file still costs open points (needs a change to a formula-hashed file).
 - To do: recount pairings after TCU–Texas Tech (Thu night) and after Friday's games; report shares again in Friday's dry run and at 19:00 ET Saturday.
+- Third rulings the same day: annotation lists accepted into the allow-list wording (SPEC DS-04, page note, test); Big Ten (8) and SEC (3) scenarios entered; `outlets` column. 564 tests pass.
+- Reminders: recount after TCU–Texas Tech and after Friday's games; rerun `cfp forecast pairings` on Sunday afternoon before Monday's Open Ranking build; 19:00 ET Saturday report.

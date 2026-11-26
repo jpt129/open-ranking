@@ -208,6 +208,14 @@ def render(
 game. 100 points is one win. A win earns 100 minus the bubble team's chance of winning it; a loss costs the
 bubble team's chance of winning it. A win over an FCS team earns 0 and a loss to one costs 99. A team's own
 margins never change its total. Polls, committee rankings and betting lines are never read.</p>
+<p>The ranking reads three tables: games, teams and conference membership. The games carry three hand-verified
+annotation lists, each row with its source. <code>title_games.csv</code> names the conference title games:
+it marks them, and it keeps one that the source files with the postseason from being left out with the bowls.
+A title game is scored like any other game. <code>forfeits.csv</code> records forfeits made public by the
+cutoff: the certified result is scored as a normal win or loss, its margin is left out of the strength fit,
+and the game is left out of the head-to-head tiebreak. <code>unplayed_games.csv</code> lists scheduled games
+that were cancelled or never played, so their absence is explained. None of the three changes the scoring
+formula. A hash of the lists' entries is in the manifest of <a href="edition.json">edition.json</a>.</p>
 <div class=box>
 <p><b>What this edition does not include.</b></p>
 <ul>{missing}

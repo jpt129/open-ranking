@@ -804,3 +804,40 @@ def test_route_words_on_the_page() -> None:
     assert _share(stand_in, scenario, 10) == "assumed"  # an input to the scenario, not a result
     assert _share(stand_in | {"route_as_published": "auto:acc"}, scenario, 10) == "100.0%"
     assert _share(stand_in | {"route_as_published": "at_large", "qualifies": 3}, scenario, 10) == "30.0%"
+
+
+def test_annotation_rows_and_columns_change_no_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A title-list row for a game not yet played, and the basis and URL columns, move nothing (OR-05, DS-04).
+
+    The edition is built twice from the same store: once with an empty title list, once with a row for a
+    December game and the forecast's extra column. Only the hash of the lists may differ.
+    """
+    from cfp import cli
+
+    from . import sensitivity_world as world
+
+    monkeypatch.setattr(cli, "_code_hash", lambda: "abc1234")
+    docs = []
+    for name in ("plain", "annotated"):
+        root = tmp_path / name
+        world.setup(root)
+        if name == "annotated":
+            title = root / "data" / "title_games.csv"
+            head = title.read_text().strip()
+            assert head.endswith("first_public_utc,result_url")
+            title.write_text(
+                head + "\n2026,SEC,2026-12-05,School 03,School 09,,neutral,conference_scenario+result,"
+                "https://example.test/scen,later,2026-11-14T00:00:00+00:00,https://example.test/score\n"
+                "2026,Big Ten,2026-12-05,,,,neutral,tracker,https://example.test/b,,,\n"
+            )
+        assert world.build(root) == 0
+        docs.append(json.loads((root / "lake" / "editions" / world.EDITION / "edition.json").read_bytes()))
+    plain, annotated = docs
+    assert annotated["teams"] == plain["teams"]  # every ledger row, total and rank
+    for key in ("games", "games_sha256", "snapshot_hash", "omissions", "formula_hash", "params_sha256"):
+        assert annotated["manifest"][key] == plain["manifest"][key], key
+    assert (
+        annotated["manifest"]["lists_hash"] != plain["manifest"]["lists_hash"]
+    )  # the list itself is recorded

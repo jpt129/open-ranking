@@ -204,8 +204,16 @@ def resolve_pairings(
             raise PairingError(f"{where}: the same pairing is listed twice")
         source, second = row["source_url"], (row.get("source_url_2") or "").strip()
         basis = (row.get("basis") or "").strip()
+        names = [name.strip() for name in (row.get("outlets") or "").split(";") if name.strip()]
         if basis == "conference_scenarios":
-            listed_by = f"possible pairings per the conference's published scenarios ({source})"
+            # true whether the conference lists pairings or only each team's conditions
+            listed_by = f"possible pairings worked out from the conference's published scenarios ({source})"
+            if second:  # an optional cross-check, named
+                host = (urlsplit(second).hostname or "").lower().rstrip(".").removeprefix("www.")
+                if not second.startswith("https://") or not host or len(names) > 1:
+                    raise PairingError(f"{where}: a cross-check needs its URL and at most one outlet name")
+                listed_by += f"; cross-checked against {f'{names[0]} ({host})' if names else host}"
+                source = f"{source} {second}"
         elif basis == "two_outlets":
             hosts = [
                 (urlsplit(url).hostname or "").lower().rstrip(".").removeprefix("www.")
@@ -213,8 +221,13 @@ def resolve_pairings(
             ]
             if not second.startswith("https://") or not all(hosts) or hosts[0] == hosts[1]:
                 raise PairingError(f"{where}: a list from the press needs two outlets, each with its URL")
+            who = hosts
+            if (row.get("outlets") or "").strip():  # the outlets' names, when a URL is a carrier's site
+                if len(names) != 2 or names[0].lower() == names[1].lower():
+                    raise PairingError(f"{where}: outlets must name the two outlets, separated by ';'")
+                who = [f"{name} ({host})" for name, host in zip(names, hosts, strict=True)]
             listed_by = (
-                f"possible pairings per {hosts[0]} and {hosts[1]}; not published by the "
+                f"possible pairings per {who[0]} and {who[1]}; not published by the "
                 f"{row['conference'].strip()}"
             )
             source = f"{source} {second}"
