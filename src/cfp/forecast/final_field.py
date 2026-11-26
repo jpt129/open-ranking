@@ -15,7 +15,7 @@ set. `open_points_on_path` does that recomputation and is kept under test.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -113,12 +113,14 @@ def run(
     seed: int,
     sides: Mapping[str, tuple[str, str]] | None = None,
     next_game: Mapping[str, str] | None = None,
+    check: Callable[[Sequence[Entry]], None] | None = None,
 ) -> Result:
     """Field, bye, host and seed counts over the simulated paths under one order model.
 
     `sides` gives (home, away) for each simulated game; it defaults to the title games' pairings read from
     the game ids' teams in `paths` when the caller passes Game objects through `teams_of`. `next_game` names
-    each team's next game for the conditionals; by default it is the team's only simulated game.
+    each team's next game for the conditionals; by default it is the team's only simulated game. `check`,
+    if given, is handed every path's whole bracket and raises ValueError on one that is not well formed.
     """
     if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
         raise ValueError("a recorded seed is needed: a whole number, zero or more")
@@ -184,6 +186,11 @@ def run(
             )
         except RulesError as error:
             raise FieldError(f"path {p}: {error}") from error
+        if check is not None:
+            try:
+                check(entries)
+            except ValueError as error:
+                raise FieldError(f"path {p}: {error}") from error
         entries = [entry for entry in entries if entry.qualifier]
         for entry in entries:
             team = entry.team_id

@@ -27,6 +27,7 @@ from cfp.forecast.rank_noise import published_probability
 from cfp.forecast.sim_inputs import fit_history, slate
 from cfp.forecast.simulator import Game, simulate
 from cfp.rules.engine import RulesError, load_rules
+from cfp.scoring.integrity import check_path
 
 MAX_SCENARIOS: Final = 8
 Estimate = Callable[[str, str, bool], float | None]
@@ -171,6 +172,12 @@ def build_field(
             BASELINE.with_tau(tau),
             seed=_seed(f"field-order|{tag}"),
             next_game={team: game_id for team, (_, game_id) in upcoming.items()},
+            check=lambda entries: check_path(
+                entries,
+                field=rules.field_size,
+                byes=len(rules.byes),
+                hosts=sum(len(seeds) for _, seeds in rules.hosts),
+            ),
         )
         today = field_today(setup, rules)
         shown = [t for t in initial if result.field.get(t) or t in result.conditionals]
@@ -256,6 +263,7 @@ def build_field(
         "committee's 25, where the starting order rests on AP votes and open points.",
         "Open points are computed at the cutoff for the starting order and are not recomputed on each path.",
         "A count of no paths or every path is published half a path short of 0 or 1.",
+        "The bracket checked on every path: each team once, each seed once, the era's byes and home games.",
     ]
     if made.in_progress:
         notes.append(

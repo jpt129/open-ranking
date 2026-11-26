@@ -786,3 +786,9 @@ How the pass rule is applied (my reading, for John to correct): "within N places
 - The scorecard records each field team's seed, bye and route.
 
 Open, not fixed: any unmatched title game leaves the field unscored, including one in a six-conference league that could not change the 2026 field; Selection Day is found by counting schedule rows that have a show time; the scorecard scores every FBS team where the replay scores 60 places, so the two are not comparable for VT-14; there is no pooled table by lead time across editions; the bye probability scored is derived from `bye_paths` (the edition publishes the count, not the probability).
+
+## 2026-11-26 — Every simulated bracket is checked when a field forecast is built (VT-13)
+
+- `final_field.run` takes an optional `check` and hands it each path's whole bracket. `build_field` passes `check_path` with the era's field size, byes and home games, so every path of every published field forecast is checked: each team once, each seed once, the right byes and hosts. A failure refuses the field section with the path number and the reason; the weekly forecast is still issued. The section's notes say the check ran.
+- Closes the open item from the P20-lite review ("`check_path` is tested but is not run on simulator output").
+- Run on real data through the report-only replay (2017–2025, both cutoffs, three models, 2,000 paths each): 54 simulator runs, 108,000 brackets across the four-team and twelve-team eras, no failure. Script kept outside the repo; it writes nothing.

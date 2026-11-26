@@ -154,3 +154,30 @@ def test_pairwise_bubble_probabilities_are_in_the_issue(tmp_path: Path) -> None:
     plain = issue(world(tmp_path / "one-league"), noise=noise(tmp_path / "one-league")).doc["rank_noise"]
     assert (plain["pairwise"] is None) != (plain["pairwise_error"] is None)  # the pairs, or the reason
     assert TEAMS[0] in order
+
+
+def test_a_bracket_that_fails_the_per_path_check_refuses_the_field(tmp_path: Path, monkeypatch: Any) -> None:
+    from cfp.release import field as field_module
+    from cfp.scoring.integrity import IntegrityError
+
+    calls: list[int] = []
+    real = field_module.check_path
+
+    def counting(entries: Any, **sizes: int) -> None:
+        calls.append(1)
+        real(entries, **sizes)
+
+    monkeypatch.setattr(field_module, "check_path", counting)
+    doc = issue(field_world(tmp_path), noise=noise(tmp_path), pairing_files=title_files(tmp_path)).doc
+    assert doc["final_field_error"] is None
+    assert len(calls) == doc["final_field"]["paths"]  # every published path went through the check
+    assert "bracket checked on every path" in " ".join(doc["final_field"]["notes"])
+
+    def broken(entries: Any, **sizes: int) -> None:
+        raise IntegrityError("two teams hold seed 5")
+
+    monkeypatch.setattr(field_module, "check_path", broken)
+    world2 = field_world(tmp_path / "b")
+    doc = issue(world2, noise=noise(tmp_path / "b"), pairing_files=title_files(tmp_path)).doc
+    assert doc["final_field"] is None
+    assert "two teams hold seed 5" in doc["final_field_error"]

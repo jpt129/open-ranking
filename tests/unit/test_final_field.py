@@ -177,3 +177,28 @@ def test_today_counts_losses_and_conditionals_check_their_game() -> None:
         run(setup(), paths, load_rules(2026), PILOT, seed=1, next_game={"R14": "title-sec"})
     with pytest.raises(FieldError, match="was not simulated"):
         run(setup(), paths, load_rules(2026), PILOT, seed=1, next_game={"R14": "nope"})
+
+
+def test_every_path_is_handed_to_the_bracket_check() -> None:
+    """VT-13: seeds, hosts and byes are unique per path, checked on the simulator's own brackets."""
+    from cfp.scoring.integrity import IntegrityError, check_path
+
+    rules = load_rules(2026)
+    paths = simulate(games(), N, a=0.0, seed=4)
+    seen: list[int] = []
+
+    def check(entries: object) -> None:
+        seen.append(1)
+        check_path(entries, field=12, byes=4, hosts=4)  # type: ignore[arg-type]
+
+    out = run(setup(), paths, rules, BASELINE.with_tau(1.3), seed=11, check=check)
+    assert len(seen) == N  # every path, not a sample
+    assert (
+        out.field == run(setup(), paths, rules, BASELINE.with_tau(1.3), seed=11).field
+    )  # checking changes nothing
+
+    def broken(entries: object) -> None:
+        raise IntegrityError("seed 5 is held by two teams")
+
+    with pytest.raises(FieldError, match="path 0: seed 5"):
+        run(setup(), paths, rules, BASELINE.with_tau(1.3), seed=11, check=broken)
