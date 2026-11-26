@@ -763,3 +763,26 @@ How the pass rule is applied (my reading, for John to correct): "within N places
 - **Cause.** The run was triggered nine seconds after the :17 hourly capture and waited for the shared `lake` lock. `actions/checkout` checks out the commit that was the tip when the run was triggered, not the tip when the job starts, so the run began from a store without the capture's commit. Both runs appended to the same log.
 - **Run 45760929973 (05:20 UTC), started clear of a capture, passed every step** with the same edition hash.
 - **Not fixed.** The fix is `ref: ${{ github.ref_name }}` on the store checkout in both `capture.yml` and `issue.yml` in `jpt129/open-ranking-data`. It has not been applied; it needs John's go-ahead. Until then, any run that queues behind another writer can fail to commit. For a live issue that would leave a written edition unpushed.
+
+## 2026-11-26 — Field and bye outcome scoring in `cfp score` (VT-12, VT-13)
+
+- **When.** Only the Selection Day scorecard scores the field: the release whose number equals the count of that season's rows in `data/cfp_reveals.csv`. Every other scorecard has `field_outcome: null`.
+- **What is scored.** Every forecast edition of the season that carries a field section, including the title-week editions issued for the release before. Each is marked prospective or not against its own reveal. The weekly rank scores stay per release as before.
+- **The actual field** is the season's rules applied to the committee's final list, the store's eligibility table, that day's conference membership and the title-game winners on file. It is not an official field list, and the scorecard says so. It is refused, with the reason, if a champion is missing or the six-conference place would go to a team the committee did not rank.
+- **If the field cannot be scored, the scorecard is still written** with the weekly scores, `field_outcome.scored = false` and the reason, and the command prints a warning. A later revision scores the field once the gap is filled. The field is never guessed.
+- **Population.** Every team the edition listed (all FBS teams). A team with no paths was published half a path from zero and is scored at that. The replay scores 60 places; the scorecard scores all, because the edition published all.
+- **Bubble** is the cohort the edition fixed at issue (`rank_noise.pairwise.teams`). An edition with none has no bubble score; none is made afterwards.
+- **Scenarios** are scored one by one. None was weighted at issue, so no combined score is given.
+- **Routes.** A team's published chance of an automatic place against whether it took one; likewise at-large, where at-large means every non-automatic route (top four, guarantee, at-large).
+- Not yet run on a real field section: no edition with one exists until the title pairings are on file.
+
+**Spec review of the field scoring (26 Nov).** The review found the arithmetic and route mapping correct, and `actual_field` reproduces the real 2024 and 2025 fields from the store. Fixed:
+- An edition elsewhere in the season that cannot be read no longer refuses the scorecard; it is listed under `field_outcome.unreadable`.
+- Each scored field section carries its own integrity result (VT-13), including title-week editions issued for the release before. A section that fails is still scored and is flagged.
+- Any failure while working out the field (title-games file, eligibility, champions) ends as `scored: false` with the reason. A reveal schedule that cannot be read refuses the scorecard cleanly.
+- An edition whose field could not be scored is no longer labelled as scored.
+- An earlier-release edition is judged prospective against the store's release for its season and number; a document whose own reveal time differs is not prospective.
+- Under rules with no named conferences (2024, 2025), every FBS conference's champion must be on file, so a missing one can no longer shift the fifth automatic place silently.
+- The scorecard records each field team's seed, bye and route.
+
+Open, not fixed: any unmatched title game leaves the field unscored, including one in a six-conference league that could not change the 2026 field; Selection Day is found by counting schedule rows that have a show time; the scorecard scores every FBS team where the replay scores 60 places, so the two are not comparable for VT-14; there is no pooled table by lead time across editions; the bye probability scored is derived from `bye_paths` (the edition publishes the count, not the probability).

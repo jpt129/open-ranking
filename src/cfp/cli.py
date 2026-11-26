@@ -832,7 +832,13 @@ def _score(args: argparse.Namespace, clock: Callable[[], datetime] | None = None
     now = clock()
     try:
         built = build_scorecard(
-            lake, args.release, now=now, mode=args.mode, revision=args.revision, code_hash=_code_hash()
+            lake,
+            args.release,
+            now=now,
+            mode=args.mode,
+            revision=args.revision,
+            code_hash=_code_hash(),
+            data=Path(args.data),
         )
     except ScoreRefused as error:
         print(f"refused: {error}", file=sys.stderr)
@@ -882,6 +888,28 @@ def _score(args: argparse.Namespace, clock: Callable[[], datetime] | None = None
                 f"    WARNING: field section fails integrity: {edition['field']['integrity']['error']}",
                 file=sys.stderr,
             )
+    outcome = built.doc["field_outcome"]
+    if outcome is not None and not outcome["scored"]:
+        print(f"WARNING: the field is not scored: {outcome['reason']}", file=sys.stderr)
+    elif outcome is not None:
+        print(f"Selection Day field ({outcome['source']}):")
+        for card in outcome["editions"]:
+            tag = "prospective" if card["prospective"] else "reference only"
+            if card["runs"] is None:
+                print(
+                    f"  {card['edition_id']} ({tag}): WARNING: not scored: {card['error']}", file=sys.stderr
+                )
+                continue
+            for run in card["runs"]:
+                field, bye = run["scores"]["overall"]["field"], run["scores"]["overall"]["bye"]
+                bubble = run["scores"]["by"]["bubble"].get("bubble", {}).get("field")
+                edge = "none fixed at issue" if not bubble else f"{bubble['brier']:.4f} on {bubble['n']}"
+                which = f" [{run['scenario']}]" if run["scenario"] else ""
+                print(
+                    f"  {card['edition_id']} ({tag}){which}: field Brier {field['brier']:.5f},"
+                    f" log loss {field['log_loss']:.5f} on {field['n']} teams;"
+                    f" bye Brier {bye['brier']:.5f}; bubble Brier {edge}"
+                )
     return 0
 
 

@@ -15,9 +15,15 @@ from typing import Any, Final
 
 import polars as pl
 
+from cfp.forecast.observations import fbs_field
+from cfp.forecast.rank_noise import published_probability
+from cfp.ingest.cfp_releases import load_schedule
+from cfp.open_ranking.strength import INDEPENDENT
 from cfp.release.edition import canonical
+from cfp.release.history import past_champions
 from cfp.release.issue import PRODUCT
-from cfp.rules.engine import RulesError, load_rules
+from cfp.rules.engine import Entry, RulesError, load_rules, select_field
+from cfp.scoring.field import FieldRow, field_scores
 from cfp.scoring.integrity import IntegrityError, check_section
 from cfp.scoring.weekly import RANKED, cumulative_from_counts, score_weekly, top25_scores
 from cfp.store.lake import Lake
@@ -32,6 +38,8 @@ NOTES: Final = (
     "not part of the weekly rank score, which needs every cutoff from 1 to 25.",
     "A replay edition is scored for reference and is never counted as a prospective forecast.",
     "One release is one observation. No model is promoted or dropped on one scorecard.",
+    "Field and bye probabilities are scored once, on the Selection Day scorecard, for every edition of the "
+    "season that carried a field forecast.",
 )
 
 
@@ -143,6 +151,236 @@ def release_rows(frame: pl.DataFrame, release_id: str) -> tuple[int, int, dateti
     return head["season"], head["release_no"], head["reveal_utc"], rows["team_id"].to_list()
 
 
+def actual_field(
+    season: int,
+    actual: Sequence[str],
+    champions: Mapping[str, str],
+    *,
+    eligible: Mapping[str, bool],
+    conference_of: Mapping[str, str],
+) -> dict[str, Entry]:
+    """The field on Selection Day: the season's rules applied to the committee's final list and champions.
+
+    It is not read from an official field list. Where the rules need something the final list does not
+    hold (a champion not on file, a six-conference team outside the 25), it refuses and never guesses.
+    """
+    rules = load_rules(season)
+    wanted = list(rules.named)
+    if not wanted and rules.champion_count:  # eras that take the best champions: every title must be on file
+        wanted = sorted({c for c in conference_of.values() if c and c != INDEPENDENT})
+    missing = [c for c in wanted if c not in champions]
+    if missing:
+        raise ScoreRefused(f"no champion is on file for {', '.join(missing)}")
+    grouped = rules.group_of == "team" and bool(rules.group)
+    if grouped and not any(conference_of.get(team) in rules.group for team in actual):
+        raise ScoreRefused(
+            "the committee did not rank a team from the six conferences, so that place cannot be "
+            "worked out from its list: the official field is needed"
+        )
+    try:
+        entries = select_field(
+            rules,
+            list(actual),
+            dict(champions),
+            eligible=eligible,
+            conference_of=conference_of if grouped else None,
+        )
+    except RulesError as error:
+        raise ScoreRefused(f"the final list cannot be run through the rules: {error}") from error
+    return {e.team_id: e for e in entries if e.qualifier}
+
+
+def _automatic(route: str | None) -> bool:
+    return bool(route) and str(route).startswith("auto")
+
+
+def score_field_section(doc: Mapping[str, Any], entries: Mapping[str, Any]) -> dict[str, Any]:
+    """Brier and log loss for one edition's field and bye probabilities against the actual field (VT-12).
+
+    Every team the edition listed is scored; a team with no paths was published half a path from zero and is
+    scored at that. The bubble is the one the edition fixed at issue. Scenarios are scored one by one.
+    """
+    section = doc["final_field"]
+    paths = int(section["paths"])
+    population = [str(row["team_id"]) for row in doc["forecasts"]["baseline2"]["rows"]]
+    unknown = sorted(set(entries) - set(population))
+    if unknown:
+        raise ScoreRefused(f"the field holds teams the edition never listed: {', '.join(unknown)}")
+    pairwise = (doc.get("rank_noise") or {}).get("pairwise") or {}
+    cohort = [str(team) for team in pairwise.get("teams") or []]
+    rules = load_rules(doc["season"])
+    era = f"{rules.field_size}-team, {rules.seeding} seeding"
+    lead = f"r{int(doc['target_release_no']):02d}-{doc['issue']}"
+    runs = [section["forecast"]] if section.get("forecast") else list(section.get("scenarios") or [])
+    if not runs:
+        raise ScoreRefused("the field section holds no forecast and no scenarios")
+    scored = []
+    for run in runs:
+        said = {str(team["team_id"]): team for team in run["teams"]}
+        rows = []
+        for team in population:
+            mine = said.get(team, {})
+            field = int(mine.get("field_paths", 0))
+            auto = sum(n for route, n in (mine.get("route_paths") or {}).items() if _automatic(route))
+            entry = entries.get(team)
+            route = None if entry is None else ("automatic" if _automatic(entry.route) else "at_large")
+            rows.append(
+                FieldRow(
+                    int(doc["season"]),
+                    lead,
+                    era,
+                    team,
+                    published_probability(field, paths),
+                    published_probability(int(mine.get("bye_paths", 0)), paths),
+                    entry is not None,
+                    bool(entry and entry.bye),
+                    published_probability(auto, paths),
+                    published_probability(field - auto, paths),
+                    route,
+                    team in cohort,
+                )
+            )
+        scored.append({"scenario": run.get("scenario"), "scores": field_scores(rows)})
+    out: dict[str, Any] = {
+        "lead": lead,
+        "era": era,
+        "teams": len(population),
+        "bubble": cohort,
+        "runs": scored,
+    }
+    if len(scored) > 1 or scored[0]["scenario"]:
+        out["note"] = (
+            "Each scenario is scored on its own. None was given a weight at issue, so none is combined."
+        )
+    return out
+
+
+def _read_edition(root: Path, row: Mapping[str, Any]) -> dict[str, Any]:
+    path = root / row["edition_id"] / "edition.json"
+    if not path.is_file():
+        raise ScoreRefused(f"{row['edition_id']} is recorded but its file is missing")
+    body = path.read_bytes()
+    if hashlib.sha256(body).hexdigest() != row["sha256"]:
+        raise ScoreRefused(f"{row['edition_id']}: the file's hash is not the hash recorded at issue")
+    return json.loads(body)  # type: ignore[no-any-return]
+
+
+FIELD_SOURCE: Final = (
+    "the season's rules applied to the committee's final list and the title-game winners on file; "
+    "not read from an official field list"
+)
+
+
+def _integrity(doc: Mapping[str, Any]) -> dict[str, Any]:
+    try:
+        rules = load_rules(doc["season"])
+        hosts = sum(len(seeds) for _, seeds in rules.hosts)
+        runs = check_section(doc["final_field"], field=rules.field_size, byes=len(rules.byes), hosts=hosts)
+        return {"passed": True, "runs": runs}
+    except (IntegrityError, RulesError, KeyError, TypeError) as error:
+        return {"passed": False, "error": str(error)}
+
+
+def _field_card(
+    name: str,
+    doc: Mapping[str, Any],
+    row: Mapping[str, Any],
+    releases: pl.DataFrame,
+    entries: Mapping[str, Entry],
+    superseded: bool,
+) -> dict[str, Any]:
+    """One edition's field forecast, scored. Its prospective status is judged against the store's release."""
+    card: dict[str, Any] = {"edition_id": name, "sha256": row["sha256"]}
+    try:
+        season, number = int(doc["season"]), int(doc["target_release_no"])
+        target = releases.filter((pl.col("season") == season) & (pl.col("release_no") == number))
+        if season != row["season"] or not target.height:
+            why = ["the release it was issued for is not in the store for its season"]
+        else:
+            reveal = target["reveal_utc"][0]
+            why = not_prospective(doc, row, reveal, superseded=superseded)
+            if datetime.fromisoformat(doc["reveal_utc"]) != reveal:
+                why.append("its own reveal time differs from the store's release")
+        card |= {
+            "kind": doc["final_field"].get("kind"),
+            "prospective": not why,
+            "not_prospective_because": why,
+        }
+        card["integrity"] = _integrity(doc)
+        card |= score_field_section(doc, entries)
+    except (ScoreRefused, ValueError, KeyError, TypeError) as error:
+        card.setdefault("prospective", False)
+        card |= {"runs": None, "error": f"{type(error).__name__}: {error}"}
+    return card
+
+
+def _field_outcome(
+    lake: Lake,
+    data: Path,
+    season: int,
+    reveal: datetime,
+    actual: Sequence[str],
+    *,
+    now: datetime,
+    mode: Mode,
+    root: Path,
+    releases: pl.DataFrame,
+) -> dict[str, Any]:
+    """Every field forecast issued this season, scored on Selection Day. A reason, if it cannot be.
+
+    Nothing here stops the scorecard: an edition that cannot be read is listed, and a field that cannot be
+    worked out is reported unscored with the reason.
+    """
+    held = lake.as_of("editions", now, mode, season=season).frame.filter(pl.col("product") == PRODUCT)
+    docs: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+    unreadable: dict[str, str] = {}
+    for row in held.sort("edition_id").iter_rows(named=True):
+        try:
+            docs[row["edition_id"]] = (_read_edition(root, row), row)
+        except (ScoreRefused, ValueError) as error:
+            unreadable[row["edition_id"]] = str(error)
+    carrying = {name: pair for name, pair in docs.items() if pair[0].get("final_field")}
+    if not carrying:
+        reason = "no edition this season carries a field forecast"
+        return {"scored": False, "reason": reason, "unreadable": unreadable}
+    try:
+        found, _, problems = past_champions(lake, data, [season], now)
+        if problems:
+            raise ScoreRefused("champions are not all on file: " + "; ".join(problems))
+        champions = dict(found[season])
+        day = reveal.date()
+        membership = lake.as_of("membership", now, mode).frame
+        flags = fbs_field(membership, lake.as_of("eligibility", now, mode).frame, season, day)
+        eligible = {str(team): bool(flag) for team, flag in flags.iter_rows()}
+        current = membership.filter(
+            (pl.col("valid_from") <= day) & (pl.col("valid_to").is_null() | (pl.col("valid_to") >= day))
+        )
+        members = {
+            str(team): str(league)
+            for team, league in current.select("team_id", "conference_id").drop_nulls().iter_rows()
+            if team in eligible  # FBS teams only
+        }
+        entries = actual_field(season, actual, champions, eligible=eligible, conference_of=members)
+    except (ScoreRefused, OSError, RuntimeError, ValueError, TypeError, KeyError) as error:
+        reason = str(error) if isinstance(error, ScoreRefused) else f"{type(error).__name__}: {error}"
+        return {"scored": False, "reason": reason, "unreadable": unreadable}
+    replaced = {doc["supersedes"] for doc, _ in docs.values() if doc.get("supersedes")}
+    editions = [
+        _field_card(name, doc, row, releases, entries, name in replaced)
+        for name, (doc, row) in carrying.items()
+    ]
+    ordered = sorted(entries.values(), key=lambda e: e.seed or 0)
+    return {
+        "scored": True,
+        "source": FIELD_SOURCE,
+        "champions": dict(sorted(champions.items())),
+        "field": [{"team_id": e.team_id, "seed": e.seed, "bye": e.bye, "route": e.route} for e in ordered],
+        "byes": [e.team_id for e in ordered if e.bye],
+        "editions": editions,
+        "unreadable": unreadable,
+    }
+
+
 def build_scorecard(
     lake: Lake,
     release_id: str,
@@ -152,6 +390,7 @@ def build_scorecard(
     revision: int = 1,
     code_hash: str,
     editions_root: Path | None = None,
+    data: Path | None = None,
 ) -> Scorecard:
     """Score every recorded edition issued for `release_id`. Reads only; writes nothing."""
     if revision < 1:
@@ -210,6 +449,21 @@ def build_scorecard(
             }
             | score_edition(doc, actual, prior=prior)
         )
+    field_outcome = None
+    if data is not None:
+        try:
+            scheduled = sum(1 for day in load_schedule(data / "cfp_reveals.csv") if day.year == season)
+        except (OSError, RuntimeError, ValueError) as error:
+            raise ScoreRefused(f"the reveal schedule cannot be read: {error}") from error
+        if number == scheduled:  # Selection Day: the only release that settles the field
+            field_outcome = _field_outcome(
+                lake, data, season, reveal, actual, now=now, mode=mode, root=root, releases=releases
+            )
+    if field_outcome and field_outcome["scored"]:
+        done = {card["edition_id"] for card in field_outcome["editions"] if card["runs"] is not None}
+        for card in editions:
+            if card["edition_id"] in done and card["field"]:
+                card["field"]["outcome"] = "scored: see field_outcome"
     scorecard_id = f"score-{season}-r{number:02d}-e{revision}"
     document = {
         "schema": SCHEMA,
@@ -228,6 +482,7 @@ def build_scorecard(
         "fitted_model": "not issued",
         "prospective_editions": sum(1 for e in editions if e["prospective"]),
         "editions": editions,
+        "field_outcome": field_outcome,
         "code_hash": code_hash,
         "notes": list(NOTES),
     }

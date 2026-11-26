@@ -211,3 +211,5 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - P22-lite: `cfp.gap.core`, `cfp.gap.report`, command `cfp gap --release <id>`. Spec-named tests present: `test_lift_sign_and_example`, `test_outside_25_bound`, `test_consequence_flags`, `test_provisional_before_selection_day`, `test_gap_reasons_present`, `test_gap_aggregation_coverage`. Spec review run and its findings fixed or recorded (DECISIONS.md). 504 tests pass.
 - Open: the replay folds use the 2026 Open Ranking settings (needs John's ruling); field and bye outcome scoring in `cfp score` before 6 Dec; first live Open Ranking edition Sunday; push and cloud rehearsal.
 - Next: Friday timed dry run; title pairings as they become official; P24.
+- Field and bye outcome scoring wired into `cfp score` for Selection Day (VT-12), spec review run and fixed; 513 tests pass. Not yet run on a real field section (none exists until the title pairings are on file).
+- Data repository workflows now check out the store at the branch tip (`37bcf6a` there); proof rehearsal behind the 06:17 UTC capture pending.
