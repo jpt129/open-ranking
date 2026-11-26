@@ -43,7 +43,7 @@ class SensitivityError(ValueError):
 
 
 def _seed(text: str) -> int:
-    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big")
+    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big") >> 1  # fits a signed 64-bit
 
 
 def edition_seed(edition_id: str, sha256: str) -> int:

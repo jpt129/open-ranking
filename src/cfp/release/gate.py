@@ -25,7 +25,7 @@ from cfp.open_ranking.frozen import load_frozen
 from cfp.open_ranking.ledger import FCS_LOSS_CP, FCS_WIN_CP
 from cfp.open_ranking.link import SCALE
 from cfp.open_ranking.release import PRODUCT, build_edition, formula_hash, load_built
-from cfp.release.sensitivity import verify
+from cfp.release.sensitivity import verify, verify_file
 from cfp.snapshot.build import COLUMNS, Snapshot, game_lines
 
 CHECKS: Final = (
@@ -332,7 +332,7 @@ def run_gate(
         try:
             frozen = load_frozen(frozen_root, doc["season"])
             said = verify(
-                json.loads(sensitivity.read_bytes()),
+                verify_file(sensitivity),
                 doc,
                 _sha(body),
                 games_from_lines(games_body),

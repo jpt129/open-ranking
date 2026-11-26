@@ -118,7 +118,10 @@ def test_unit_weights_reproduce_the_published_ledgers() -> None:
     rows.append(fcs("f1", "S00", won=True) | {"home_conf": CONF["S00"]})
     rows.append(fcs("f2", "S05", won=False) | {"home_conf": CONF["S05"]})
     rows.append(game("title", "S00", "S06", 27, 24, week=9, title_game=True, neutral=True) | conf("S00"))
+    rows[3] = rows[3] | {"forfeit": True, "margin_excluded": True}  # scored, but not in the strength fit
+    rows[9] = rows[9] | {"margin_excluded": True}
     games = frame(rows)
+    assert len(core.fitted_games(games, Engine(games, PARAMS))) == len(rows) - 4
     plain = build_ledgers(games, PARAMS, T, 2026)
     ones = dict.fromkeys(core.fitted_games(games, Engine(games, PARAMS)), 1.0)
     again = core.weighted_totals(games, PARAMS, T, 2026, ones)
@@ -223,6 +226,22 @@ def test_cut_line_is_the_last_at_large_team() -> None:
     assert report.cut_line(entries, TEAMS) != "S33"  # a champion below the cut is not the cut line
 
 
+def test_the_cut_line_is_the_at_large_line_only() -> None:
+    """What the margin does and does not say, pinned: in below the line, and out above it, both happen."""
+    rules = load_rules(2026)
+    champions = {"acc": "S00", "big-ten": "S01", "big-12": "S02", "sec": "S33"}
+    barred = ELIGIBLE | {"S05": False}  # an ineligible team placed sixth
+    entries = report.field_of(rules, TEAMS, members=CONF, eligible=barred, champions=champions)
+    inside = {e.team_id: e.route for e in entries}
+    cut = report.cut_line(entries, TEAMS)
+    assert "S05" not in inside
+    assert TEAMS.index("S05") < TEAMS.index(cut)  # above the line and out
+    assert inside["S33"] == "auto:sec"
+    assert TEAMS.index("S33") > TEAMS.index(cut)  # below the line and in
+    assert inside[cut] == "at_large"
+    assert all(TEAMS.index(t) <= TEAMS.index(cut) for t, route in inside.items() if route == "at_large")
+
+
 def test_champions_decided_in_the_edition_games_are_used() -> None:
     rows = season()
     rows.append(game("t-acc", "S00", "S06", 27, 24, week=9, title_game=True, neutral=True) | conf("S00"))
@@ -292,6 +311,10 @@ def test_sensitivity_outputs() -> None:
     assert built(games, refits=20, workers=2).body == out.body
 
 
+def seed_fits(seed: int) -> bool:
+    return 0 <= seed < 2**63  # a signed 64-bit column and other languages can hold it
+
+
 def walk(value: Any, path: str = "") -> list[tuple[str, Any]]:
     if isinstance(value, dict):
         return [hit for k, v in value.items() for hit in walk(v, f"{path}/{k}")]
@@ -340,22 +363,57 @@ def test_verify_reruns_the_sampled_refits() -> None:
     games = frame(season())
     edition = published(games)
     out = built(games, refits=30)
-    said = report.verify(out.doc, edition, "e" * 64, games, PARAMS, T, DRAW)
+
+    def check(doc: Any, sha256: str = "e" * 64, required: int = 30) -> str:
+        return report.verify(doc, edition, sha256, games, PARAMS, T, DRAW, required=required)
+
+    said = check(out.doc)
     assert "10 of 30" in said
+    with pytest.raises(report.SensitivityRefused, match="1000 are required"):
+        report.verify(out.doc, edition, "e" * 64, games, PARAMS, T, DRAW)  # VT-08's number by default
+
+    def changed(change: Any) -> Any:
+        doc = json.loads(out.body)
+        change(doc)
+        return doc
+
+    planted = {
+        "label": lambda d: d.update(label="A full 80% confidence interval."),
+        "schema": lambda d: d.update(schema=0),
+        "expected form": lambda d: [row.pop("cut_margin_cp_80") for row in d["teams"]],
+        "rank, total or margin": lambda d: d["teams"][4].update(
+            cut_margin_cp=d["teams"][4]["cut_margin_cp"] + 1
+        ),
+        "total or margin": lambda d: d["teams"][0].update(total_cp=1),
+        "stand-ins": lambda d: d["scenario"]["stand_ins"].update(acc="S06"),
+        "cut line": lambda d: d["cut_line"].update(published="S00"),
+        "field is not": lambda d: d["field_as_published"].reverse(),
+        "qualify counts": lambda d: d["teams"][0].update(qualifies=d["teams"][0]["qualifies"] - 1),
+        "in its order": lambda d: d["teams"].reverse(),
+        "whole numbers": lambda d: d["teams"][2].update(rank_80=[1.5, 2]),
+    }
+    for message, change in planted.items():
+        with pytest.raises(report.SensitivityRefused, match=message):
+            check(changed(change))
+    moved = changed(lambda d: d["bracket_inputs"]["ineligible"].append(out.doc["field_as_published"][0]))
+    with pytest.raises(report.SensitivityRefused):  # the recorded bracket inputs must give the recorded field
+        check(moved)
+    with pytest.raises(report.SensitivityRefused, match="not a document"):
+        check([1, 2])
     sample = report.gate_indices("e" * 64, 30)
     wrong = json.loads(out.body)
     wrong["refit_digests"][sample[3]] = "0" * 64
     with pytest.raises(report.SensitivityRefused, match=f"refit {sample[3]}"):
-        report.verify(wrong, edition, "e" * 64, games, PARAMS, T, DRAW)
+        check(wrong)
     other = json.loads(out.body)
     unsampled = next(k for k in range(30) if k not in sample)
     other["refit_digests"][unsampled] = "0" * 64
-    report.verify(other, edition, "e" * 64, games, PARAMS, T, DRAW)  # a sample, and it says so
+    check(other)  # a sample, and it says so
     with pytest.raises(report.SensitivityRefused, match="different edition"):
-        report.verify(out.doc, edition, "f" * 64, games, PARAMS, T, DRAW)
+        check(out.doc, "f" * 64)
     stale = json.loads(out.body) | {"seed": out.doc["seed"] + 1}
     with pytest.raises(report.SensitivityRefused, match="seed"):
-        report.verify(stale, edition, "e" * 64, games, PARAMS, T, DRAW)
+        check(stale)
 
 
 # --- the command, the gate and the page ----------------------------------------
@@ -370,14 +428,20 @@ def test_command_writes_once_and_the_page_shows_it(
     from . import sensitivity_world as world
 
     monkeypatch.setattr(cli, "_code_hash", lambda: "abc1234")
+    monkeypatch.setattr(
+        report, "REQUIRED_REFITS", 12
+    )  # the command has no flag for this: it is VT-08's 1,000
     world.setup(tmp_path)
     assert world.build(tmp_path) == 0
     edition = world.EDITION
     assert world.run(tmp_path, "publish", "--edition", edition, "--site", str(tmp_path / "before")) == 0
+    assert (
+        "no sensitivity file" in capsys.readouterr().out
+    )  # said at publish, since the page is not rewritten
     before = (tmp_path / "before" / "open-ranking" / edition / "index.html").read_text()
     assert "Sensitivity intervals" in before  # listed as not delivered until the file exists
     assert world.sensitivity(tmp_path, "or-2026-20990101t0000z-replay-e1") == 1  # no such edition
-    assert world.sensitivity(tmp_path, edition, "--refits", "12") == 0
+    assert world.sensitivity(tmp_path, edition) == 0
     out = capsys.readouterr().out
     assert "12 refits" in out
     file = tmp_path / "lake" / "sensitivity" / edition / "sensitivity.json"
@@ -386,9 +450,11 @@ def test_command_writes_once_and_the_page_shows_it(
     from cfp.common.hashing import sha256_hex
 
     assert (doc["edition_id"], doc["edition_sha256"]) == (edition, sha256_hex(body))
-    assert (doc["refits"], doc["code_hash"]) == (12, "abc1234")
+    assert (doc["refits"], doc["code_hash"], doc["revision"]) == (12, "abc1234", 1)
+    assert set(doc["bracket_inputs"]["conference_of"]) == set(world.TEAMS)
+    assert seed_fits(doc["seed"])
     assert doc["seed"] == core.edition_seed(edition, sha256_hex(body))
-    assert world.sensitivity(tmp_path, edition, "--refits", "12") == cli.EXIT_EXISTS  # written once
+    assert world.sensitivity(tmp_path, edition) == cli.EXIT_EXISTS  # written once
     assert json.loads(file.read_bytes()) == doc
 
     # the gate reruns a sample; the result is reported and never blocks the edition
@@ -415,20 +481,68 @@ def test_a_bad_sensitivity_file_never_blocks_the_edition(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from cfp import cli
+    from cfp.common.hashing import sha256_hex
+    from cfp.release.edition import canonical
 
     from . import sensitivity_world as world
 
     monkeypatch.setattr(cli, "_code_hash", lambda: "abc1234")
+    monkeypatch.setattr(report, "REQUIRED_REFITS", 12)
     world.setup(tmp_path)
     assert world.build(tmp_path) == 0
     edition = world.EDITION
-    assert world.sensitivity(tmp_path, edition, "--refits", "12") == 0
+    assert world.sensitivity(tmp_path, edition) == 0
     file = tmp_path / "lake" / "sensitivity" / edition / "sensitivity.json"
-    doc = json.loads(file.read_bytes())
+    good = file.read_bytes()
+
+    def plant(body: bytes, receipt: bool = True) -> None:
+        file.parent.chmod(0o755)
+        for path in (file, file.parent / "receipt.json"):
+            path.chmod(0o644)
+        file.write_bytes(body)
+        if receipt:
+            said = json.loads((file.parent / "receipt.json").read_bytes()) | {"sha256": sha256_hex(body)}
+            (file.parent / "receipt.json").write_bytes(canonical(said))
+
+    # every kind of bad file: the edition still passes and still publishes, without the section
+    shapes = json.loads(good)
+    for row in shapes["teams"]:
+        del row["cut_margin_cp_80"]  # the digests still match; the page could not have drawn this
+    bad = [canonical(shapes), b"not json", canonical([1]), good + b" "]
+    for k, body in enumerate(bad):
+        plant(body, receipt=body != good + b" ")
+        capsys.readouterr()
+        assert world.run(tmp_path, "gate", edition) == 0
+        out = capsys.readouterr().out
+        assert "FAIL  sensitivity" in out
+        assert "gate passed" in out
+        site = tmp_path / f"site-{k}"
+        assert world.run(tmp_path, "publish", "--edition", edition, "--site", str(site)) == 0
+        public = site / "open-ranking" / edition
+        assert not (public / "sensitivity.json").exists()
+        assert "Sensitivity to the observed games" not in (public / "index.html").read_text()
+
+    # a correction is a new file, and the newest one is the one checked and shown
+    monkeypatch.setattr(cli, "_code_hash", lambda: "def5678")
+    assert world.sensitivity(tmp_path, edition, "--revision", "3") == 1  # nothing to supersede
+    assert world.sensitivity(tmp_path, edition, "--revision", "2") == 0
+    assert world.sensitivity(tmp_path, edition, "--revision", "2") == cli.EXIT_EXISTS
+    second = tmp_path / "lake" / "sensitivity" / f"{edition}-s2" / "sensitivity.json"
+    fixed = json.loads(second.read_bytes())
+    assert (fixed["revision"], fixed["supersedes"], fixed["code_hash"]) == (2, edition, "def5678")
+    assert fixed["refit_digests"] == json.loads(good)["refit_digests"]
+    capsys.readouterr()
+    assert world.run(tmp_path, "gate", edition) == 0
+    assert "PASS  sensitivity" in capsys.readouterr().out
+    site = tmp_path / "site-fixed"
+    assert world.run(tmp_path, "publish", "--edition", edition, "--site", str(site)) == 0
+    assert (site / "open-ranking" / edition / "sensitivity.json").read_bytes() == second.read_bytes()
+
+    doc = json.loads(good)
     doc["refit_digests"] = ["0" * 64] * 12
-    file.parent.chmod(0o755)
-    file.chmod(0o644)
-    file.write_text(json.dumps(doc))
+    second.parent.chmod(0o755)
+    file = second
+    plant(canonical(doc))
     capsys.readouterr()
     assert world.run(tmp_path, "gate", edition) == 0  # the edition's own checks still pass
     out = capsys.readouterr().out

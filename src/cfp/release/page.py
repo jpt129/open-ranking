@@ -119,7 +119,9 @@ def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
 <p>Results are held fixed. In each of {refits} refits every game gets a random weight (exponential, mean
 one) in the strength fit, the same weight in every team's fold. The bubble level, every ledger and the
 bracket are then worked again. Each range below is the middle 80% of refits. The margin to the cut line is
-the team's total minus the total of the last at-large team in the field in the same refit.</p>
+the team's total minus the total of the last at-large team in the field in the same refit. That line is the
+at-large line only: a conference champion, the best team of the other conferences or a guaranteed team can be
+in the field below it, and a team ruled ineligible is out above it.</p>
 <p><b>Bracket scenario.</b> {escape(str(scenario["note"]))} Champions used in every refit:
 {held or "none"}.</p>
 <div class=wrap><table><tr><th>Rank</th><th>Team</th><th class=n>Rank range</th>

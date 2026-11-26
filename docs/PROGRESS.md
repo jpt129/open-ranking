@@ -213,3 +213,13 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Next: Friday timed dry run; title pairings as they become official; P24.
 - Field and bye outcome scoring wired into `cfp score` for Selection Day (VT-12), spec review run and fixed; 513 tests pass. Not yet run on a real field section (none exists until the title pairings are on file).
 - Data repository workflows now check out the store at the branch tip (`37bcf6a` there); proof rehearsal behind the 06:17 UTC capture pending.
+
+## 2026-11-26 — VT-08: sensitivity to the observed games
+
+- IDs: VT-08, RL-01 (published, not gated), OR-08 (golden edition test).
+- Added: `cfp.open_ranking.sensitivity`, `cfp.release.sensitivity`; command `cfp open-ranking sensitivity --edition <id> [--revision N]`; a non-blocking gate check; a page section. The formula's own files are unchanged, so the formula hash is unchanged.
+- Spec-named tests: `test_refit_weights_reused_across_folds`, `test_sensitivity_outputs` (in `tests/unit/test_sensitivity.py`); golden test `tests/unit/test_golden_edition.py`. 537 tests pass.
+- Real data (scratch store, rehearsal edition of 22 Nov): 1,000 refits in 30 s on eight processes; the gate's rerun matched; the correction path was exercised.
+- Sunday order: build, sensitivity, gate, publish (`.claude/skills/release-open-ranking`). Sensitivity never holds the edition back.
+- Open: John's rulings listed in DECISIONS (cut-line reading, eligibility and forecast code in the bracket step, hook change); VT-09 and OR-10 not built.
+- Next: Friday timed dry run; title pairings as they become official.
