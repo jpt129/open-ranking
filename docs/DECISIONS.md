@@ -763,6 +763,7 @@ How the pass rule is applied (my reading, for John to correct): "within N places
 - **Cause.** The run was triggered nine seconds after the :17 hourly capture and waited for the shared `lake` lock. `actions/checkout` checks out the commit that was the tip when the run was triggered, not the tip when the job starts, so the run began from a store without the capture's commit. Both runs appended to the same log.
 - **Run 45760929973 (05:20 UTC), started clear of a capture, passed every step** with the same edition hash.
 - **Not fixed.** The fix is `ref: ${{ github.ref_name }}` on the store checkout in both `capture.yml` and `issue.yml` in `jpt129/open-ranking-data`. It has not been applied; it needs John's go-ahead. Until then, any run that queues behind another writer can fail to commit. For a live issue that would leave a written edition unpushed.
+- **Fixed later the same day (John's go-ahead).** Both workflows now check out the store at the branch tip (`37bcf6a` in the data repository). **Proof:** run 45767143183 was triggered at 06:17:13 UTC, six seconds behind the 06:17 capture, and waited on the lock. It checked out `cd33363`, the commit that capture had just pushed, and committed `4016de4` on top with no conflict. Every step passed, on code `98e8bfb`.
 
 ## 2026-11-26 — Field and bye outcome scoring in `cfp score` (VT-12, VT-13)
 
