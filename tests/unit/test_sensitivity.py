@@ -841,3 +841,47 @@ def test_annotation_rows_and_columns_change_no_number(
     assert (
         annotated["manifest"]["lists_hash"] != plain["manifest"]["lists_hash"]
     )  # the list itself is recorded
+
+
+def test_a_listed_title_game_not_yet_final_changes_no_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The live case on Sunday and Monday: a title game on the list, in the store, and not final (DS-04).
+
+    Three builds of one season. In each the store holds the scheduled December game. "unlisted": the list
+    is empty. "listed": the list names the game. "flagged": the list names it and the source flags it too,
+    as CFBD does. Ledger rows, totals, ranks, included games, omissions and the snapshot hash are the same.
+    """
+    from datetime import UTC, datetime
+
+    from cfp import cli
+
+    from . import sensitivity_world as world
+    from .store_helpers import frame, game
+
+    monkeypatch.setattr(cli, "_code_hash", lambda: "abc1234")
+    dec5 = datetime(2026, 12, 5, 21, 0, tzinfo=UTC)
+    docs = {}
+    for name in ("unlisted", "listed", "flagged"):
+        root = tmp_path / name
+        lake = world.setup(root)
+        over = {"home_id": "S03", "away_id": "S09", "start_utc": dec5, "week": 15, "neutral": True}
+        over |= {"status": "scheduled", "home_pts": None, "away_pts": None, "vintage": "reconstructed"}
+        over |= {"event_time": world.OCT3, "first_public_time": world.OCT3, "title_game": name == "flagged"}
+        lake.append("games", frame("games", [game(lake, "sec-title", **over)]))
+        if name != "unlisted":
+            title = root / "data" / "title_games.csv"
+            title.write_text(
+                title.read_text().strip()
+                + "\n2026,SEC,2026-12-05,School 03,School 09,,neutral,conference_release,"
+                "https://example.test/sec,,2026-11-14T00:00:00+00:00,\n"
+            )
+        assert world.build(root) == 0
+        docs[name] = json.loads((root / "lake" / "editions" / world.EDITION / "edition.json").read_bytes())
+    plain = docs["unlisted"]
+    assert plain["manifest"]["omissions"] == {"not_final_at_cutoff": 1}  # the game is seen, and left out
+    for name in ("listed", "flagged"):
+        assert docs[name]["teams"] == plain["teams"], name  # every ledger row, total and rank
+        for key in ("games", "games_sha256", "snapshot_hash", "omissions", "formula_hash", "params_sha256"):
+            assert docs[name]["manifest"][key] == plain["manifest"][key], (name, key)
+        assert docs[name]["manifest"]["lists_hash"] != plain["manifest"]["lists_hash"]

@@ -974,3 +974,12 @@ John accepted `2caa375` and ruled:
 - Outlet names are compared without regard to case.
 
 Open: the new test covers a listed game that is absent from the store, not one that is present and not final (safe by the order of the snapshot's checks, by reading); whether the eight and the three are complete, and whether the two outlets are independent, are judgments the code cannot make.
+
+## 2026-11-26 — `6ed201e` accepted; boundary line and the live title case (DS-04)
+
+- John confirmed the three additions (the "worked out from" wording, the Big Ten first-public time, the `outlets` column) and the method note's "none changes the scoring formula".
+- CLAUDE.md's boundary line now matches SPEC DS-04. The spec-guardian and leakage-auditor instructions state no allow-list of their own (each is one paragraph and defers to SPEC.md and first-public times), so nothing there disagrees.
+- New test `test_a_listed_title_game_not_yet_final_changes_no_number`: a scheduled December title game in the store, built with the list empty, with the list naming it, and with the source flagging it as well. Team rows, totals, ranks, games, games hash, omissions and snapshot hash are identical; only `lists_hash` differs. This is the state of the real store on Sunday and Monday.
+- Pairing rows from here on are proposed to John and pushed only on his OK. After each proposal the check is run and the product reported.
+- Friday's dry-run report also states: whether the Mac fallback at 00:10 was exercised and what the Mac needs for it to fire; where the issue's hash becomes public and when relative to 02:00 ET; the timings; the reader's view of "not delivered".
+- SEC release opened 26 Nov (secsports.com, published_at 2026-11-22T06:00:49Z): "Georgia will play Alabama, Tennessee or Texas. Georgia's opponent will be decided by the results of games on the final weekend of the regular season." It agrees with AP and Sports Illustrated and gives no per-team conditions. Its URL is in the notes of the three scenario rows. Consequence, put to John: the SEC itself names the three, so the edition's "not published by the SEC" is no longer accurate; proposed change is basis `conference_scenarios` with the SEC URL and AP as the cross-check.

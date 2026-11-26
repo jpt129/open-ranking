@@ -2,7 +2,7 @@
 Mission: Build (1) the Open Ranking, a reproducible wins-above-bubble ledger; (2) the Shadow Committee, which forecasts the next CFP top 25 and the final field; and (3) the Committee Gap. docs/PROPOSAL.md is authoritative; docs/SPEC.md numbers its requirements. If code and spec disagree, the spec wins. Raise the conflict, don't improvise.
 
 ## Boundary
-src/cfp/open_ranking reads only OpenRankingView (games, teams, membership). It never reads committee releases, polls, lines, markets or remarks, and its settings are never tuned against them. Forecasts may read Open Ranking output. Team playoff-futures prices are for evaluation only and never enter a predictor.
+src/cfp/open_ranking reads only: games, with the three hand-verified annotation lists (data/title_games.csv, data/forfeits.csv, data/unplayed_games.csv); teams; membership. Games, teams and membership come through OpenRankingView. It never reads committee releases, polls, lines, markets or remarks, and its settings are never tuned against them. Forecasts may read Open Ranking output. Team playoff-futures prices are for evaluation only and never enter a predictor.
 
 ## Invariants (tests enforce these)
 - Integer centipoints. q = round_half_even(p*10^4). Win 10000-q; loss -q; FCS win 0; FCS loss -9900; title games full weight.
