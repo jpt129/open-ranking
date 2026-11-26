@@ -130,6 +130,28 @@ def build_parser() -> argparse.ArgumentParser:
         action.add_argument("--first-training-season", type=int, default=2015)
         action.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
 
+    score = commands.add_parser("score", help="score every edition issued for one committee release")
+    score.add_argument("--release", required=True, help="release id, such as cfp-2026-05")
+    score.add_argument("--mode", choices=["live", "replay"], default="live")
+    score.add_argument("--revision", type=int, default=1, help="a correction is a new scorecard: 2, 3, ...")
+    replay = commands.add_parser(
+        "score-replay", help="held-out scores on earlier seasons and the promotion rule (report only)"
+    )
+    replay.add_argument("--season", type=int, required=True, help="score the seasons before this one")
+    replay.add_argument("--first-season", type=int, default=FIRST_SEASON)
+    replay.add_argument("--frozen", default="frozen", help="frozen-parameters directory (for open points)")
+    replay.add_argument("--paths", type=int, default=10_000)
+    replay.add_argument(
+        "--drop", type=float, action="append", default=[], help="a candidate regular-week drop per loss"
+    )
+    replay.add_argument("--out", help="write the full record (seeds, fits, as-of time) to this JSON file")
+    gate = commands.add_parser("gate", help="run every release check on a written Open Ranking edition")
+    gate.add_argument("edition", help="edition id")
+    gate.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
+    publish = commands.add_parser("publish", help="gate an Open Ranking edition, then write its public page")
+    publish.add_argument("--edition", required=True, help="edition id")
+    publish.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
+    publish.add_argument("--site", default="site", help="folder the public files are written under")
     commands.add_parser("budget", help="show API calls used this month")
     return parser
 
@@ -793,6 +815,303 @@ def _open_ranking_build(args: argparse.Namespace, clock: Callable[[], datetime] 
     return 0
 
 
+def _score(args: argparse.Namespace, clock: Callable[[], datetime] | None = None) -> int:
+    """Score the editions issued for one release and write the scorecard once."""
+    from datetime import UTC
+
+    from cfp.release.edition import EditionExists, write_edition
+    from cfp.scoring.scorecard import ScoreRefused, build_scorecard
+    from cfp.store.lake import Lake
+
+    clock = clock or (lambda: datetime.now(UTC))
+    lake = Lake(args.lake, clock=clock)
+    now = clock()
+    try:
+        built = build_scorecard(
+            lake, args.release, now=now, mode=args.mode, revision=args.revision, code_hash=_code_hash()
+        )
+    except ScoreRefused as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    folder = lake.root / "scorecards"
+    superseded = built.doc["supersedes"]
+    if superseded and not (folder / superseded).is_dir():
+        print(
+            f"refused: revision {args.revision} would supersede {superseded}, which does not exist",
+            file=sys.stderr,
+        )
+        return 1
+    receipt = {"scorecard_id": built.scorecard_id, "sha256": built.sha256, "scored_utc": now.isoformat()}
+    try:
+        write_edition(folder, built.scorecard_id, built.body, receipt, name="scorecard.json")
+    except EditionExists:
+        print(
+            f"scorecard {built.scorecard_id} already exists; use --revision for a correction", file=sys.stderr
+        )
+        return EXIT_EXISTS
+    print(f"{built.scorecard_id}  sha256 {built.sha256}")
+    print(
+        f"{args.release}: {len(built.doc['editions'])} edition(s), "
+        f"{built.doc['prospective_editions']} prospective"
+    )
+    for edition in built.doc["editions"]:
+        tag = "prospective" if edition["prospective"] else "reference only"
+        print(f"  {edition['edition_id']} ({tag})")
+        for name, card in edition["models"].items():
+            miss = card["rank_error"]["mean_abs_error"]
+            print(
+                f"    {name:9s} {card['label']:16s} S {card['score']:.5f}"
+                f" | top 35 and actual {card['secondary']['score']:.5f}"
+                f" | exact slots {card['exact_slots']:2d}"
+                f" | rank error {miss if miss is None else round(miss, 2)}"
+                f" on {card['rank_error']['jointly_ranked']}"
+            )
+        column = edition["top25_column"]
+        if column:
+            print(
+                f"    P(top 25) on {column['raw']['n']} teams: log loss raw {column['raw']['log_loss']:.5f}, "
+                f"calibrated {column['calibrated']['log_loss']:.5f}; Brier raw {column['raw']['brier']:.5f}, "
+                f"calibrated {column['calibrated']['brier']:.5f}"
+            )
+        if edition["field"] and not edition["field"]["integrity"]["passed"]:
+            print(
+                f"    WARNING: field section fails integrity: {edition['field']['integrity']['error']}",
+                file=sys.stderr,
+            )
+    return 0
+
+
+def _score_replay(args: argparse.Namespace) -> int:
+    """Held-out weekly and Selection Day scores on the seasons before --season. Writes only --out."""
+    from cfp.common.timeutil import utc_now
+    from cfp.forecast.cutoffs import ISSUES
+    from cfp.forecast.promotion import Scores, decide
+    from cfp.open_ranking.frozen import load_frozen
+    from cfp.release import history
+    from cfp.scoring.replay import AsIssued, LossDrop, replay_final, replay_weekly
+    from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
+    from cfp.store.lake import Lake
+
+    data = Path(args.data)
+    out = Path(args.out).resolve() if args.out else None
+    if out is not None and any(part in ("lake", "frozen") for part in out.parts):
+        print("refused: --out must be outside the store and the frozen parameters", file=sys.stderr)
+        return 1
+    lists = {
+        "title_games": load_title_games(data / "title_games.csv"),
+        "forfeits": load_forfeits(data / "forfeits.csv"),
+        "unplayed": load_unplayed(data / "unplayed_games.csv"),
+    }
+    seasons = list(range(args.first_season, args.season))
+    lake, now = Lake(args.lake), utc_now()
+    frozen = load_frozen(args.frozen, args.season)
+    examples, problems = history.past_examples(lake, data, seasons, now, frozen=frozen, lists=lists)
+    champions, leagues, more = history.past_champions(lake, data, seasons, now)
+    code = _code_hash()
+    print(f"report only: no edition or parameter is written. {len(examples)} past issues, code {code}")
+    print(f"store read as of {now.isoformat()}")
+    print(
+        "caution: teams below the ranked 25 are ordered by open points computed with the "
+        f"{args.season} settings, which were fitted on these seasons' results. The folds are not clean."
+    )
+    for problem in [*problems, *more]:
+        print(f"  note: {problem}")
+    record: dict[str, object] = {"as_of_utc": now.isoformat(), "code_hash": code, "paths": args.paths}
+    record |= {"seasons": seasons, "problems": [*problems, *more], "ranks": {}, "selection_day": {}}
+    ranks: dict[str, object] = {}
+    try:
+        print("\nweekly rank score, held out after 2016 (lower is better); every model on the same draws")
+        for kind in ("opening", "weekly", "final"):
+            if not any(e.kind == kind for e in examples):
+                print(f"  {kind}: no releases")
+                continue
+            base = replay_weekly(examples, LossDrop("baseline2 (drop 5)", 5.0, kind), paths=args.paths)
+            found = [
+                replay_weekly(examples, AsIssued("baseline1 (AP as issued)", kind), paths=args.paths),
+                base,
+            ]
+            if kind == "weekly":
+                found += [
+                    replay_weekly(examples, LossDrop(f"drop {drop:g}", drop, kind), paths=args.paths)
+                    for drop in args.drop
+                ]
+            print(f"  {kind} releases ({base['releases']}):")
+            for got in found:
+                error = "none" if got["rank_error"] is None else f"{got['rank_error']:.2f}"
+                print(
+                    f"    {got['model']:24s} S {got['score']:.6f} | top 35 and actual {got['secondary']:.5f}"
+                    f" | exact slots {got['exact_slots']:.1f} | rank error {error}"
+                    f" | entrants called {got['entrants_called']}/{got['entrants']}"
+                    f" | exits called {got['exits_called']}/{got['exits']}"
+                )
+                if got["drop"] is not None and got is not base:
+                    wins = sum(
+                        got["seasons"][s]["score"] < base["seasons"][s]["score"] for s in base["seasons"]
+                    )
+                    held = len(base["seasons"])
+                    rule = decide(Scores(base["score"], None), Scores(got["score"], None), seasons=held)
+                    print(
+                        f"      {got['model']}: better than the baseline in {wins} of {held} seasons; "
+                        f"rule: promote {rule.promote} ({rule.reason})"
+                    )
+            ranks[kind] = found
+        record["ranks"] = ranks
+        if more:
+            print(
+                "refused: a title game could not be matched, so the Selection Day fields are not scored",
+                file=sys.stderr,
+            )
+            return 1
+        shown: dict[str, object] = {}
+        first = None
+        finals = {
+            issue: sorted(
+                (e.season, tuple(e.initial), tuple(sorted(e.losses.items())), tuple(e.actual))
+                for e in examples
+                if e.issue == issue and e.kind == "final"
+            )
+            for issue in ISSUES
+        }
+        same_inputs = len({tuple(v) for v in finals.values()}) == 1
+        for issue in ISSUES:
+            print(f"\nSelection Day, {issue}:")
+            if first is not None and same_inputs:
+                print("  same as the first cutoff: both see every game played, so lead time is not separated")
+                continue
+            mine = [e for e in examples if e.issue == issue]
+            got = replay_final(mine, mine, champions=champions, conference_of=leagues, paths=args.paths)
+            shown[issue] = got
+            first = first or got
+            print(f"  held out {got['held_out'][0]}-{got['held_out'][-1]}")
+            print(
+                "  (the field scored: the rules applied to the committee's final list and title-game winners)"
+            )
+            for name, m in got["models"].items():
+                bubble = "none" if m["bubble_brier"] is None else f"{m['bubble_brier']:.4f}"
+                print(
+                    f"  {name:15s} field log loss {m['log_loss_sum']:.2f} over {m['n']} team-seasons; "
+                    f"Brier {m['brier']:.5f}; bubble Brier {bubble} on {m['bubble_n']}"
+                )
+                for label, part in (("era", m["by_era"]), ("route", m["by_route"])):
+                    cells = []
+                    for key, cell in part.items():
+                        inner = cell.get("field", cell)
+                        if inner["n"]:
+                            cells.append(f"{key} Brier {inner['brier']:.5f} (n {inner['n']})")
+                    print(f"    by {label}: " + "; ".join(cells))
+            for name, ruling in got["decisions"].items():
+                print(f"  rule on {name}: promote {ruling['promote']} ({ruling['reason']})")
+        record["selection_day"] = shown
+    except ValueError as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    if out is not None:
+        out.write_text(json.dumps(record, sort_keys=True, indent=1))
+        print(f"\nrecord written to {out}")
+    print(
+        "\nThe rule reports; it does not promote. A candidate chosen after seeing these scores is not a test."
+    )
+    return 0
+
+
+def _gate_report(args: argparse.Namespace, edition_id: str):  # type: ignore[no-untyped-def]
+    """The gate report for a written edition, or None (with the reason printed) if it cannot be read."""
+    from cfp.common.draw import load_draw
+    from cfp.release.gate import run_gate
+    from cfp.store.lake import Lake
+
+    lake = Lake(args.lake)
+    folder = lake.root / "editions" / edition_id
+    if not (folder / "edition.json").is_file():
+        print(f"refused: no edition {edition_id} in {lake.root / 'editions'}", file=sys.stderr)
+        return None
+    recorded = dict(lake.scan("editions").select("edition_id", "sha256").collect().iter_rows())
+    try:
+        season = json.loads((folder / "edition.json").read_bytes())["season"]
+        draw = load_draw(Path(args.data) / f"preseason_draw_{season}.csv", season)
+        return run_gate(folder, frozen_root=args.frozen, draw=draw, recorded=recorded)
+    except (OSError, ValueError, KeyError) as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return None
+
+
+def _gate(args: argparse.Namespace) -> int:
+    report = _gate_report(args, args.edition)
+    if report is None:
+        return 1
+    print(f"{report.edition_id}  sha256 {report.sha256}")
+    for check in report.checks:
+        print(f"{'PASS' if check.passed else 'FAIL'}  {check.name}: {check.detail}")
+    print("gate passed" if report.passed else "gate FAILED: publication is blocked")
+    return 0 if report.passed else 1
+
+
+def _publish(args: argparse.Namespace) -> int:
+    """Gate the edition; if it passes, write its public files once and point `latest` at the newest."""
+    import shutil
+    import uuid
+
+    from cfp.common.timeutil import utc_now
+    from cfp.release.edition import canonical
+    from cfp.release.page import render
+    from cfp.store.lake import Lake
+
+    report = _gate_report(args, args.edition)
+    if report is None:
+        return 1
+    if not report.passed:
+        failed = ", ".join(check.name for check in report.checks if not check.passed)
+        print(f"refused: the gate failed ({failed}); nothing is published", file=sys.stderr)
+        return 1
+    lake = Lake(args.lake)
+    source = lake.root / "editions" / args.edition
+    body = (source / "edition.json").read_bytes()
+    if hashlib.sha256(body).hexdigest() != report.sha256:
+        print("refused: the edition changed after the gate read it; nothing is published", file=sys.stderr)
+        return 1
+    doc = json.loads(body)
+    root = Path(args.site) / "open-ranking"
+    target = root / args.edition
+    if (target / "edition.json").is_file():
+        if (target / "edition.json").read_bytes() != body:
+            print(f"refused: {target} already holds different bytes for this edition", file=sys.stderr)
+            return 1
+        print(f"{args.edition} is already published at {target}; its files are left as they are")
+    else:
+        names = dict(lake.as_of("teams", utc_now(), "replay").frame.select("team_id", "name").iter_rows())
+        files = {
+            "edition.json": body,
+            "games.jsonl": (source / "games.jsonl").read_bytes(),
+            "gate.json": canonical(report.document()),
+            "index.html": render(doc, names, report.document(), report.sha256).encode(),
+        }
+        staging = root / f".staging-{uuid.uuid4().hex}"
+        staging.mkdir(parents=True)
+        for name, payload in files.items():
+            (staging / name).write_bytes(payload)
+        staging.rename(target)  # the folder appears complete or not at all
+        print(f"published {args.edition} to {target}")
+    latest = root / "latest"
+    newest, why = True, ""
+    if (latest / "edition.json").is_file():
+        shown = json.loads((latest / "edition.json").read_bytes())
+        if shown["mode"] == "live" and doc["mode"] != "live":
+            newest, why = False, "a replay edition never replaces a live one"
+        elif (doc["cutoff_utc"], doc["revision"]) < (shown["cutoff_utc"], shown["revision"]):
+            newest, why = False, f"{shown['edition_id']} is newer"
+    if newest:
+        fresh, old = root / f".latest-{uuid.uuid4().hex}", root / f".old-{uuid.uuid4().hex}"
+        shutil.copytree(target, fresh)
+        if latest.exists():
+            latest.rename(old)
+        fresh.rename(latest)  # whole-folder swap: latest never mixes two editions' files
+        if old.exists():
+            shutil.rmtree(old)
+    print("latest updated" if newest else f"latest left as it is: {why}")
+    print(f"sha256 {report.sha256}")
+    return 0
+
+
 def _calibrate(args: argparse.Namespace) -> int:
     from datetime import UTC
 
@@ -995,6 +1314,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ingest_cfbd(args)
     elif args.command == "open-ranking":
         return _open_ranking_build(args)
+    elif args.command == "score":
+        return _score(args)
+    elif args.command == "score-replay":
+        return _score_replay(args)
+    elif args.command == "gate":
+        return _gate(args)
+    elif args.command == "publish":
+        return _publish(args)
     elif args.command == "calibrate":
         return _calibrate(args)
     elif args.command == "snapshot":

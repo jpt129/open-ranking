@@ -31,6 +31,9 @@ def run_hook(tool: str, tool_input: dict[str, str], cleanroom: bool = False) -> 
     [
         ("Edit", {"file_path": "frozen/params_2026.json"}, BLOCK),
         ("Write", {"file_path": str(ROOT / "lake/editions/x.json")}, BLOCK),
+        ("Write", {"file_path": str(ROOT / "lake/scorecards/score-2026-r05-e1/scorecard.json")}, BLOCK),
+        ("Bash", {"command": "rm lake/scorecards/score-2026-r05-e1/scorecard.json"}, BLOCK),
+        ("Bash", {"command": "uv run cfp score --release cfp-2026-05"}, ALLOW),
         ("Read", {"file_path": "frozen/MANIFEST"}, ALLOW),
         ("Bash", {"command": "cat frozen/MANIFEST"}, ALLOW),
         ("Bash", {"command": "echo x > frozen/params.json"}, BLOCK),

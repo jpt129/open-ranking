@@ -187,3 +187,20 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Done: John's ruling applied. P(top 25) calibrated column is published for Issues 1 and 2; rank ≤ 4 and rank ≤ 12 are raw only (logistic maps failed the bound clause of the pass rule). Maps frozen as `calibration_2026.c1.json`. Command test added; reports in `docs/reports/`. 447 tests pass.
 - Candidates for after the pilot (promotion rule): nine-place regular-week drop; rank-dependent noise.
 - Next: Friday timed dry run; title pairings with sources as they become official.
+
+## 2026-11-25 (night) — P20-lite: scoring
+
+- IDs: VT-10, VT-11, VT-11a, VT-12, VT-13 (integrity part), VT-14.
+- Added: `cfp.scoring.{weekly,field,integrity,replay,scorecard}`, `cfp.forecast.promotion`, `past_champions` in `cfp.release.history`; commands `cfp score --release <id>` (write-once scorecard) and `cfp score-replay --season <n>` (report only).
+- Spec-named tests present: `test_weekly_score_perfect_is_zero`, `test_weekly_score_uniform_hand_computed`, `test_secondary_cohort`, `test_field_scores_by_stratum`, `test_bubble_cohort_frozen_at_issue`, `test_integrity_sums_and_uniqueness`, `test_promotion_rule`, `test_expanding_replay_no_future_seasons`. Not added here: `test_sim_win_rates_within_mc_error`, `test_within_team_dependence_vs_residuals` (simulator tests cover the first; the second is open).
+- Rehearsed on a scratch copy of the store against release 4 (replay editions, reference only): Baseline 2 S 0.01305 (Sunday) and 0.01242 (reveal −60); Baseline 1 0.02452 and 0.01131.
+- Open: field and bye outcome scoring wired into `cfp score` for Selection Day (before 6 Dec); a stand-in for bubble Brier when the candidate is a regular-week change (needs John's ruling); the nine-place drop fitted inside each fold.
+- Next: P14-lite (Open Ranking edition, manifest, gate), then P22-lite (Committee Gap).
+
+## 2026-11-25 (night) — P14-lite: gate and public page
+
+- IDs: RL-01, RL-01a, OR-08 (page), OR-09 (pilot disclosure).
+- Added: `cfp.release.gate`, `cfp.release.page`; commands `cfp gate <edition>` and `cfp publish --edition <id>`.
+- Spec-named tests: `test_gate_fails_on_planted_break`, `test_gate_second_impl_not_run_state` (in `tests/unit/test_gate.py`), with command and refusal tests. 478 tests pass.
+- Open: the first live edition (results through Sat 28 Nov, built Sunday after the 02:00 issue); John pushes `site/` public; sensitivity and reversal reports are not built.
+- Next: P22-lite (Committee Gap).

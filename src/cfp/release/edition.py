@@ -47,22 +47,25 @@ def write_edition(
     body: bytes,
     receipt: Mapping[str, Any],
     extra: Mapping[str, bytes] | None = None,
+    name: str = "edition.json",
 ) -> Path:
-    """Create <root>/<edition_id>/ with edition.json, receipt.json and extra files; refuse if it exists."""
+    """Create <root>/<edition_id>/ with the body (as `name`), receipt.json and extras; refuse if it exists."""
     if not EDITION_ID.fullmatch(edition_id):
         raise ValueError(f"not an edition id: {edition_id!r}")
-    files = {"edition.json": body, "receipt.json": canonical(dict(receipt)), **(extra or {})}
-    for name in files:
-        if not re.fullmatch(r"[a-z0-9_.-]+", name) or name.startswith("."):
-            raise ValueError(f"not a file name: {name!r}")
+    files = {name: body, "receipt.json": canonical(dict(receipt)), **(extra or {})}
+    if name == "receipt.json" or name in (extra or {}):
+        raise ValueError(f"{name!r} is taken by another file in the folder")
+    for file_name in files:
+        if not re.fullmatch(r"[a-z0-9_.-]+", file_name) or file_name.startswith("."):
+            raise ValueError(f"not a file name: {file_name!r}")
     folder = Path(root) / edition_id
     Path(root).mkdir(parents=True, exist_ok=True)
     if folder.exists():
         raise EditionExists(f"edition {edition_id} already exists; issue a new revision")
     staging = Path(root) / f".staging-{edition_id}-{uuid.uuid4().hex}"
     staging.mkdir()
-    for name, payload in files.items():
-        path = staging / name
+    for file_name, payload in files.items():
+        path = staging / file_name
         with path.open("xb") as handle:
             handle.write(payload)
             handle.flush()

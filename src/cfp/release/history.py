@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +18,11 @@ import polars as pl
 from cfp.common.draw import PHRASE, draw_positions
 from cfp.forecast.cutoffs import ISSUES
 from cfp.forecast.noise_params import Example, release_kind
+from cfp.forecast.pairings import conference_id as conference_key
 from cfp.ingest.cfp_releases import load_schedule
 from cfp.open_ranking.frozen import Frozen
 from cfp.release.issue import IssueRefused, build_issue
+from cfp.snapshot.data import load_title_games
 from cfp.store.lake import Lake
 
 
@@ -92,3 +94,50 @@ def past_examples(
                     )
                 )
     return out, problems
+
+
+def past_champions(
+    lake: Lake, data: Path, seasons: Sequence[int], now: datetime
+) -> tuple[dict[int, dict[str, str]], dict[int, dict[str, str]], list[str]]:
+    """(champion by season and conference, conference by season and team, problems) from played title games.
+
+    A champion is the winner of the final game between the two named teams within a day of the listed date.
+    A title game that cannot be matched to one final game is a problem, never a guess.
+    """
+    wanted = set(seasons)
+    ids = dict(lake.as_of("teams", now, "replay").frame.select("name", "team_id").iter_rows())
+    games = lake.as_of("games", now, "replay").frame.filter(pl.col("status") == "final")
+    membership = lake.as_of("membership", now, "replay").frame
+    champions: dict[int, dict[str, str]] = {season: {} for season in wanted}
+    problems: list[str] = []
+    for title in load_title_games(data / "title_games.csv"):
+        if title.season not in wanted:
+            continue
+        where = f"{title.season} {title.conference}"
+        if not title.team_a:
+            problems.append(f"{where}: the title game's teams are not on file")
+            continue
+        a, b = ids.get(title.team_a), ids.get(title.team_b)
+        if a is None or b is None:
+            problems.append(f"{where}: {title.team_a} or {title.team_b} is not a team in the store")
+            continue
+        day = pl.col("start_utc").dt.date()
+        met = ((pl.col("home_id") == a) & (pl.col("away_id") == b)) | (
+            (pl.col("home_id") == b) & (pl.col("away_id") == a)
+        )
+        near = (day >= title.day - timedelta(days=1)) & (day <= title.day + timedelta(days=1))
+        found = games.filter((pl.col("season") == title.season) & met & near)
+        if found.height != 1:
+            problems.append(f"{where}: {found.height} final games match the title game")
+            continue
+        game = found.row(0, named=True)
+        winner = game["home_id"] if game["home_pts"] > game["away_pts"] else game["away_id"]
+        champions[title.season][conference_key(title.conference)] = winner
+    leagues: dict[int, dict[str, str]] = {}
+    for season in wanted:
+        dec1 = date(season, 12, 1)
+        rows = membership.filter(
+            (pl.col("valid_from") <= dec1) & (pl.col("valid_to").is_null() | (pl.col("valid_to") >= dec1))
+        )
+        leagues[season] = dict(rows.select("team_id", "conference_id").iter_rows())
+    return champions, leagues, problems

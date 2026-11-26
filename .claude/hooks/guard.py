@@ -12,7 +12,7 @@ import shlex
 import sys
 
 ROOT = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
-IMMUTABLE = ("lake/editions", "frozen")
+IMMUTABLE = ("lake/editions", "lake/scorecards", "frozen")
 IMMUTABLE_MSG = (
     "Published editions and frozen parameters are immutable; create a new edition via the cfp CLI."
 )
