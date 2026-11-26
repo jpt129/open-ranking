@@ -3,6 +3,9 @@
 The gate reads a written edition folder and checks it against its own files, the frozen parameters and the
 draw. It writes nothing. Any failed check blocks publication. Until a second implementation exists, its state
 is recorded as "not run" and does not fail the gate.
+
+If a sensitivity file has been written for the edition, a sample of its refits is rerun and the result is
+reported. RL-01 has sensitivity published, not gated: that check never blocks the edition.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from cfp.open_ranking.frozen import load_frozen
 from cfp.open_ranking.ledger import FCS_LOSS_CP, FCS_WIN_CP
 from cfp.open_ranking.link import SCALE
 from cfp.open_ranking.release import PRODUCT, build_edition, formula_hash, load_built
+from cfp.release.sensitivity import verify
 from cfp.snapshot.build import COLUMNS, Snapshot, game_lines
 
 CHECKS: Final = (
@@ -37,6 +41,7 @@ CHECKS: Final = (
     "second implementation",
 )
 SECOND_OK: Final = ("not run", "match")
+SENSITIVITY: Final = "sensitivity"
 
 
 class GateFailure(Exception):
@@ -48,6 +53,7 @@ class Check:
     name: str
     passed: bool
     detail: str
+    blocking: bool = True  # False: reported, but the edition is not held back by it
 
 
 @dataclass(frozen=True)
@@ -59,7 +65,7 @@ class Report:
 
     @property
     def passed(self) -> bool:
-        return all(check.passed for check in self.checks)
+        return all(check.passed for check in self.checks if check.blocking)
 
     def document(self) -> dict[str, Any]:
         return {
@@ -67,7 +73,10 @@ class Report:
             "sha256": self.sha256,
             "passed": self.passed,
             "second_implementation": self.second_implementation,
-            "checks": [{"name": c.name, "passed": c.passed, "detail": c.detail} for c in self.checks],
+            "checks": [
+                {"name": c.name, "passed": c.passed, "detail": c.detail, "blocking": c.blocking}
+                for c in self.checks
+            ],
         }
 
 
@@ -98,8 +107,12 @@ def run_gate(
     frozen_root: Path | str,
     draw: Mapping[str, int],
     recorded: Mapping[str, str],
+    sensitivity: Path | None = None,
 ) -> Report:
-    """Every check on the edition in `folder`. `recorded` maps edition ids to the store's hashes."""
+    """Every check on the edition in `folder`. `recorded` maps edition ids to the store's hashes.
+
+    `sensitivity` is where the edition's sensitivity file would be; if it is there, it is checked too.
+    """
     body = (folder / "edition.json").read_bytes()
     doc = json.loads(body)
     if doc.get("product") != PRODUCT:
@@ -315,4 +328,19 @@ def run_gate(
             checks.append(Check(name, False, str(error)))
         except Exception as error:  # a check that cannot run has not passed
             checks.append(Check(name, False, f"{type(error).__name__}: {error}"))
+    if sensitivity is not None and sensitivity.is_file():
+        try:
+            frozen = load_frozen(frozen_root, doc["season"])
+            said = verify(
+                json.loads(sensitivity.read_bytes()),
+                doc,
+                _sha(body),
+                games_from_lines(games_body),
+                frozen.params,
+                frozen.t,
+                draw,
+            )
+            checks.append(Check(SENSITIVITY, True, said, blocking=False))
+        except Exception as error:  # reported, never blocking
+            checks.append(Check(SENSITIVITY, False, f"{type(error).__name__}: {error}", blocking=False))
     return Report(doc["edition_id"], _sha(body), str(manifest.get("second_implementation")), tuple(checks))

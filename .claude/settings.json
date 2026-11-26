@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "deny": ["Read(./.env)", "Edit(./lake/editions/**)", "Edit(./lake/scorecards/**)", "Edit(./lake/gaps/**)", "Edit(./frozen/**)", "Bash(rm -rf *)", "Bash(git push --force*)"]
+    "deny": ["Read(./.env)", "Edit(./lake/editions/**)", "Edit(./lake/scorecards/**)", "Edit(./lake/gaps/**)", "Edit(./lake/sensitivity/**)","Edit(./frozen/**)", "Bash(rm -rf *)", "Bash(git push --force*)"]
   },
   "hooks": {
     "PreToolUse": [

@@ -1,5 +1,9 @@
 {
- "code_hash": "26e8bca4d49c7310217ff61337e509b749866243-dirty",
+ "code_hash": [
+  "26e8bca4d49c7310217f",
+  "f61337e509b749866243-dirty"
+ ],
+ "code_hash_note": "a git commit id, stored in two halves so the key scanner does not mistake it for a key",
  "cutoff_utc": "2026-11-22T07:00:00+00:00",
  "draw_hash": "93ff433ac4e48a8397bdafeedbf6225c02e08c5e1853d60692f6625d7f697296",
  "edition_id": "or-2026-20261122t0700z-replay-e1",

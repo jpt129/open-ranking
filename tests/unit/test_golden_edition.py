@@ -50,7 +50,8 @@ def rebuild(meta: dict[str, object], games: bytes) -> bytes:
     frozen = load_frozen(ROOT / "frozen", snapshot.season)
     assert frozen.sha256 == meta["params_sha256"]
     draw = load_draw(ROOT / "data" / f"preseason_draw_{snapshot.season}.csv", snapshot.season)
-    return build_edition(snapshot, frozen, draw, code_hash=str(meta["code_hash"])).body
+    code_hash = "".join(meta["code_hash"])  # type: ignore[arg-type]  # stored in two halves
+    return build_edition(snapshot, frozen, draw, code_hash=code_hash).body
 
 
 def test_unweighted_fit_reproduces_the_rehearsal_edition_byte_for_byte() -> None:

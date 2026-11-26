@@ -116,6 +116,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="for --revision 2+: re-read the superseded edition's games as public at this later time",
     )
     build.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
+    sens = ranking_kinds.add_parser(
+        "sensitivity", help="re-weighted refits of a written edition (VT-08); writes one file, once"
+    )
+    sens.add_argument("--edition", required=True, help="edition id")
+    sens.add_argument("--refits", type=int, default=1000, help="how many refits (the spec's number is 1000)")
+    sens.add_argument("--workers", type=int, help="processes to use; changes the time taken, nothing else")
+    sens.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
 
     calibrate = commands.add_parser(
         "calibrate", help="Open Ranking link scale and penalties (game results only)"
@@ -819,6 +826,102 @@ def _open_ranking_build(args: argparse.Namespace, clock: Callable[[], datetime] 
     return 0
 
 
+def _open_ranking_sensitivity(args: argparse.Namespace, clock: Callable[[], datetime] | None = None) -> int:
+    """Run the edition's re-weighted refits and write the sensitivity file once (VT-08)."""
+    import os
+    import time
+    from datetime import UTC
+
+    import polars as pl
+
+    from cfp.common.draw import load_draw
+    from cfp.forecast.observations import ObservationError, fbs_field
+    from cfp.open_ranking.frozen import FrozenError, load_frozen
+    from cfp.open_ranking.release import PRODUCT
+    from cfp.release.edition import EditionExists, write_edition
+    from cfp.release.gate import games_from_lines
+    from cfp.release.sensitivity import SensitivityRefused, build_sensitivity
+    from cfp.store.lake import Lake
+
+    clock = clock or (lambda: datetime.now(UTC))
+    lake = Lake(args.lake, clock=clock)
+    source = lake.root / "editions" / args.edition
+    target = lake.root / "sensitivity"
+    if not (source / "edition.json").is_file():
+        print(f"refused: no edition {args.edition} in {lake.root / 'editions'}", file=sys.stderr)
+        return 1
+    if (target / args.edition).exists():
+        print(f"the sensitivity file for {args.edition} already exists; it is written once", file=sys.stderr)
+        return EXIT_EXISTS
+    started = time.monotonic()
+    try:
+        body = (source / "edition.json").read_bytes()
+        sha256 = hashlib.sha256(body).hexdigest()
+        recorded = dict(lake.scan("editions").select("edition_id", "sha256").collect().iter_rows())
+        if recorded.get(args.edition) != sha256:
+            raise SensitivityRefused("the edition's file is not the one the store recorded at issue")
+        doc = json.loads(body)
+        if doc.get("product") != PRODUCT:
+            raise SensitivityRefused(f"{args.edition} is not an Open Ranking edition")
+        manifest = doc["manifest"]
+        lines = (source / "games.jsonl").read_bytes()
+        if hashlib.sha256(lines).hexdigest() != manifest["games_sha256"]:
+            raise SensitivityRefused("games.jsonl is not the file the edition's manifest names")
+        frozen = load_frozen(args.frozen, doc["season"])
+        if frozen.sha256 != manifest["params_sha256"]:
+            raise SensitivityRefused("the frozen parameters are not the ones the edition was built with")
+        draw = load_draw(Path(args.data) / f"preseason_draw_{doc['season']}.csv", doc["season"])
+        # the bracket's inputs as they stood when the edition's data was read
+        read_at = datetime.fromisoformat(doc["data_as_of_utc"])
+        day = datetime.fromisoformat(doc["cutoff_utc"]).date()
+        everyone = lake.as_of("membership", read_at, doc["mode"]).frame
+        flags = fbs_field(everyone, lake.as_of("eligibility", read_at, doc["mode"]).frame, doc["season"], day)
+        eligible = {str(team): bool(flag) for team, flag in flags.iter_rows()}
+        current = everyone.filter(
+            (pl.col("valid_from") <= day) & (pl.col("valid_to").is_null() | (pl.col("valid_to") >= day))
+        )
+        members = dict(current.select("team_id", "conference_id").drop_nulls().iter_rows())
+        built = build_sensitivity(
+            doc,
+            sha256,
+            games_from_lines(lines),
+            frozen.params,
+            frozen.t,
+            draw,
+            members=members,
+            eligible=eligible,
+            code_hash=_code_hash(),
+            refits=args.refits,
+            workers=args.workers or min(8, os.cpu_count() or 1),
+        )
+    except (SensitivityRefused, FrozenError, ObservationError, OSError, ValueError, KeyError) as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    receipt = {"edition_id": args.edition, "sha256": built.sha256, "built_utc": clock().isoformat()}
+    try:
+        write_edition(target, args.edition, built.body, receipt, name="sensitivity.json")
+    except EditionExists:
+        print(f"the sensitivity file for {args.edition} already exists; it is written once", file=sys.stderr)
+        return EXIT_EXISTS
+    out = built.doc
+    taken = time.monotonic() - started
+    print(
+        f"{args.edition}: {out['refits']} refits in {taken:.0f} s, seed {out['seed']}  sha256 {built.sha256}"
+    )
+    print(f"scenario: {out['scenario']['note']}")
+    print("rank  team        rank range   margin to cut line (middle 80%)   in the field")
+    for row in out["teams"]:
+        if row["open_rank"] > 20:
+            break
+        low, high = (f"{cp / 100:+.2f}" for cp in row["cut_margin_cp_80"])
+        print(
+            f"{row['open_rank']:4d}  {row['team_id']:10s}  {row['rank_80'][0]:3d} to {row['rank_80'][1]:<3d}"
+            f"  {row['cut_margin_cp'] / 100:+8.2f} ({low} to {high})"
+            f"  {100 * row['qualifies'] / out['refits']:5.1f}%"
+        )
+    return 0
+
+
 def _score(args: argparse.Namespace, clock: Callable[[], datetime] | None = None) -> int:
     """Score the editions issued for one release and write the scorecard once."""
     from datetime import UTC
@@ -1061,7 +1164,8 @@ def _gate_report(args: argparse.Namespace, edition_id: str):  # type: ignore[no-
     try:
         season = json.loads((folder / "edition.json").read_bytes())["season"]
         draw = load_draw(Path(args.data) / f"preseason_draw_{season}.csv", season)
-        return run_gate(folder, frozen_root=args.frozen, draw=draw, recorded=recorded)
+        written = lake.root / "sensitivity" / edition_id / "sensitivity.json"
+        return run_gate(folder, frozen_root=args.frozen, draw=draw, recorded=recorded, sensitivity=written)
     except (OSError, ValueError, KeyError) as error:
         print(f"refused: {error}", file=sys.stderr)
         return None
@@ -1075,6 +1179,9 @@ def _gate(args: argparse.Namespace) -> int:
     for check in report.checks:
         print(f"{'PASS' if check.passed else 'FAIL'}  {check.name}: {check.detail}")
     print("gate passed" if report.passed else "gate FAILED: publication is blocked")
+    for check in report.checks:
+        if not check.blocking and not check.passed:
+            print(f"WARNING: {check.name} failed; the page will list it as not delivered")
     return 0 if report.passed else 1
 
 
@@ -1085,6 +1192,7 @@ def _publish(args: argparse.Namespace) -> int:
 
     from cfp.common.timeutil import utc_now
     from cfp.release.edition import canonical
+    from cfp.release.gate import SENSITIVITY
     from cfp.release.page import render
     from cfp.store.lake import Lake
 
@@ -1115,8 +1223,17 @@ def _publish(args: argparse.Namespace) -> int:
             "edition.json": body,
             "games.jsonl": (source / "games.jsonl").read_bytes(),
             "gate.json": canonical(report.document()),
-            "index.html": render(doc, names, report.document(), report.sha256).encode(),
         }
+        measured = None  # shown only if the file is there and the gate's rerun of it matched
+        if any(check.name == SENSITIVITY and check.passed for check in report.checks):
+            written = (lake.root / "sensitivity" / args.edition / "sensitivity.json").read_bytes()
+            measured = json.loads(written)
+            if measured.get("edition_sha256") == report.sha256:
+                files["sensitivity.json"] = written
+            else:
+                measured = None
+        page = render(doc, names, report.document(), report.sha256, sensitivity=measured)
+        files["index.html"] = page.encode()
         staging = root / f".staging-{uuid.uuid4().hex}"
         staging.mkdir(parents=True)
         for name, payload in files.items():
@@ -1401,6 +1518,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _forecast_issue(args)
     elif args.command == "ingest" and args.kind == "cfbd":
         return _ingest_cfbd(args)
+    elif args.command == "open-ranking" and args.kind == "sensitivity":
+        return _open_ranking_sensitivity(args)
     elif args.command == "open-ranking":
         return _open_ranking_build(args)
     elif args.command == "score":

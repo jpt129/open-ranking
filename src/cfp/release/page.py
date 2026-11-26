@@ -2,7 +2,8 @@
 
 Everything shown is read from the edition document and the gate report, except team names, which come from
 the store's teams table when the page is first written. Points are shown to two decimals;
-the whole centipoints in edition.json are the record.
+the whole centipoints in edition.json are the record. If the edition's sensitivity file was written and the
+gate's rerun of it matched, its numbers are shown too; otherwise sensitivity is listed as not delivered.
 """
 
 from __future__ import annotations
@@ -14,8 +15,10 @@ from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 EASTERN: Final = ZoneInfo("America/New_York")
+SENSITIVITY: Final = "Sensitivity intervals"
+SHOWN: Final = 40  # sensitivity rows on the page: the top 40, and anyone else who reached the field
 NOT_DELIVERED: Final = (
-    ("Sensitivity intervals", "how far each team's rank moves when the strength fit is re-weighted"),
+    (SENSITIVITY, "how far each team's rank moves when the strength fit is re-weighted"),
     ("Rank-reversal report", "the published list of rank reversals"),
     ("What-if tool", "flip a result and regenerate every ledger and the bracket"),
     ("Calibration report", "how well the win probabilities behind the ledger matched results"),
@@ -89,7 +92,52 @@ def _team(team: Mapping[str, Any], names: Mapping[str, str]) -> str:
     )
 
 
-def render(doc: Mapping[str, Any], names: Mapping[str, str], gate: Mapping[str, Any], sha256: str) -> str:
+def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
+    """The section for a sensitivity report whose refits the gate reran."""
+    refits = int(report["refits"])
+    rows = []
+    for row in report["teams"]:
+        if row["open_rank"] > SHOWN and not row["qualifies"]:
+            continue
+        low, high = row["cut_margin_cp_80"]
+        first, last = row["rank_80"]
+        rows.append(
+            f"<tr><td>{row['open_rank']}</td><td>{escape(names.get(row['team_id'], row['team_id']))}</td>"
+            f"<td class=n>{first} to {last}</td><td class=n>{_signed(row['cut_margin_cp'])}</td>"
+            f"<td class=n>{_points(low)} to {_points(high)}</td>"
+            f"<td class=n>{100 * row['qualifies'] / refits:.1f}%</td></tr>"
+        )
+    scenario = report["scenario"]
+    fixed = scenario["champions"] | scenario["stand_ins"]
+    held = "; ".join(
+        f"{escape(str(league))}: {escape(names.get(team, team))}"
+        + (" (stand-in)" if league in scenario["stand_ins"] else "")
+        for league, team in sorted(fixed.items())
+    )
+    return f"""<h2>Sensitivity to the observed games</h2>
+<p>{escape(str(report["label"]))}</p>
+<p>Results are held fixed. In each of {refits} refits every game gets a random weight (exponential, mean
+one) in the strength fit, the same weight in every team's fold. The bubble level, every ledger and the
+bracket are then worked again. Each range below is the middle 80% of refits. The margin to the cut line is
+the team's total minus the total of the last at-large team in the field in the same refit.</p>
+<p><b>Bracket scenario.</b> {escape(str(scenario["note"]))} Champions used in every refit:
+{held or "none"}.</p>
+<div class=wrap><table><tr><th>Rank</th><th>Team</th><th class=n>Rank range</th>
+<th class=n>Margin to cut line</th><th class=n>Margin range</th><th class=n>In the field</th></tr>
+{"".join(rows)}</table></div>
+<p class=mute>The top {SHOWN} teams and any other team that reached the field in a refit. Every team is in
+<a href="sensitivity.json">sensitivity.json</a>, with the seed (<code>{report["seed"]}</code>) and a digest
+of each refit.</p>
+"""
+
+
+def render(
+    doc: Mapping[str, Any],
+    names: Mapping[str, str],
+    gate: Mapping[str, Any],
+    sha256: str,
+    sensitivity: Mapping[str, Any] | None = None,
+) -> str:
     """The page for one edition. `gate` is the gate report's document."""
     manifest = doc["manifest"]
     params = manifest["params"]
@@ -98,7 +146,9 @@ def render(doc: Mapping[str, Any], names: Mapping[str, str], gate: Mapping[str, 
     missing = "".join(
         f"<li><b>{escape(name)}</b> ({escape(what)}): not delivered in the pilot.</li>"
         for name, what in NOT_DELIVERED
+        if not (sensitivity is not None and name == SENSITIVITY)
     )
+    measured = _sensitivity(sensitivity, names) if sensitivity is not None else ""
     checks = "".join(
         f"<tr><td>{'pass' if check['passed'] else 'FAIL'}</td><td>{escape(check['name'])}</td>"
         f"<td>{escape(check['detail'])}</td></tr>"
@@ -135,7 +185,7 @@ only and frozen before this edition (link scale {params["t"]}, margin cap {param
 <p class=mute>{len(doc["teams"])} teams, {manifest["games"]} games. Open a team to see every game.
 Games left out: {omitted}.</p>
 {teams}
-<h2>Release checks</h2>
+{measured}<h2>Release checks</h2>
 <div class=wrap><table><tr><th></th><th>Check</th><th>Result</th></tr>{checks}</table></div>
 <h2>Reproduce it</h2>
 <p>SHA-256 of <a href="edition.json">edition.json</a>: <code>{sha256}</code><br>
