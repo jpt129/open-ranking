@@ -204,3 +204,10 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Spec-named tests: `test_gate_fails_on_planted_break`, `test_gate_second_impl_not_run_state` (in `tests/unit/test_gate.py`), with command and refusal tests. 478 tests pass.
 - Open: the first live edition (results through Sat 28 Nov, built Sunday after the 02:00 issue); John pushes `site/` public; sensitivity and reversal reports are not built.
 - Next: P22-lite (Committee Gap).
+
+## 2026-11-26 — reviews closed; P22-lite: Committee Gap
+
+- P20-lite and P14-lite committed as `26e8bca` after both spec reviews; open items are listed in DECISIONS.md (26 Nov entry).
+- P22-lite: `cfp.gap.core`, `cfp.gap.report`, command `cfp gap --release <id>`. Spec-named tests present: `test_lift_sign_and_example`, `test_outside_25_bound`, `test_consequence_flags`, `test_provisional_before_selection_day`, `test_gap_reasons_present`, `test_gap_aggregation_coverage`. Spec review run and its findings fixed or recorded (DECISIONS.md). 504 tests pass.
+- Open: the replay folds use the 2026 Open Ranking settings (needs John's ruling); field and bye outcome scoring in `cfp score` before 6 Dec; first live Open Ranking edition Sunday; push and cloud rehearsal.
+- Next: Friday timed dry run; title pairings as they become official; P24.

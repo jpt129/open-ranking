@@ -152,6 +152,10 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--edition", required=True, help="edition id")
     publish.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
     publish.add_argument("--site", default="site", help="folder the public files are written under")
+    gap = commands.add_parser("gap", help="the Committee Gap report for one committee release")
+    gap.add_argument("--release", required=True, help="release id, such as cfp-2026-05")
+    gap.add_argument("--mode", choices=["live", "replay"], default="live")
+    gap.add_argument("--revision", type=int, default=1, help="a correction is a new report: 2, 3, ...")
     commands.add_parser("budget", help="show API calls used this month")
     return parser
 
@@ -1112,6 +1116,63 @@ def _publish(args: argparse.Namespace) -> int:
     return 0
 
 
+def _gap(args: argparse.Namespace, clock: Callable[[], datetime] | None = None) -> int:
+    """Build the Committee Gap report for one release and write it once."""
+    from datetime import UTC
+
+    from cfp.gap import report
+    from cfp.release.edition import EditionExists, write_edition
+    from cfp.store.lake import Lake
+
+    clock = clock or (lambda: datetime.now(UTC))
+    lake = Lake(args.lake, clock=clock)
+    now = clock()
+    try:
+        inputs = report.load_inputs(lake, Path(args.data), args.release, now=now, mode=args.mode)
+        if now < inputs.reveal:
+            raise report.GapRefused(
+                f"{args.release} is revealed at {inputs.reveal.isoformat()}: no gap before then"
+            )
+        built = report.build_gap(inputs, revision=args.revision, code_hash=_code_hash())
+    except report.GapRefused as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    folder = lake.root / "gaps"
+    superseded = built.doc["supersedes"]
+    if superseded and not (folder / superseded).is_dir():
+        print(
+            f"refused: revision {args.revision} would supersede {superseded}, which does not exist",
+            file=sys.stderr,
+        )
+        return 1
+    receipt = {"gap_id": built.gap_id, "sha256": built.sha256, "built_utc": now.isoformat()}
+    try:
+        write_edition(folder, built.gap_id, built.body, receipt, name="gap.json")
+    except EditionExists:
+        print(f"report {built.gap_id} already exists; use --revision for a correction", file=sys.stderr)
+        return EXIT_EXISTS
+    doc = built.doc
+    print(f"{built.gap_id}  sha256 {built.sha256}")
+    said = doc["forecast_edition"]["edition_id"] if doc["forecast_edition"] else "none issued"
+    print(f"Open Ranking {doc['open_edition']['edition_id']} | forecast {said}")
+    total = doc["aggregation"]
+    mean = "none" if total["mean_abs_lift_shared"] is None else f"{total['mean_abs_lift_shared']:.2f}"
+    print(f"{total['shared']} teams on both lists; mean lift size {mean} places")
+    print("largest lifts (open rank, forecast median, committee rank):")
+    ranked = [r for r in doc["teams"] if r["lift"] is not None]
+    for row in sorted(ranked, key=lambda r: -abs(r["lift"]))[:8]:
+        print(
+            f"  {row['name']:22s} open {row['open_rank']:3d} | forecast {row['forecast_median']!s:>10s}"
+            f" | committee {row['actual_rank']:2d} | lift {row['lift']:+d}"
+        )
+    state = "provisional" if doc["consequences"]["provisional"] else "final"
+    print(f"bid, bye and host changes ({state}): {len(doc['consequences']['flags'])}")
+    for flag in doc["consequences"]["flags"]:
+        was, now_ = ("yes" if flag[k] else "no" for k in ("open", "committee"))
+        print(f"  {flag['name']:22s} {flag['change']:4s} Open Ranking {was}, committee {now_}")
+    return 0
+
+
 def _calibrate(args: argparse.Namespace) -> int:
     from datetime import UTC
 
@@ -1322,6 +1383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _gate(args)
     elif args.command == "publish":
         return _publish(args)
+    elif args.command == "gap":
+        return _gap(args)
     elif args.command == "calibrate":
         return _calibrate(args)
     elif args.command == "snapshot":

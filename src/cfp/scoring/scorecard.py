@@ -133,7 +133,7 @@ def not_prospective(
     return why
 
 
-def _release(frame: pl.DataFrame, release_id: str) -> tuple[int, int, datetime, list[str]]:
+def release_rows(frame: pl.DataFrame, release_id: str) -> tuple[int, int, datetime, list[str]]:
     rows = frame.filter(pl.col("release_id") == release_id).sort("rank")
     if not rows.height:
         raise ScoreRefused(f"{release_id} is not in the store: ingest the release first")
@@ -157,7 +157,7 @@ def build_scorecard(
     if revision < 1:
         raise ScoreRefused("a revision is 1 or more")
     releases = lake.as_of("committee_releases", now, mode).frame
-    season, number, reveal, actual = _release(releases, release_id)
+    season, number, reveal, actual = release_rows(releases, release_id)
     if now < reveal:
         raise ScoreRefused(f"{release_id} is revealed at {reveal.isoformat()}: nothing is scored before then")
     prior: list[str] | None = None
@@ -167,7 +167,7 @@ def build_scorecard(
         if not earlier.height:
             raise ScoreRefused(f"release {number - 1} of {season} is not in the store: ingest it first")
         prior_id = earlier["release_id"][0]
-        _, _, _, prior = _release(releases, prior_id)
+        _, _, _, prior = release_rows(releases, prior_id)
     names = dict(lake.as_of("teams", now, mode).frame.select("team_id", "name").iter_rows())
     stem = f"scw-{season}-r{number:02d}-"
     held = lake.as_of("editions", now, mode, season=season).frame

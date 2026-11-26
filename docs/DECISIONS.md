@@ -725,3 +725,34 @@ How the pass rule is applied (my reading, for John to correct): "within N places
 **Gate. Open, not fixed:**
 - The rebuild uses the same code as the build, so it proves the bytes follow from the published games, settings and draw; it is not an independent implementation (that is P13). The omission counts, the lists hash and the code hash are taken from the document and are protected only by the hash the store recorded at issue.
 - RL-01's "conflicting scores" is not a gate check: the gate sees one games file. RL-01's "bracket errors" has nothing to check, because the pilot edition carries no bracket. Team names on the page come from the store's teams table when the page is first written.
+
+## 2026-11-26 — P22-lite: Committee Gap (CG-01, CG-02, CG-03, CG-04)
+
+- **`cfp gap --release <id>`** writes one write-once report to `lake/gaps/<id>/gap.json` (guard and deny list extended). A correction is a new numbered report.
+- **Which editions are compared (John's approval, 26 Nov).** The Open Ranking edition is the latest recorded live one whose cutoff, issue time and store stamp are all before the reveal; with none, the report is refused. The forecast is the latest prospective edition for that reveal (reveal −60 if there is one, else Sunday). With none, the forecast columns are empty and the report says no forecast was issued (RL-04). In replay mode, editions rebuilt later from a cutoff before the reveal are used and the report is marked reference only.
+- **Lift = Open Ranking rank − committee rank** (shared ranks as published). A team the committee left out is 26th or lower, so its lift is a bound ("at most open − 26"). "Anticipated" is open rank − forecast median; "beyond forecast" is median − actual. Worked example in the tests: open 13, median 9, actual 8 gives 5, 4 and 1.
+- **The 80% interval** is the rank range with at most a tenth of the forecast's paths beyond each end, from the edition's own path counts. The report also gives the forecast's chance of the committee's rank or better.
+- **Consequence flags** run both orders through `field_today` and the season's rules and flag every difference in bid, bye or home game. Before Selection Day they are provisional: an undecided conference's best-placed team in each order stands in for its champion, and the stand-ins are listed (John's approval). Teams the committee did not rank follow its 25 in Open Ranking order; that only matters when an unranked team would be a champion stand-in. On Selection Day the real champions are required, and a title game that cannot be matched refuses the report.
+- **Reasons (CG-03)** are given only for pairs on either side of a flagged change: ledger difference, each team's three largest rows, the head-to-head series and the Open Ranking's treatment of it, and any chair remark on file for the release. Cross-league sensitivity is "not delivered in the pilot". No inference about the committee is added.
+- **Aggregation (CG-04):** teams on both lists, coverage, mean and mean absolute lift, the one-list-only teams with bounds, and lift by that season's conference. Variability by season block and the association with labels removed are stated as not estimated in the pilot.
+- **Rehearsal** on a scratch copy against release 4 (reference only): 22 teams on both lists, mean lift size 2.86 places; six provisional bye/host changes (Alabama, Notre Dame, Texas Tech, Wake Forest), no bid changes.
+
+## 2026-11-26 — Spec review of P22-lite: what was fixed and what is left open
+
+**Fixed:**
+- **A Selection Day report no longer says "final" when the committee's field depends on the Open Ranking's order (CG-02).** The committee publishes no order below 25, so unranked teams follow its 25 in Open Ranking order. If one of them reaches the committee's field (an unranked champion, or the six-conference place), the report lists it under `committee_field_from_tail`, is marked provisional, and says that place cannot be flagged. This also applies before Selection Day.
+- **Editions are chosen by what their data saw (CG-01).** An Open Ranking edition whose data was read after the reveal is passed over in both modes, so a later correction never stands in for the edition frozen beforehand. A forecast edition must have a cutoff before the reveal and must have been issued for this reveal. Editions passed over are listed in the report with the reason.
+- **Revisions sort by number**, so e10 is after e2.
+- **A replay report has its own name** (`gap-<season>-rNN-replay-eK`), so a rehearsal can never take the live report's place.
+- **Bid eligibility comes from the store's eligibility table** (eligible unless a sourced row says not), not from the forecast edition, so it is the same with or without a forecast.
+- A Selection Day report with an unreadable title-games file is refused cleanly.
+- The head-to-head series uses school names and says "tied" for a split. The report states that "decisive games" is a display rule (each team's three largest ledger rows); three is not in the proposal.
+- Tests added: what the report reads from a real store (frozen before the reveal, rebuilt and late editions excluded, changed file, missing champion); head-to-head with both ledgers, a split and two meetings; a bid change one rank apart; the Notre Dame guarantee; Selection Day with differing orders; the interval across the edge of the 25.
+
+**Open, not fixed:**
+- The six-conference place and any unranked champion on the committee's side cannot be flagged at all, for the reason above. A committee order below 25 does not exist to use.
+- If a forecast correction is issued after the reveal, the gap uses the earlier edition (the one frozen beforehand) and lists the correction as passed over; `cfp score` treats that earlier edition as superseded and not prospective. The two reports can therefore name different statuses for one edition.
+- Under the 2024 and 2025 rules (no named conferences) a Selection Day report is not refused for a missing champion; it comes out provisional. Replay only.
+- A conference whose best-placed team is ineligible refuses the whole weekly report (stand-in choice ignores eligibility; shared with the forecast's "field today").
+- Nothing checks how old the Open Ranking edition is; its cutoff is now printed in the report.
+- Scorecards still share one name between live and replay runs.
