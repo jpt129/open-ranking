@@ -224,3 +224,76 @@ def test_a_pairing_from_the_wrong_conference_is_refused_and_scenarios_share_draw
         skip_game="sec", pairings=pairings(skip="sec", scenarios={"sec": same}), estimate=lambda h, a, n: 0.6
     )
     assert doc["scenarios"][0]["teams"] == doc["scenarios"][1]["teams"]  # the same pairing, the same paths
+
+
+SEC_OPTIONS = [
+    Pairing("sec", DAY.date(), "R01", other, "scenario", "https://example.test/s", CUT, f"{other} gets in")
+    for other in ("R06", "R07")
+]
+
+
+def test_the_section_says_when_pairings_and_results_were_known() -> None:
+    doc = section(results_through=datetime(2026, 11, 29, 6, 56, tzinfo=UTC))
+    assert doc["pairings_disclosure"] == (
+        "Title pairings as known at 23:45 ET Saturday; results through 01:56 ET Sunday."
+    )
+    assert doc["notes"][0] == doc["pairings_disclosure"]
+    assert (doc["conditional_on_pairings"], doc["market_contest"]) == (False, "eligible")
+    assert doc["forecast"]["scenario_pairings"] == {}
+    scen = section(
+        skip_game="sec",
+        pairings=pairings(skip="sec", scenarios={"sec": SEC_OPTIONS}),
+        estimate=lambda home, away, neutral: 0.6,
+    )
+    assert scen["pairings_disclosure"] == (
+        "Title pairings as known at 23:45 ET Saturday; results through the cutoff. A result ingested after "
+        "23:45 ET Saturday may have ruled a listed scenario out."
+    )
+    assert scen["conditional_on_pairings"] is True
+    assert scen["market_contest"].startswith("excluded")
+    assert [run["scenario_pairings"] for run in scen["scenarios"]] == [
+        {"sec": ["R01", "R06"]},
+        {"sec": ["R01", "R07"]},
+    ]
+    assert any("no headline" in note for note in scen["notes"])
+    late = dict(pairings().decided)
+    late["sec"] = Pairing("sec", DAY.date(), "R01", "R06", "cfbd_schedule", "cfbd:/games", None)
+    fallback = section(pairings=Pairings(late, {}, [], "cd" * 32))
+    assert "schedule in the store at the cutoff" in fallback["pairings_disclosure"]
+    assert "sec" in fallback["pairings_disclosure"]
+
+
+def test_more_than_eight_combinations_are_not_delivered() -> None:
+    def three(conference: str, first: str, others: tuple[str, ...]) -> list[Pairing]:
+        return [
+            Pairing(conference, DAY.date(), first, o, "scenario", "https://example.test/s", CUT, f"{o} in")
+            for o in others
+        ]
+
+    league_of = league() | {"R07": "sec", "R08": "sec", "R10": "big-ten", "R11": "big-ten"}
+    league_of |= {"R15": "big-12", "R17": "big-12"}
+    many = {
+        "sec": three("sec", "R01", ("R06", "R07", "R08")),
+        "big-ten": three("big-ten", "R02", ("R09", "R10", "R11")),
+    }
+    found = Pairings({c: p for c, p in pairings().decided.items() if c not in many}, many, [], "cd" * 32)
+    with pytest.raises(FieldError, match="9 pairing scenarios are too many"):
+        section(pairings=found, conference_of=league_of, estimate=lambda home, away, neutral: 0.6)
+
+
+def test_an_open_league_that_takes_the_other_conferences_place_is_treated_as_named() -> None:
+    # the Sun Belt's teams take the place for the best of the other conferences on every path
+    with pytest.raises(FieldError, match=r"sun-belt.*other conferences' place"):
+        section(pairings=pairings(open=["sun-belt"]))
+    doc = section(pairings=pairings(open=["mid-american"]))  # none of its teams takes that place
+    assert doc["open_pairings"] == ["mid-american"]
+
+
+def test_only_the_sunday_issue_names_an_entry_time() -> None:
+    import copy
+
+    doc = copy.deepcopy(dict(NOISE.document))
+    doc["temperatures"]["baseline2"]["tminus60"] = doc["temperatures"]["baseline2"]["sun0200"]
+    line = section(issue="tminus60", noise=Noise(2026, "ab" * 32, doc))["pairings_disclosure"]
+    assert "23:45" not in line
+    assert "start of the issuing run" in line

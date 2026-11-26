@@ -473,6 +473,14 @@ def build_issue(
                 estimate=estimate,
                 stem=stem,
                 paths=PATHS,
+                # live only: in a replay the store's ingest times are later than the cutoff and say nothing
+                results_through=(
+                    all_games.filter((pl.col("season") == season) & (pl.col("ingest_time") <= cutoff))[
+                        "ingest_time"
+                    ].max()  # type: ignore[arg-type]
+                    if mode == "live" and "ingest_time" in all_games.columns
+                    else None
+                ),
             )
             field_inputs = [
                 input_id("lines", all_lines, lake.spec("lines").key),

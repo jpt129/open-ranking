@@ -537,3 +537,23 @@ def test_due_command_prints_issue_date_and_cutoff(tmp_path: Path, capsys: pytest
     assert capsys.readouterr().out.split() == ["sun0200", "2026-12-01", str(int(CUTOFF.timestamp()))]
     assert main([*base, "--now", (CUTOFF - timedelta(days=2)).isoformat()]) == 0
     assert capsys.readouterr().out == ""
+
+
+def test_a_title_file_that_cannot_be_read_never_stops_the_issue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Saved with a byte-order mark, or a row cut short: the top 25 still goes out, and says what it lacks."""
+    head = (
+        "season,conference,game_date,team_a,team_b,site,site_type,basis,source_url,notes,first_public_utc\n"
+    )
+    for k, text in enumerate(("\ufeff" + head, head + "2026,Sun Belt,2026-12-05,Troy,Marshall\n")):
+        root = tmp_path / str(k)
+        world(root)
+        (root / "data").mkdir(exist_ok=True)
+        (root / "data" / "title_games.csv").write_text(text)
+        assert run_live(root, CUTOFF + timedelta(minutes=1), monkeypatch) == 0
+        (edition,) = (root / "lake" / "editions").iterdir()
+        doc = json.loads((edition / "edition.json").read_bytes())
+        assert doc["final_field"] is None
+        assert len(doc["forecasts"]["baseline2"]["rows"]) >= 25
+    assert "open points are missing" in capsys.readouterr().err

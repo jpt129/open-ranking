@@ -14,22 +14,28 @@ from __future__ import annotations
 import itertools
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta
-from typing import Any, Final
+from typing import Any
 
 import polars as pl
 
 from cfp.common.hashing import sha256_hex
 from cfp.forecast.baselines import LOSS_STEP
+from cfp.forecast.cutoffs import ET
 from cfp.forecast.final_field import BASELINE, FieldError, Setup, field_today, run
 from cfp.forecast.noise_params import Noise, NoiseError
-from cfp.forecast.pairings import Pairing, Pairings
+from cfp.forecast.pairings import (
+    MAX_SCENARIOS,
+    OPEN_GROUP_LIMIT,
+    PAIRINGS_LEAD,
+    Pairing,
+    Pairings,
+)
 from cfp.forecast.rank_noise import published_probability
 from cfp.forecast.sim_inputs import fit_history, slate
 from cfp.forecast.simulator import Game, simulate
 from cfp.rules.engine import RulesError, load_rules
 from cfp.scoring.integrity import check_path
 
-MAX_SCENARIOS: Final = 8
 Estimate = Callable[[str, str, bool], float | None]
 
 
@@ -56,6 +62,7 @@ def build_field(
     estimate: Estimate | None,
     stem: str,
     paths: int,
+    results_through: datetime | None = None,
 ) -> dict[str, Any]:
     """The `final_field` section. `rows` are Baseline 2's rows; `games` and `lines` cover every season.
 
@@ -93,7 +100,9 @@ def build_field(
     )
     start = dict(seasonal.select("game_id", "start_utc").iter_rows())
 
-    def one(decided: Mapping[str, Pairing], label: str | None) -> dict[str, Any]:
+    def one(
+        decided: Mapping[str, Pairing], label: str | None, chosen: Mapping[str, Pairing] | None = None
+    ) -> dict[str, Any]:
         champions: dict[str, str] = {}
         title_games: dict[str, str] = {}
         extra: list[Game] = []
@@ -212,6 +221,7 @@ def build_field(
         extras = {g.game_id: "strength" for g in extra}
         return {
             "scenario": label,
+            "scenario_pairings": {c: sorted([p.team_a, p.team_b]) for c, p in sorted((chosen or {}).items())},
             "seeds": {"games": simulated.seed, "order": result.order_seed},
             "games": [
                 {
@@ -249,8 +259,44 @@ def build_field(
     for combo in combos:
         decided = dict(pairings.decided) | {conference: pair for conference, pair in combo}
         label = "; ".join(f"{conference}: {pair.scenario}" for conference, pair in combo) or None
-        runs.append(one(decided, label))
+        runs.append(one(decided, label, dict(combo)))
+    # An open league's teams play no title game on any path, so neither finalist takes the loss. If such a
+    # league's teams take the place for the best of the other conferences often, it is treated as named.
+    for conference in pairings.open:
+        mine = {team for team, league in conference_of.items() if league == conference}
+        # an open league has no champion on any path, so its teams' only automatic place is the shared one
+        share = max(
+            sum(t["route_paths"].get("automatic", 0) for t in found["teams"] if t["team_id"] in mine) / paths
+            for found in runs
+        )
+        if share > OPEN_GROUP_LIMIT:
+            raise FieldError(
+                f"the {conference} pairing is open and its teams take the other conferences' place in "
+                f"{share:.1%} of paths (limit {OPEN_GROUP_LIMIT:.0%}); it needs a pairing or scenarios"
+            )
+    conditional = len(runs) > 1 or bool(runs[0]["scenario"])
+
+    def clock(moment: datetime) -> str:
+        local = moment.astimezone(ET)
+        return f"{local:%H:%M} ET {local:%A}"
+
+    as_known = clock(cutoff - PAIRINGS_LEAD)
+    through = clock(results_through) if results_through is not None else "the cutoff"
+    if issue != "sun0200":  # only the Sunday issue has a ruled entry time
+        as_known = "the start of the issuing run, up to two hours before the cutoff"
+    disclosure = f"Title pairings as known at {as_known}; results through {through}."
+    if conditional:
+        after = as_known if issue == "sun0200" else "that"
+        disclosure += f" A result ingested after {after} may have ruled a listed scenario out."
+    secondary = sorted(c for c, p in pairings.decided.items() if p.basis == "cfbd_schedule")
+    if secondary:
+        disclosure += (
+            " Taken from the schedule in the store at the cutoff, not from a conference: "
+            + ", ".join(secondary)
+            + "."
+        )
     notes = [
+        disclosure,
         f"Baseline only: every loss, including a title-game loss, costs {LOSS_STEP} places. "
         "The fitted title-week drop the plan specified (shrunk toward the weekly value) scored worse than "
         "the baseline on 2017-2025 and was not promoted. An unshrunk version scored better, but it was "
@@ -276,9 +322,11 @@ def build_field(
             + ", ".join(pairings.open)
             + ". Their teams take no title-game result."
         )
-    if len(runs) > 1 or runs[0]["scenario"]:
+    if conditional:
         notes.append(
-            "A pairing was not official at the cutoff: each scenario is run separately and none is weighted."
+            "A pairing was not final at the cutoff: each scenario is run separately. None is weighted, "
+            "merged or averaged, and there is no headline scenario. The scenario that matches the actual "
+            "pairings is the one scored, as conditional on pairings, apart from unconditional issues."
         )
     return {
         "model": "baseline",
@@ -302,8 +350,14 @@ def build_field(
             for _, p in sorted(pairings.decided.items())
         ],
         "open_pairings": list(pairings.open),
+        "ignored_pairing_rows": list(pairings.ignored),
+        "pairings_disclosure": disclosure,
+        "conditional_on_pairings": conditional,
+        "market_contest": "excluded: the field forecast is conditional on pairings"
+        if conditional
+        else "eligible",
         "invalid_quotes": made.invalid_quotes,
-        "scenarios": runs if (len(runs) > 1 or runs[0]["scenario"]) else None,
-        "forecast": runs[0] if len(runs) == 1 and not runs[0]["scenario"] else None,
+        "scenarios": runs if conditional else None,
+        "forecast": None if conditional else runs[0],
         "notes": notes,
     }

@@ -66,6 +66,7 @@ def test_field_section_is_scored_against_the_actual_field() -> None:
     assert (got["teams"], got["bubble"], got["lead"]) == (20, ["T02", "T03", "T04"], "r06-tminus60")
     (run,) = got["runs"]
     assert run["scenario"] is None
+    assert (got["basis"], got["market_contest"]) == ("unconditional", "eligible")
     low, high = published_probability(0, PATHS), published_probability(PATHS, PATHS)
     assert 0 < low < high < 1  # a team with no paths is still scored, half a path from zero
     field = ((1 - high) ** 2 + 0.8**2 + (1 - 0.2) ** 2 + 17 * low**2) / 20
@@ -83,16 +84,35 @@ def test_field_section_is_scored_against_the_actual_field() -> None:
     assert run["scores"]["overall"]["field"]["log_loss"] > 0
 
 
-def test_scenarios_are_scored_one_by_one_and_never_combined() -> None:
+def test_only_the_scenario_that_matches_the_actual_pairings_is_scored() -> None:
     other = [team("T01", 100, 100, {"automatic": 100}), team("T03", 100, 0, {"at_large": 100})]
-    runs = [{"scenario": "sec: A v B", "teams": RUN}, {"scenario": "sec: A v C", "teams": other}]
-    got = score_field_section(edition({"paths": PATHS, "forecast": None, "scenarios": runs}), ACTUAL)
-    assert [r["scenario"] for r in got["runs"]] == ["sec: A v B", "sec: A v C"]
-    first, second = (r["scores"]["overall"]["field"]["brier"] for r in got["runs"])
-    assert second < first  # the second scenario had both teams right
-    assert "weight" in got["note"]
+    runs = [
+        {"scenario": "sec: A v B", "scenario_pairings": {"sec": ["T01", "T02"]}, "teams": RUN},
+        {"scenario": "sec: A v C", "scenario_pairings": {"sec": ["T01", "T03"]}, "teams": other},
+    ]
+    doc = edition({"paths": PATHS, "forecast": None, "scenarios": runs})
+    played = {"sec": frozenset({"T03", "T01"}), "acc": frozenset({"T05", "T06"})}
+    got = score_field_section(doc, ACTUAL, played)
+    (run,) = got["runs"]  # no merged or averaged score, and no headline scenario
+    assert run["scenario"] == "sec: A v C"
+    assert got["basis"] == "conditional on pairings"
+    assert got["not_scored"] == ["sec: A v B"]
+    assert got["market_contest"].startswith("excluded")
+    assert "never combined" in got["note"]
     assert got["bubble"] == []  # no bubble was fixed at the issue: none is made up afterwards
-    assert got["runs"][0]["scores"]["by"]["bubble"].keys() == {"other"}
+    assert run["scores"]["by"]["bubble"].keys() == {"other"}
+    alone = score_field_section(edition({"paths": PATHS, "forecast": {"teams": other}}), ACTUAL)
+    assert run["scores"] == alone["runs"][0]["scores"]
+
+    nobody = score_field_section(doc, ACTUAL, {"sec": frozenset({"T08", "T09"})})
+    assert nobody["runs"] == []
+    assert nobody["not_scored"] == ["sec: A v B", "sec: A v C"]
+    assert "no listed scenario" in nobody["note"]
+    assert nobody["basis"] == "conditional on pairings"
+    with pytest.raises(ScoreRefused, match="actual pairings"):
+        score_field_section(doc, ACTUAL)
+    with pytest.raises(ScoreRefused, match="actual pairings"):
+        score_field_section(doc, ACTUAL, {"acc": frozenset({"T05", "T06"})})  # the SEC game is not on file
 
 
 def test_a_field_team_the_edition_never_listed_refuses() -> None:

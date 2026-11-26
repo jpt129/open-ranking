@@ -226,3 +226,11 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - 26 Nov, after John's review: route marks and one-line cut-line definition; field-code and table hashes; environment record; ten-minute limit; import contract and test that forecast issues never run it. 549 tests pass. Decisions and answers A–D are in DECISIONS (26 Nov, "VT-08 accepted").
 - Freeze after Friday's dry run: only fixes the dry run turns up. Sensitivity follow-ups wait until after Issue 1.
 - Next: Friday timed dry run (build, sensitivity, gate, publish timed on the issuing machine; two title-pairing paths); pairings as they become official.
+
+## 2026-11-26 — title pairings: rules for Issue 1
+
+- IDs: FF-04, VT-12, VT-08 (page), MK (flag only).
+- Added: the source rule and `review_pairings` in `cfp.forecast.pairings`; command `cfp forecast pairings`; the 5% rule, disclosure line and conditional flags in `cfp.release.field`; scoring of the matching scenario only in `cfp.scoring.scorecard`; "assumed" on the sensitivity page; a `result_url` column in both pairing files.
+- 558 tests pass. Spec review run; one high finding fixed (an unreadable title file stopped the whole issue).
+- Live pairings today: Big Ten 8, SEC 3, Big 12 2 (48 combinations; limit 8). Recount after Friday's games.
+- Next: Friday dry run. Time the eight-combination case from ingest to finished issue; rehearse a malformed CSV at checkout, scenarios collapsing to a final pairing at 23:30, late-Saturday entry, and the field section not delivered; time build, sensitivity, gate and publish.

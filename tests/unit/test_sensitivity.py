@@ -797,3 +797,10 @@ def test_route_words_on_the_page() -> None:
     assert said("at_large", 10, 7) == "at large; in other than at large in 30.0% of refits"
     assert said(None, 2, 0) == "not in; in other than at large in 20.0% of refits"
     assert said(None, 0, 0) == ""
+
+    from cfp.release.page import _share
+
+    stand_in = {"route_as_published": "auto:sec", "qualifies": 10, "qualifies_at_large": 0}
+    assert _share(stand_in, scenario, 10) == "assumed"  # an input to the scenario, not a result
+    assert _share(stand_in | {"route_as_published": "auto:acc"}, scenario, 10) == "100.0%"
+    assert _share(stand_in | {"route_as_published": "at_large", "qualifies": 3}, scenario, 10) == "30.0%"

@@ -108,6 +108,14 @@ def _route(row: Mapping[str, Any], scenario: Mapping[str, Any], refits: int) -> 
     return f"at large; {some}" if some else "at large"
 
 
+def _share(row: Mapping[str, Any], scenario: Mapping[str, Any], refits: int) -> str:
+    """Share of refits in the field. A stand-in champion is in every refit by assumption, not as a result."""
+    route = row["route_as_published"] or ""
+    if route.startswith("auto:") and route[5:] in scenario["stand_ins"]:
+        return "assumed"
+    return f"{100 * row['qualifies'] / refits:.1f}%"
+
+
 def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
     """The section for a sensitivity report whose refits the gate reran."""
     refits = int(report["refits"])
@@ -123,7 +131,7 @@ def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
             f"<tr><td>{row['open_rank']}</td><td>{escape(names.get(row['team_id'], row['team_id']))}</td>"
             f"<td class=n>{first} to {last}</td><td class=n>{_signed(row['cut_margin_cp'])}</td>"
             f"<td class=n>{_points(low)} to {_points(high)}</td>"
-            f"<td class=n>{100 * row['qualifies'] / refits:.1f}%</td>"
+            f"<td class=n>{_share(row, scenario, refits)}</td>"
             f"<td>{escape(_route(row, scenario, refits))}</td></tr>"
         )
     fixed = scenario["champions"] | scenario["stand_ins"]
@@ -147,7 +155,8 @@ ineligible is out above the line.</p>
 <th class=n>Margin to cut line</th><th class=n>Margin range</th><th class=n>In the field</th>
 <th>In by</th></tr>
 {"".join(rows)}</table></div>
-<p class=mute>The top {SHOWN} teams and any other team that reached the field in a refit. Every team is in
+<p class=mute>"Assumed" marks a stand-in champion: its place is an input to the scenario, not a result.
+The top {SHOWN} teams and any other team that reached the field in a refit. Every team is in
 <a href="sensitivity.json">sensitivity.json</a>, with the seed (<code>{report["seed"]}</code>) and a digest
 of each refit.</p>
 <p class=mute>Reproducible in the recorded environment: {escape(where["os"])}, {escape(where["python"])},

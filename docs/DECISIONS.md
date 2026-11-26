@@ -865,3 +865,55 @@ Open, not fixed (after Issue 1):
 - A sensitivity file written before this change fails the check and needs `--revision 2`. None exists in the real store.
 - The gate's own ten-refit rerun runs in-process with no time limit.
 - The route marks and the cut-line paragraph are worded for 2026's rules; seasons with a top-four field would read oddly.
+
+## 2026-11-26 — Title pairings for Issue 1: John's rulings (FF-04, VT-12, MK)
+
+John accepted `e8a7d8e` with one change: on the sensitivity page a stand-in champion shows "assumed" in the field-share column, because its place is an input to the scenario, not a result (VT-08).
+
+**Cut-off and trigger.** Pairings are on main by 23:45 ET Saturday; the trigger time does not change. The issuing run checks the code and `data/` out once, when it starts (first trigger 00:00 ET Sunday), so nothing pushed later is in Issue 1.
+
+**Scenarios first (FF-04).** By 19:00 ET Saturday `data/title_scenarios.csv` lists every pairing still possible for each open named conference, from the conference's own published clinching scenarios. A pairing settled before 23:45 goes in `data/title_games.csv` and replaces that conference's scenarios (the code already ignores scenarios for a decided conference). The fallback at the cut-off is scenarios.
+
+**Source rule (FF-04).** A hand row is final only when its basis is `conference_release` (the conference announced the pairing) or `conference_scenario+result` (the conference's published scenario in `source_url`, the final score that triggers it in the new `result_url` column, and the later of the two first-public times). A row on any other basis settles nothing: its teams are not used and the row is listed in the section's `ignored_pairing_rows`. Media tiebreak projections do not count. Both files gained a trailing `result_url` column; no other byte of either changed.
+- Effect today: the Conference USA and Pac-12 rows rest on media trackers, so they no longer count as official. Both pairings still resolve from the store's schedule, labelled `cfbd_schedule`.
+- **Open, for John:** the schedule fallback (approved 25 Nov) can settle a pairing at the 02:00 cutoff from CFBD, which is neither the conference's word nor known at 23:45. The disclosure line names any conference it was used for. Whether it should be kept for named conferences is not ruled.
+
+**Named conferences and the other conferences' place.** 2026's rules name the ACC, Big Ten, Big 12 and SEC; a named conference with no pairing and no scenarios stops the section. The place for the best of the other six conferences goes, on every path, to the highest-placed team of those conferences in that path's order; it does not need a champion. A league with an open pairing plays no title game on any path, so neither finalist takes the five-place loss and both are placed too high. Ruling: if an open league's teams take that place in more than 5% of paths (in any scenario), the section is not delivered and the reason names the league (`OPEN_GROUP_LIMIT`).
+
+**Above the limit.** More than eight scenario combinations: the section is not delivered, with the count in the reason (already so; now tested at nine).
+
+**Scoring (VT-12, MK), fixed before Issue 1.**
+- No merged or averaged field and no headline scenario. Each scenario is run and published on its own.
+- The scenario whose pairings were the ones played is the one scored. Its card says `basis: conditional on pairings`, apart from unconditional issues (`basis: unconditional`). The others are listed under `not_scored`. If none matches, nothing is scored and the card says so.
+- An issue whose field section is scenarios is out of the market contest: the section and the card carry `market_contest: excluded`. The contest code (MK, not built) must read that flag.
+- The pre-reveal hash covers every scenario's output: all scenarios are in the one edition document, which is hashed, timestamped and tagged as a whole.
+- Each scenario run records `scenario_pairings` (conference to its two teams), which is what scoring matches against the title file.
+
+**Disclosure.** The field section's first note and `pairings_disclosure`: "Title pairings as known at 23:45 ET Saturday; results through <latest ingest time of the season's games>." With scenarios it adds that a result ingested after 23:45 may have ruled a listed scenario out; with a schedule fallback it names the conferences. The 23:45 is the cutoff less 2 h 15 min: it states the entry procedure, which the code cannot enforce.
+
+**Safe entry.** `cfp forecast pairings --season 2026 --cutoff 2026-11-29T07:00:00+00:00` reads both files as the issue will and prints what each conference resolves to, the combination count, and every problem (unknown team, team from another league, row with no or late first-public time, named conference with nothing on file, over eight combinations, unreadable file). Exit 0 means the files read cleanly and every named conference is covered. If a file is malformed at checkout the issue still goes out: the weekly forecast is whole, `final_field` is null and `final_field_error` gives the reason (tested with three kinds of broken file).
+
+**Count of live pairings, 26 Nov about 18:45 UTC** (web research; see DATA_GAPS):
+- Big Ten: 8 possible pairings among six teams alive (UCLA, Oregon, Indiana, Iowa, Ohio State, USC), derived from the conference's 23 Nov clinch release.
+- SEC: 3 (Georgia against Texas, Alabama or Tennessee). No conference-published scenarios were found; the count rests on media.
+- Big 12: 2 (Utah against Texas Tech or BYU), from the conference's tiebreaker page; TCU at Texas Tech tonight can settle it.
+- Product 48, or 24 if the Big 12 settles tonight. Over the limit of eight, so as things stand the field section would not be delivered. Recount after Friday's games.
+
+Not built or not checked: `cfp forecast pairings` has no command-level test (its checking function does; the command was run on the real files). The market contest itself. The 19:00 scenario entry is a procedure, not code.
+
+**Spec review of the pairing rules (26 Nov).** No leak found. Fixed:
+- **High: a title file that could not be read stopped the whole issue.** The command read `data/title_games.csv` for open points before the issue was built and caught only some errors; a file saved with a byte-order mark, or a row cut short, ended the run with no edition. It now catches everything there: the top 25 goes out without open points (stated in the edition) and without the field section. Tested at the command. This is the one case where the top 25 is not "as normal": open points need the title list.
+- `cfp forecast pairings` now also reads the file the way the open-points build does and says when that would fail.
+- "Results through" is given only in live mode, from game rows ingested by the cutoff; a replay says "the cutoff". It is the last time a game row of the season changed in the store, not the time of the last ingest run.
+- Only the Sunday issue names 23:45 ET Saturday. A reveal-minus-60 issue says "the start of the issuing run, up to two hours before the cutoff", since no entry time is ruled for it.
+- The same pairing listed twice for a conference is refused, so two scenarios cannot both match what was played.
+- An edition whose scenarios record no pairings is refused with a plain reason; an edition none of whose scenarios matched is marked not scored.
+
+Open, not fixed:
+- **For John:** the schedule fallback against the source rule (above).
+- The check cannot test the 5% rule (it needs the simulation) and says so in capitals. With four of the other six leagues open today, the field section is likely to be refused on that rule unless their pairings or scenarios are entered too.
+- The check reads the local store's schedule and membership, not the data repository's.
+- Under 2024 and 2025 rules an open league simply has no champion; the 5% rule does nothing there. Not relevant to 2026.
+- A league counted open because the schedule shows two candidate games still has those games simulated as ordinary games.
+- No pooled table yet separates conditional from unconditional issues; each card carries its `basis`.
+- SPEC FF-04 says scenarios are published when they alter a bid; the eight-combination limit and the 5% rule are John's rulings and narrow that.

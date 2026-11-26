@@ -181,3 +181,31 @@ def test_a_bracket_that_fails_the_per_path_check_refuses_the_field(tmp_path: Pat
     doc = issue(world2, noise=noise(tmp_path / "b"), pairing_files=title_files(tmp_path)).doc
     assert doc["final_field"] is None
     assert "two teams hold seed 5" in doc["final_field_error"]
+
+
+def test_a_malformed_pairings_file_costs_only_the_field_section(tmp_path: Path) -> None:
+    titles, scenarios = title_files(tmp_path)
+    fitted = noise(tmp_path)
+    for garbage in ("not a csv at all\n", HEAD + "2026,SEC,not-a-date,School T01,,,neutral,x,nope,,\n", ""):
+        titles.write_text(garbage)
+        doc = issue(
+            field_world(tmp_path / str(len(garbage))),
+            noise=fitted,
+            pairing_files=(titles, scenarios),
+        ).doc
+        assert doc["final_field"] is None
+        assert doc["final_field_error"]
+        assert len(doc["forecasts"]["baseline2"]["rows"]) >= 25  # the top 25 goes out as normal
+    titles, _ = title_files(tmp_path)
+    scenarios.write_text("season,conference\n2026,SEC\n")
+    doc = issue(field_world(tmp_path / "s"), noise=fitted, pairing_files=(titles, scenarios)).doc
+    assert doc["final_field"] is None
+    assert doc["final_field_error"]
+
+
+def test_the_issue_states_its_pairings_and_results_times(tmp_path: Path) -> None:
+    doc = issue(field_world(tmp_path), noise=noise(tmp_path), pairing_files=title_files(tmp_path)).doc
+    line = doc["final_field"]["pairings_disclosure"]
+    assert line.startswith("Title pairings as known at ")
+    assert "; results through " in line
+    assert "the cutoff" not in line  # the store's latest ingest time is given

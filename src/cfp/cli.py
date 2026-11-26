@@ -82,6 +82,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     draw = forecast_kinds.add_parser("draw", help="write the season's tiebreak draw to the data directory")
     draw.add_argument("--season", type=int, required=True)
+    check = forecast_kinds.add_parser(
+        "pairings", help="check data/title_games.csv and title_scenarios.csv as an issue would read them"
+    )
+    check.add_argument("--season", type=int, required=True)
+    check.add_argument("--cutoff", help="the issue's cutoff, UTC (default: now)")
     due = forecast_kinds.add_parser("due", help="print the issue due now, its reveal date and cutoff, if any")
     due.add_argument("--season", type=int, required=True)
     due.add_argument("--now", help="frozen clock, for tests")
@@ -464,6 +469,79 @@ def _forecast_fit_noise(args: argparse.Namespace) -> int:
     return 0
 
 
+def _forecast_pairings(args: argparse.Namespace) -> int:
+    """Read the two pairing files as an issue would and say what it would do. Writes nothing."""
+    from datetime import date, datetime
+
+    import polars as pl
+
+    from cfp.common.timeutil import require_utc, utc_now
+    from cfp.forecast.pairings import review_pairings
+    from cfp.rules.engine import load_rules
+    from cfp.store.lake import Lake
+
+    now = utc_now()
+    cutoff = require_utc(datetime.fromisoformat(args.cutoff), "--cutoff") if args.cutoff else now
+    lake = Lake(args.lake)
+    data = Path(args.data)
+    try:
+        rules = load_rules(args.season)
+        names = dict(lake.as_of("teams", now, "replay").frame.select("name", "team_id").iter_rows())
+        day = date(args.season, 12, 1)
+        membership = lake.as_of("membership", now, "replay").frame.filter(
+            (pl.col("valid_from") <= day) & (pl.col("valid_to").is_null() | (pl.col("valid_to") >= day))
+        )
+        members = dict(membership.select("team_id", "conference_id").drop_nulls().iter_rows())
+        games = lake.as_of("games", now, "replay", season=args.season).frame
+    except Exception as error:
+        print(
+            f"cannot check: the local store could not be read: {type(error).__name__}: {error}",
+            file=sys.stderr,
+        )
+        return 1
+    from cfp.snapshot.data import load_title_games
+
+    unreadable = None
+    try:  # the issue also reads the title file for open points; a file that fails here costs them too
+        load_title_games(data / "title_games.csv")
+    except Exception as error:
+        unreadable = f"{type(error).__name__}: {error}"
+    found = review_pairings(
+        data / "title_games.csv",
+        data / "title_scenarios.csv",
+        args.season,
+        cutoff,
+        names,
+        members,
+        games=games,
+        named=rules.named,
+        group_leagues=rules.group,
+    )
+    id_name = {team: name for name, team in names.items()}
+    print(f"as an issue with cutoff {cutoff.isoformat()} would read the files (schedule: the local store's):")
+    for line in found.lines:
+        for team, name in id_name.items():
+            line = line.replace(f" {team} v ", f" {name} v ").replace(f" v {team} ", f" v {name} ")
+            if line.endswith(f" v {team}"):
+                line = line[: -len(team)] + name
+        print(f"  {line}")
+    print(f"scenario combinations: {found.combinations} (limit 8)")
+    for warning in found.warnings:
+        print(f"WARNING: {warning}")
+    if unreadable:
+        found.problems.append(
+            f"title_games.csv cannot be read for open points ({unreadable}): the issue would go out with no "
+            "open points and no field section"
+        )
+    for problem in found.problems:
+        print(f"PROBLEM: {problem}", file=sys.stderr)
+    if found.problems:
+        print("NOT OK: with these files the issue would go out with the field section not delivered")
+    else:
+        print("OK: the files read cleanly and every named conference has a pairing or scenarios")
+    return 1 if found.problems else 0
+
+
 def _forecast_due(args: argparse.Namespace) -> int:
     from datetime import datetime
 
@@ -527,7 +605,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
         return 1
     frozen, lists, note = None, None, None
     try:  # open points (SC-04a); without them the issue still goes out and says so
-        from cfp.open_ranking.frozen import FrozenError, load_frozen
+        from cfp.open_ranking.frozen import load_frozen
         from cfp.snapshot.data import load_forfeits, load_title_games, load_unplayed
 
         frozen = load_frozen(args.frozen, args.season)
@@ -536,7 +614,7 @@ def _forecast_issue(args: argparse.Namespace, clock: Callable[[], datetime] | No
             "forfeits": load_forfeits(data / "forfeits.csv"),
             "unplayed": load_unplayed(data / "unplayed_games.csv"),
         }
-    except (FrozenError, OSError, ValueError) as error:
+    except Exception as error:  # a hand file that cannot be read must not cost the forecast its deadline
         frozen, lists, note = None, None, f"{type(error).__name__}: {error}"
     designations = None
     if (data / "committee_designations.csv").exists():
@@ -1041,11 +1119,13 @@ def _score(args: argparse.Namespace, clock: Callable[[], datetime] | None = None
                     f"  {card['edition_id']} ({tag}): WARNING: not scored: {card['error']}", file=sys.stderr
                 )
                 continue
+            if not card["runs"]:
+                print(f"  {card['edition_id']} ({tag}) [conditional on pairings]: {card.get('note')}")
             for run in card["runs"]:
                 field, bye = run["scores"]["overall"]["field"], run["scores"]["overall"]["bye"]
                 bubble = run["scores"]["by"]["bubble"].get("bubble", {}).get("field")
                 edge = "none fixed at issue" if not bubble else f"{bubble['brier']:.4f} on {bubble['n']}"
-                which = f" [{run['scenario']}]" if run["scenario"] else ""
+                which = f" [conditional on pairings: {run['scenario']}]" if run["scenario"] else ""
                 print(
                     f"  {card['edition_id']} ({tag}){which}: field Brier {field['brier']:.5f},"
                     f" log loss {field['log_loss']:.5f} on {field['n']} teams;"
@@ -1566,6 +1646,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _forecast_fit_noise(args)
     elif args.command == "forecast" and args.kind == "draw":
         return _forecast_draw(args)
+    elif args.command == "forecast" and args.kind == "pairings":
+        return _forecast_pairings(args)
     elif args.command == "forecast" and args.kind == "due":
         return _forecast_due(args)
     elif args.command == "forecast" and args.kind == "issue":

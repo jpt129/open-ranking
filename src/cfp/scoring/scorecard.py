@@ -16,6 +16,7 @@ from typing import Any, Final
 import polars as pl
 
 from cfp.forecast.observations import fbs_field
+from cfp.forecast.pairings import conference_id as conference_key
 from cfp.forecast.rank_noise import published_probability
 from cfp.ingest.cfp_releases import load_schedule
 from cfp.open_ranking.strength import INDEPENDENT
@@ -26,6 +27,7 @@ from cfp.rules.engine import Entry, RulesError, load_rules, select_field
 from cfp.scoring.field import FieldRow, field_scores
 from cfp.scoring.integrity import IntegrityError, check_section
 from cfp.scoring.weekly import RANKED, cumulative_from_counts, score_weekly, top25_scores
+from cfp.snapshot.data import load_title_games
 from cfp.store.lake import Lake
 from cfp.store.types import Mode
 
@@ -194,11 +196,19 @@ def _automatic(route: str | None) -> bool:
     return bool(route) and str(route).startswith("auto")
 
 
-def score_field_section(doc: Mapping[str, Any], entries: Mapping[str, Any]) -> dict[str, Any]:
+def score_field_section(
+    doc: Mapping[str, Any],
+    entries: Mapping[str, Any],
+    played: Mapping[str, frozenset[str]] | None = None,
+) -> dict[str, Any]:
     """Brier and log loss for one edition's field and bye probabilities against the actual field (VT-12).
 
     Every team the edition listed is scored; a team with no paths was published half a path from zero and is
-    scored at that. The bubble is the one the edition fixed at issue. Scenarios are scored one by one.
+    scored at that. The bubble is the one the edition fixed at issue.
+
+    An edition issued as scenarios is scored on the one scenario whose pairings were the ones played
+    (`played`: conference -> the two teams), as conditional on pairings. The others are listed, not scored.
+    Nothing is merged or averaged, and such an edition is out of the market contest.
     """
     section = doc["final_field"]
     paths = int(section["paths"])
@@ -214,6 +224,24 @@ def score_field_section(doc: Mapping[str, Any], entries: Mapping[str, Any]) -> d
     runs = [section["forecast"]] if section.get("forecast") else list(section.get("scenarios") or [])
     if not runs:
         raise ScoreRefused("the field section holds no forecast and no scenarios")
+    conditional = not section.get("forecast")
+    not_scored: list[str] = []
+    if conditional:
+        if any(not isinstance(run.get("scenario_pairings"), dict) for run in runs):
+            raise ScoreRefused("the edition's scenarios do not record their pairings, so none can be matched")
+        wanted = sorted({league for run in runs for league in run["scenario_pairings"]})
+        missing = [league for league in wanted if played is None or league not in played]
+        if missing or played is None:
+            raise ScoreRefused(
+                f"the actual pairings are not on file for: {', '.join(missing) or 'any league'}"
+            )
+        matches = [
+            run
+            for run in runs
+            if all(frozenset(pair) == played[league] for league, pair in run["scenario_pairings"].items())
+        ]
+        not_scored = [str(run.get("scenario")) for run in runs if run not in matches]
+        runs = matches
     scored = []
     for run in runs:
         said = {str(team["team_id"]): team for team in run["teams"]}
@@ -247,11 +275,28 @@ def score_field_section(doc: Mapping[str, Any], entries: Mapping[str, Any]) -> d
         "teams": len(population),
         "bubble": cohort,
         "runs": scored,
+        "basis": "conditional on pairings" if conditional else "unconditional",
+        "market_contest": "excluded: conditional on pairings" if conditional else "eligible",
     }
-    if len(scored) > 1 or scored[0]["scenario"]:
+    if conditional:
+        out["not_scored"] = not_scored
         out["note"] = (
-            "Each scenario is scored on its own. None was given a weight at issue, so none is combined."
+            "Scored: the one scenario whose pairings were played, conditional on pairings and apart from "
+            "unconditional issues. Scenarios are never combined, merged or averaged."
+            if scored
+            else "Not scored: no listed scenario matches the pairings that were played. Scenarios are never "
+            "combined."
         )
+    return out
+
+
+def actual_pairings(lake: Lake, data: Path, season: int, now: datetime) -> dict[str, frozenset[str]]:
+    """Conference -> the two teams of its title game, from the title file once every pairing is on it."""
+    ids = dict(lake.as_of("teams", now, "replay").frame.select("name", "team_id").iter_rows())
+    out: dict[str, frozenset[str]] = {}
+    for title in load_title_games(data / "title_games.csv"):
+        if title.season == season and title.team_a in ids and title.team_b in ids:
+            out[conference_key(title.conference)] = frozenset({ids[title.team_a], ids[title.team_b]})
     return out
 
 
@@ -288,6 +333,7 @@ def _field_card(
     releases: pl.DataFrame,
     entries: Mapping[str, Entry],
     superseded: bool,
+    played: Mapping[str, frozenset[str]] | None = None,
 ) -> dict[str, Any]:
     """One edition's field forecast, scored. Its prospective status is judged against the store's release."""
     card: dict[str, Any] = {"edition_id": name, "sha256": row["sha256"]}
@@ -307,7 +353,7 @@ def _field_card(
             "not_prospective_because": why,
         }
         card["integrity"] = _integrity(doc)
-        card |= score_field_section(doc, entries)
+        card |= score_field_section(doc, entries, played)
     except (ScoreRefused, ValueError, KeyError, TypeError) as error:
         card.setdefault("prospective", False)
         card |= {"runs": None, "error": f"{type(error).__name__}: {error}"}
@@ -361,12 +407,16 @@ def _field_outcome(
             if team in eligible  # FBS teams only
         }
         entries = actual_field(season, actual, champions, eligible=eligible, conference_of=members)
+        try:  # needed only by an edition issued as scenarios, which is refused on its own without it
+            played: dict[str, frozenset[str]] | None = actual_pairings(lake, data, season, now)
+        except Exception:
+            played = None
     except (ScoreRefused, OSError, RuntimeError, ValueError, TypeError, KeyError) as error:
         reason = str(error) if isinstance(error, ScoreRefused) else f"{type(error).__name__}: {error}"
         return {"scored": False, "reason": reason, "unreadable": unreadable}
     replaced = {doc["supersedes"] for doc, _ in docs.values() if doc.get("supersedes")}
     editions = [
-        _field_card(name, doc, row, releases, entries, name in replaced)
+        _field_card(name, doc, row, releases, entries, name in replaced, played)
         for name, (doc, row) in carrying.items()
     ]
     ordered = sorted(entries.values(), key=lambda e: e.seed or 0)
@@ -460,10 +510,16 @@ def build_scorecard(
                 lake, data, season, reveal, actual, now=now, mode=mode, root=root, releases=releases
             )
     if field_outcome and field_outcome["scored"]:
-        done = {card["edition_id"] for card in field_outcome["editions"] if card["runs"] is not None}
+        done = {
+            card["edition_id"]: card["runs"] for card in field_outcome["editions"] if card["runs"] is not None
+        }
         for card in editions:
             if card["edition_id"] in done and card["field"]:
-                card["field"]["outcome"] = "scored: see field_outcome"
+                card["field"]["outcome"] = (
+                    "scored: see field_outcome"
+                    if done[card["edition_id"]]
+                    else "not scored: no listed scenario matched the pairings played; see field_outcome"
+                )
     scorecard_id = f"score-{season}-r{number:02d}-e{revision}"
     document = {
         "schema": SCHEMA,
