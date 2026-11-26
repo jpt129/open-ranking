@@ -18,8 +18,10 @@ import copy
 import hashlib
 import json
 import multiprocessing
+import time
 from collections.abc import Iterable, Mapping, Sequence
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from typing import Final
 
@@ -33,6 +35,7 @@ from cfp.open_ranking.ordering import rank_teams
 from cfp.open_ranking.strength import Engine, Params
 
 REFITS: Final = 1000
+BATCH: Final = 8  # refits handed to a worker process at a time
 LABEL: Final = (
     "Sensitivity to the observed games: how far the result moves when the games behind the strength fit "
     "are re-weighted. It is not a full uncertainty interval."
@@ -189,19 +192,50 @@ def run(
     seed: int,
     indices: Iterable[int],
     workers: int = 1,
+    deadline: float | None = None,
 ) -> list[Refit]:
-    """The named refits, in the order asked for. `workers` changes the time taken and nothing else."""
+    """The named refits, in the order asked for. `workers` changes the time taken and nothing else.
+
+    `deadline` is a time.monotonic() value. Past it the run stops with an error and returns nothing: a
+    partial set of refits is never a result.
+    """
     wanted = list(indices)
     if workers < 1:
         raise SensitivityError("at least one worker")
+
+    def late() -> bool:
+        return deadline is not None and time.monotonic() >= deadline
+
+    over = SensitivityError("the refits passed their time limit; nothing was produced")
+    if late():
+        raise over
+    by_index: dict[int, Refit] = {}
     if workers == 1 or len(wanted) < 2:
-        return _batch((games, params, t, season, dict(draw), seed, wanted))
-    share = [wanted[k::workers] for k in range(workers) if wanted[k::workers]]
+        for k in wanted:
+            if late():
+                raise over
+            by_index[k] = refit(games, params, t, season, draw, seed=seed, index=k)
+        return [by_index[k] for k in wanted]
+    # small batches, so a run past its limit stops within a few refits
+    share = [wanted[k : k + BATCH] for k in range(0, len(wanted), BATCH)]
     # spawn, never fork: a forked child of a process that has used polars can deadlock (seen on Linux)
     fresh = multiprocessing.get_context("spawn")
-    with ProcessPoolExecutor(max_workers=len(share), mp_context=fresh) as pool:
-        found = pool.map(_batch, [(games, params, t, season, dict(draw), seed, part) for part in share])
-        by_index = {one.index: one for part in found for one in part}
+    pool = ProcessPoolExecutor(max_workers=min(workers, len(share)), mp_context=fresh)
+    try:
+        tasks = [pool.submit(_batch, (games, params, t, season, dict(draw), seed, part)) for part in share]
+        left = None if deadline is None else max(0.0, deadline - time.monotonic())
+        for done in as_completed(tasks, timeout=left):
+            by_index |= {one.index: one for one in done.result()}
+    except (TimeoutError, BrokenProcessPool) as error:
+        # do not wait for the workers: one that hangs must not hold the edition's release up
+        running = list((pool._processes or {}).values())
+        pool.shutdown(wait=False, cancel_futures=True)
+        for process in running:
+            process.terminate()
+        if isinstance(error, TimeoutError):
+            raise over from None
+        raise SensitivityError(f"a worker process died: {error}") from error
+    pool.shutdown()
     return [by_index[k] for k in wanted]
 
 

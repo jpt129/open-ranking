@@ -833,3 +833,35 @@ Open, not fixed:
 - `test_sensitivity_outputs` works its expected values with the same bracket helpers; the cut-line and stand-in rules have their own direct tests.
 - The sensitivity file is not recorded in the store's editions table.
 - **Worker processes are spawned, never forked (26 Nov).** The first push hung the code repository's CI in the two-process test: on Linux a forked child of a process that has used polars can deadlock. The pool now uses the spawn start method on every platform. The numbers are unchanged; macOS already spawned.
+
+## 2026-11-26 — VT-08 accepted; John's rulings and pins
+
+John accepted the merge at `8db3950` and ruled:
+
+- **Cut line (VT-08).** The last at-large team in the field in the same refit: approved. The definition is one sentence, the same in the file (`cut_line.definition`) and on the page. Each row now carries `route_as_published` (champion, the other conferences' place, guarantee, at large, or none) and `qualifies_at_large`; the page's last column, "In by", names the route, so a champion or guaranteed team with a negative margin is not read as out. A team not in the published field that takes a guaranteed place in some refits is marked with that share.
+- **Bracket inputs: approved, pinned.** The file records `bracket_inputs.field_code` (SHA-256 of `forecast/final_field.py`, `rules/engine.py` and every file in `rules/seasons`) and `bracket_inputs.tables` (the as-of time, mode, Eastern day, and row count and SHA-256 of the membership and eligibility tables as read). The gate's check fails, without blocking, if the field code or rules files have changed since the file was written.
+- **What reads what.** The ranking step of a refit reads no store table at all: it takes the edition's own `games.jsonl` (checked against the manifest's hash), the frozen settings and the draw. Those games came through `OpenRankingView` when the edition was built. Only the field step reads membership and eligibility, in `cfp.release.sensitivity` and the command. `cfp.open_ranking` imports nothing from `cfp.forecast` (import contract, kept).
+- **The field function against the rules.** The Open Ranking edition publishes no field (the page lists the bracket as not delivered), so there is no published field in the edition to compare with. The tests compare `field_today` on the published order with the rules engine called directly, team for team, route and seed included, on the test season and on the 22 Nov rehearsal edition's order (conferences from its games; every team taken as eligible, since the eligibility table is not in the fixture). The gate also works the recorded field again on every run.
+- **Hook and settings:** kept. **File location:** approved.
+- **Scope (A).** Sensitivity runs only from `cfp open-ranking sensitivity`, for a written Open Ranking edition; the gate and publish read its file. `scripts/issue.sh` runs ingest, a market capture and `cfp forecast issue` only, and the open-points feature build inside a forecast issue never calls it. A sixth import contract forbids `cfp.forecast`, `cfp.scoring` and `cfp.gap` from importing either sensitivity module, and a test checks the scripts and which commands mention it. Earlier notes said "Sunday order"; that meant the Open Ranking release steps, not the 02:00 ET forecast issue. The weekly edition's cutoff is Monday 06:00 ET (30 Nov) and Selection Day's is Sun 6 Dec 02:00 ET (OR-07a).
+- **Platforms (B).** See DATA_GAPS (26 Nov): the edition's hash is reproduced on Linux in CI; the refits are not tested across systems. The file records `environment` (OS, machine, Python, numpy, polars, BLAS, LAPACK) and the page says "Reproducible in the recorded environment" and that other systems are untested. The gate's line says whether its rerun was in the recorded environment. Cross-platform refit testing waits until after Issue 1.
+- **Time limit (C).** `--time-limit` seconds, default 600. Past it the command writes nothing and exits 1; gate and publish proceed and the page lists sensitivity as not delivered. Refits now go to worker processes eight at a time so a run past its limit stops within a few refits; a refit's result does not depend on its batch (seed per index, tested).
+- **Worker processes (D), report only.** Nothing else in the release path starts worker processes. `cfp forecast issue` runs `git` and the timestamp request as child processes with timeouts; polars and the numeric library use their own threads inside one process.
+- **Freeze.** After Friday's dry run only fixes the dry run turns up. Sensitivity follow-ups wait until after Issue 1.
+
+Real data (scratch store, rehearsal edition of 22 Nov, revision 3 of the file): 1,000 refits in 30 s on eight processes; gate 2.6 s with the rerun "in the recorded environment"; publish 2.6 s. UCLA, the Big Ten stand-in, shows margin −15.11 and "champion (stand-in)", in the field in every refit.
+
+**Spec review of the pins (26 Nov).** Nothing found that can block an edition or crash the gate or publish. Fixed:
+- **A hung worker could outlast the time limit.** On a timeout or a dead worker the pool is now shut down without waiting and its processes are stopped. A test runs a real pool past its limit.
+- The limit is checked again after the bracket step, before the report is returned.
+- A team published at large that is in by another route in some refits (the rules' guarantee, or the other conferences' place) is marked "at large; in other than at large in X% of refits". The route words have a direct test.
+- numpy does not report a version for Apple's Accelerate; the file now says so. The OS version, which Accelerate ships with, is recorded.
+- The boundary test's planted violations cover the new contract.
+
+Open, not fixed (after Issue 1):
+- The table hashes are recorded but the gate cannot recompute them, and they cover provenance columns, so they are specific to one store.
+- The page says "Reproducible in the recorded environment" even when the gate's own rerun was elsewhere; the gate's line on the same page says where it ran.
+- Any commit touching `forecast/final_field.py`, `rules/engine.py` or a rules file between the sensitivity step and publish drops the section. Run the four steps on one commit.
+- A sensitivity file written before this change fails the check and needs `--revision 2`. None exists in the real store.
+- The gate's own ten-refit rerun runs in-process with no time limit.
+- The route marks and the cut-line paragraph are worded for 2026's rules; seasons with a top-four field would read oddly.

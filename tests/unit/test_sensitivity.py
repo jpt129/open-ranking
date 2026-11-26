@@ -555,3 +555,245 @@ def test_a_bad_sensitivity_file_never_blocks_the_edition(
     page = (public / "index.html").read_text()
     assert "Sensitivity intervals" in page  # back to not delivered
     assert "Sensitivity to the observed games" not in page
+
+
+# --- pins added on review: guarantee marks, bracket inputs, environment, time limit ----------
+
+
+def straight_field(order: list[str], champions: dict[str, str]) -> list[Any]:
+    """The season's rules applied to an order with no forecast code in between."""
+    from cfp.rules.engine import select_field
+
+    entries = select_field(
+        load_rules(2026), order[:25], champions, eligible=ELIGIBLE, conference_of=CONF, extra_order=order[25:]
+    )
+    return [entry for entry in entries if entry.qualifier]
+
+
+def test_teams_in_by_guarantee_are_marked() -> None:
+    rows = season()  # a weak team wins the SEC title, so a champion sits below the at-large line
+    rows.append(game("t-sec", "S33", "S03", 27, 24, week=9, title_game=True, neutral=True) | conf("S33"))
+    games = frame(rows)
+    edition = published(games)
+    doc = built(games, refits=20).doc
+    assert doc["cut_line"]["definition"] == report.CUT_LINE
+    assert "last at-large team" in report.CUT_LINE
+    assert "\n" not in report.CUT_LINE
+    rules = load_rules(2026)
+    order = [t["team_id"] for t in edition["teams"]]
+    fixed = doc["scenario"]["champions"] | doc["scenario"]["stand_ins"]
+    assert doc["scenario"]["champions"] == {"sec": "S33"}
+    now = report.field_of(rules, order, members=CONF, eligible=ELIGIBLE, champions=fixed)
+    route = {entry.team_id: entry.route for entry in now}
+    seed = core.edition_seed(edition["edition_id"], "e" * 64)
+    refits = core.run(games, PARAMS, T, 2026, DRAW, seed=seed, indices=range(20))
+    at_large = dict.fromkeys(order, 0)
+    for r in refits:
+        for entry in report.field_of(rules, r.order, members=CONF, eligible=ELIGIBLE, champions=fixed):
+            at_large[entry.team_id] += entry.route in report.AT_LARGE
+    for row in doc["teams"]:
+        assert row["route_as_published"] == route.get(row["team_id"])
+        assert row["qualifies_at_large"] == at_large[row["team_id"]]
+        assert row["qualifies_at_large"] <= row["qualifies"]
+    below = [row for row in doc["teams"] if row["in_field_as_published"] and row["cut_margin_cp"] < 0]
+    assert "S33" in {row["team_id"] for row in below}
+    assert all(not str(row["route_as_published"]).startswith("at_large") for row in below)
+
+    from html import escape
+
+    from cfp.release.page import _sensitivity
+
+    html = _sensitivity(doc, {})
+    assert escape(report.CUT_LINE) in html
+    assert "<th>In by</th>" in html
+    for row in below:
+        line = next(text for text in html.split("<tr>") if f"<td>{row['team_id']}</td>" in text)
+        assert "champion" in line or "other conferences" in line or "guarantee" in line
+    wrong = json.loads(json.dumps(doc))
+    wrong["teams"][0]["route_as_published"] = "guarantee"
+    with pytest.raises(report.SensitivityRefused, match="route"):
+        report.verify(wrong, edition, "e" * 64, games, PARAMS, T, DRAW, required=20)
+
+
+def test_field_function_reproduces_the_published_field() -> None:
+    """The forecast package's field step adds nothing to the rules: same teams, routes and seeds."""
+    games = frame(season())
+    edition = published(games)
+    doc = built(games, refits=5).doc
+    order = [t["team_id"] for t in edition["teams"]]
+    fixed = doc["scenario"]["champions"] | doc["scenario"]["stand_ins"]
+    now = report.field_of(load_rules(2026), order, members=CONF, eligible=ELIGIBLE, champions=fixed)
+    assert now == straight_field(order, fixed)
+    by_seed = [entry.team_id for entry in sorted(straight_field(order, fixed), key=lambda e: e.seed or 0)]
+    assert doc["field_as_published"] == by_seed
+    assert len(by_seed) == 12
+
+
+def test_field_function_on_the_rehearsal_edition_order() -> None:
+    import gzip
+
+    from cfp.release.gate import games_from_lines
+    from cfp.rules.engine import select_field
+
+    from .test_golden_edition import GOLDEN, rebuild
+
+    meta = json.loads((GOLDEN / "meta.json").read_text())
+    lines = gzip.decompress((GOLDEN / "games.jsonl.gz").read_bytes())
+    edition = json.loads(rebuild(meta, lines))
+    games = games_from_lines(lines)
+    order = [t["team_id"] for t in sorted(edition["teams"], key=lambda t: t["order"])]
+    members: dict[str, str] = {}
+    for side in ("home", "away"):
+        fbs = games.filter(pl.col(f"{side}_div") == "fbs")
+        members |= dict(fbs.select(f"{side}_id", f"{side}_conf").drop_nulls().iter_rows())
+    members = {team: members[team] for team in order}
+    eligible = dict.fromkeys(order, True)  # the store's eligibility table is not in the fixture
+    rules = load_rules(2026)
+    scene = report._scenario(2026, order, games, members, eligible)
+    entries = select_field(
+        rules, order[:25], scene.fixed, eligible=eligible, conference_of=members, extra_order=order[25:]
+    )
+    assert scene.field == [entry for entry in entries if entry.qualifier]
+    assert len(scene.field) == 12
+    assert set(scene.fixed) >= set(rules.named)
+
+
+def test_bracket_inputs_are_pinned() -> None:
+    games = frame(season())
+    edition = published(games)
+    tables = {"as_of_utc": "2026-11-22T07:00:00+00:00", "membership_sha256": "a" * 64}
+    doc = built(games, refits=20, tables=tables).doc
+    code = report.field_code()
+    assert doc["bracket_inputs"]["field_code"] == code
+    assert set(code["files"]) >= {"forecast/final_field.py", "rules/engine.py", "rules/seasons/2026.yaml"}
+    assert all(len(digest) == 64 for digest in [code["sha256"], *code["files"].values()])
+    assert doc["bracket_inputs"]["tables"] == tables
+    report.verify(doc, edition, "e" * 64, games, PARAMS, T, DRAW, required=20)
+    moved = json.loads(json.dumps(doc))
+    moved["bracket_inputs"]["field_code"]["sha256"] = "0" * 64
+    with pytest.raises(report.SensitivityRefused, match="field code"):
+        report.verify(moved, edition, "e" * 64, games, PARAMS, T, DRAW, required=20)
+
+
+def test_environment_is_recorded_and_the_claim_is_limited_to_it() -> None:
+    games = frame(season())
+    edition = published(games)
+    doc = built(games, refits=20).doc
+    here = report.environment()
+    assert doc["environment"] == here
+    assert set(here) == {"os", "machine", "python", "numpy", "polars", "blas", "lapack"}
+    assert all(isinstance(value, str) and value for value in here.values())
+    said = report.verify(doc, edition, "e" * 64, games, PARAMS, T, DRAW, required=20)
+    assert "in the recorded environment" in said
+    elsewhere = json.loads(json.dumps(doc))
+    elsewhere["environment"]["os"] = "Linux-somewhere"
+    said = report.verify(elsewhere, edition, "e" * 64, games, PARAMS, T, DRAW, required=20)
+    assert "a different environment" in said
+    missing = json.loads(json.dumps(doc))
+    del missing["environment"]
+    with pytest.raises(report.SensitivityRefused):
+        report.verify(missing, edition, "e" * 64, games, PARAMS, T, DRAW, required=20)
+
+    from cfp.release.page import _sensitivity
+
+    html = _sensitivity(doc, {})
+    assert "Reproducible in the recorded environment" in html
+    assert here["numpy"] in html
+    assert here["os"] in html
+
+
+def test_refits_stop_at_the_time_limit() -> None:
+    import time
+
+    games = frame(season())
+    past = time.monotonic() - 1
+    for workers in (1, 2):
+        with pytest.raises(core.SensitivityError, match="time limit"):
+            core.run(games, PARAMS, T, 2026, DRAW, seed=5, indices=range(6), workers=workers, deadline=past)
+    later = time.monotonic() + 600
+    fine = core.run(games, PARAMS, T, 2026, DRAW, seed=5, indices=range(6), deadline=later)
+    assert fine == core.run(games, PARAMS, T, 2026, DRAW, seed=5, indices=range(6))
+    with pytest.raises(report.SensitivityRefused, match="time limit"):
+        built(games, refits=20, time_limit=0.0)
+
+
+def test_command_gives_up_at_the_time_limit_and_the_edition_goes_out(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cfp import cli
+
+    from . import sensitivity_world as world
+
+    monkeypatch.setattr(cli, "_code_hash", lambda: "abc1234")
+    monkeypatch.setattr(report, "REQUIRED_REFITS", 12)
+    world.setup(tmp_path)
+    assert world.build(tmp_path) == 0
+    assert (
+        cli.build_parser().parse_args(["open-ranking", "sensitivity", "--edition", "x"]).time_limit == 600
+    )  # ten minutes unless told otherwise
+    assert world.sensitivity(tmp_path, world.EDITION, "--time-limit", "0") == 1
+    assert "time limit" in capsys.readouterr().err
+    assert not (tmp_path / "lake" / "sensitivity").exists()  # nothing half-written
+    assert world.run(tmp_path, "gate", world.EDITION) == 0
+    assert world.run(tmp_path, "publish", "--edition", world.EDITION, "--site", str(tmp_path / "site")) == 0
+    page = (tmp_path / "site" / "open-ranking" / world.EDITION / "index.html").read_text()
+    assert "Sensitivity intervals" in page  # listed as not delivered
+
+    # with time in hand the file records what the bracket step read
+    assert world.sensitivity(tmp_path, world.EDITION) == 0
+    doc = json.loads((tmp_path / "lake" / "sensitivity" / world.EDITION / "sensitivity.json").read_bytes())
+    tables = doc["bracket_inputs"]["tables"]
+    assert set(tables) == {"as_of_utc", "mode", "day", "membership", "eligibility"}
+    for name in ("membership", "eligibility"):
+        assert len(tables[name]["sha256"]) == 64
+        assert isinstance(tables[name]["rows"], int)
+    assert tables["membership"]["rows"] >= 40
+    assert doc["environment"] == report.environment()
+
+
+def test_the_forecast_issue_never_runs_sensitivity() -> None:
+    """Only `cfp open-ranking sensitivity`, the gate and publish touch it; the import contract covers code."""
+    import ast
+
+    root = Path(__file__).resolve().parents[2]
+    for script in sorted((root / "scripts").glob("*.sh")):
+        assert "sensitivity" not in script.read_text(), script.name
+    tree = ast.parse((root / "src" / "cfp" / "cli.py").read_text())
+    users = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and "sensitivity" in ast.unparse(node)
+    }
+    assert users <= {"build_parser", "main", "_open_ranking_sensitivity", "_gate_report", "_gate", "_publish"}
+
+
+def test_a_run_past_its_limit_does_not_wait_for_its_workers() -> None:
+    import time
+
+    games = frame(season())
+    started = time.monotonic()
+    with pytest.raises(core.SensitivityError, match="time limit"):
+        core.run(games, PARAMS, T, 2026, DRAW, seed=5, indices=range(4000), workers=2, deadline=started + 0.2)
+    assert time.monotonic() - started < 20  # 4,000 refits would take far longer
+    ahead = time.monotonic() + 600
+    two = core.run(games, PARAMS, T, 2026, DRAW, seed=5, indices=range(20), workers=2, deadline=ahead)
+    assert two == core.run(games, PARAMS, T, 2026, DRAW, seed=5, indices=range(20))
+
+
+def test_route_words_on_the_page() -> None:
+    from cfp.release.page import _route
+
+    scenario = {"stand_ins": {"sec": "S03"}}
+
+    def said(route: str | None, qualifies: int = 10, at_large: int = 10) -> str:
+        row = {"route_as_published": route, "qualifies": qualifies, "qualifies_at_large": at_large}
+        return _route(row, scenario, 10)
+
+    assert said("auto:sec") == "champion (stand-in)"
+    assert said("auto:acc") == "champion"
+    assert said("auto:group") == "place for the best of the other conferences"
+    assert said("guarantee") == "guarantee in the season's rules"
+    assert said("at_large") == said("top_four") == "at large"
+    assert said("at_large", 10, 7) == "at large; in other than at large in 30.0% of refits"
+    assert said(None, 2, 0) == "not in; in other than at large in 20.0% of refits"
+    assert said(None, 0, 0) == ""

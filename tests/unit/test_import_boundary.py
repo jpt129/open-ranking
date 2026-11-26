@@ -37,7 +37,7 @@ def lint(cwd: Path) -> subprocess.CompletedProcess[str]:
 def test_import_boundary() -> None:
     result = lint(ROOT)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "5 kept, 0 broken" in result.stdout, result.stdout
+    assert "6 kept, 0 broken" in result.stdout, result.stdout
 
 
 @pytest.mark.parametrize(
@@ -53,6 +53,8 @@ def test_import_boundary() -> None:
         ("snapshot", "from cfp.store.lake import Lake"),
         ("rules", "from cfp import forecast"),
         ("forecast", "from cfp import markets"),
+        ("forecast", "from cfp.open_ranking import sensitivity"),
+        ("gap", "from cfp.release.sensitivity import verify"),
         ("forecast", "from cfp.markets.snapshot import snapshot"),
         ("store/views.py", "from cfp.store.lake import Lake"),
     ],

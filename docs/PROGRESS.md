@@ -220,6 +220,9 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Added: `cfp.open_ranking.sensitivity`, `cfp.release.sensitivity`; command `cfp open-ranking sensitivity --edition <id> [--revision N]`; a non-blocking gate check; a page section. The formula's own files are unchanged, so the formula hash is unchanged.
 - Spec-named tests: `test_refit_weights_reused_across_folds`, `test_sensitivity_outputs` (in `tests/unit/test_sensitivity.py`); golden test `tests/unit/test_golden_edition.py`. 537 tests pass.
 - Real data (scratch store, rehearsal edition of 22 Nov): 1,000 refits in 30 s on eight processes; the gate's rerun matched; the correction path was exercised.
-- Sunday order: build, sensitivity, gate, publish (`.claude/skills/release-open-ranking`). Sensitivity never holds the edition back.
+- Open Ranking release order (the Monday 06:00 ET edition and the Selection Day edition, not the 02:00 ET forecast issue): build, sensitivity, gate, publish (`.claude/skills/release-open-ranking`). Sensitivity never holds the edition back.
 - Open: John's rulings listed in DECISIONS (cut-line reading, eligibility and forecast code in the bracket step, hook change); VT-09 and OR-10 not built.
 - Next: Friday timed dry run; title pairings as they become official.
+- 26 Nov, after John's review: route marks and one-line cut-line definition; field-code and table hashes; environment record; ten-minute limit; import contract and test that forecast issues never run it. 549 tests pass. Decisions and answers A–D are in DECISIONS (26 Nov, "VT-08 accepted").
+- Freeze after Friday's dry run: only fixes the dry run turns up. Sensitivity follow-ups wait until after Issue 1.
+- Next: Friday timed dry run (build, sensitivity, gate, publish timed on the issuing machine; two title-pairing paths); pairings as they become official.

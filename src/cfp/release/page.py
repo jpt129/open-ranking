@@ -92,9 +92,27 @@ def _team(team: Mapping[str, Any], names: Mapping[str, str]) -> str:
     )
 
 
+def _route(row: Mapping[str, Any], scenario: Mapping[str, Any], refits: int) -> str:
+    """How the team is in the published field, in words, so that a margin is not read as in or out."""
+    route = row["route_as_published"]
+    other = row["qualifies"] - row["qualifies_at_large"]
+    some = f"in other than at large in {100 * other / refits:.1f}% of refits" if other else ""
+    if route is None:
+        return f"not in; {some}" if some else ""
+    if route == "auto:group":
+        return "place for the best of the other conferences"
+    if route.startswith("auto:"):
+        return "champion (stand-in)" if route[5:] in scenario["stand_ins"] else "champion"
+    if route == "guarantee":
+        return "guarantee in the season's rules"
+    return f"at large; {some}" if some else "at large"
+
+
 def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
     """The section for a sensitivity report whose refits the gate reran."""
     refits = int(report["refits"])
+    scenario = report["scenario"]
+    where = report["environment"]
     rows = []
     for row in report["teams"]:
         if row["open_rank"] > SHOWN and not row["qualifies"]:
@@ -105,9 +123,9 @@ def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
             f"<tr><td>{row['open_rank']}</td><td>{escape(names.get(row['team_id'], row['team_id']))}</td>"
             f"<td class=n>{first} to {last}</td><td class=n>{_signed(row['cut_margin_cp'])}</td>"
             f"<td class=n>{_points(low)} to {_points(high)}</td>"
-            f"<td class=n>{100 * row['qualifies'] / refits:.1f}%</td></tr>"
+            f"<td class=n>{100 * row['qualifies'] / refits:.1f}%</td>"
+            f"<td>{escape(_route(row, scenario, refits))}</td></tr>"
         )
-    scenario = report["scenario"]
     fixed = scenario["champions"] | scenario["stand_ins"]
     held = "; ".join(
         f"{escape(str(league))}: {escape(names.get(team, team))}"
@@ -118,18 +136,23 @@ def _sensitivity(report: Mapping[str, Any], names: Mapping[str, str]) -> str:
 <p>{escape(str(report["label"]))}</p>
 <p>Results are held fixed. In each of {refits} refits every game gets a random weight (exponential, mean
 one) in the strength fit, the same weight in every team's fold. The bubble level, every ledger and the
-bracket are then worked again. Each range below is the middle 80% of refits. The margin to the cut line is
-the team's total minus the total of the last at-large team in the field in the same refit. That line is the
-at-large line only: a conference champion, the best team of the other conferences or a guaranteed team can be
-in the field below it, and a team ruled ineligible is out above it.</p>
+bracket are then worked again. Each range below is the middle 80% of refits.</p>
+<p><b>Cut line.</b> {escape(str(report["cut_line"]["definition"]))} It is the at-large line only: a team
+marked in the last column as in by a champion's place, the other conferences' place or a guarantee is in the
+field whatever its margin, and a negative margin for such a team does not mean it is out. A team ruled
+ineligible is out above the line.</p>
 <p><b>Bracket scenario.</b> {escape(str(scenario["note"]))} Champions used in every refit:
 {held or "none"}.</p>
 <div class=wrap><table><tr><th>Rank</th><th>Team</th><th class=n>Rank range</th>
-<th class=n>Margin to cut line</th><th class=n>Margin range</th><th class=n>In the field</th></tr>
+<th class=n>Margin to cut line</th><th class=n>Margin range</th><th class=n>In the field</th>
+<th>In by</th></tr>
 {"".join(rows)}</table></div>
 <p class=mute>The top {SHOWN} teams and any other team that reached the field in a refit. Every team is in
 <a href="sensitivity.json">sensitivity.json</a>, with the seed (<code>{report["seed"]}</code>) and a digest
 of each refit.</p>
+<p class=mute>Reproducible in the recorded environment: {escape(where["os"])}, {escape(where["python"])},
+numpy {escape(where["numpy"])}, polars {escape(where["polars"])}, BLAS {escape(where["blas"])}. The same
+refits have not been tested on other systems.</p>
 """
 
 

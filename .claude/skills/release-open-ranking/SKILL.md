@@ -5,7 +5,8 @@ description: Build, gate and publish an Open Ranking edition.
 Args: season, cutoff_utc. Run, in this order:
 
 1. `uv run cfp open-ranking build`
-2. `uv run cfp open-ranking sensitivity --edition <id>` (VT-08; about half a minute on eight cores)
+2. `uv run cfp open-ranking sensitivity --edition <id>` (VT-08; about half a minute on eight cores; it stops
+   itself after ten minutes and writes nothing)
 3. `uv run cfp gate <id>`
 4. `uv run cfp publish --edition <id>`
 

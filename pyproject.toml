@@ -106,6 +106,12 @@ source_modules = ["cfp.store.views", "cfp.store.types"]
 forbidden_modules = ["cfp.store.asof", "cfp.store.lake", "cfp.store.pit", "cfp.store.schemas"]
 
 [[tool.importlinter.contracts]]
+name = "Forecast issues never run the sensitivity refits (VT-08 is for published Open Ranking editions)"
+type = "forbidden"
+source_modules = ["cfp.forecast", "cfp.scoring", "cfp.gap"]
+forbidden_modules = ["cfp.open_ranking.sensitivity", "cfp.release.sensitivity"]
+
+[[tool.importlinter.contracts]]
 name = "Forecasts never import market code (prices are evaluation only)"
 type = "forbidden"
 source_modules = ["cfp.forecast"]

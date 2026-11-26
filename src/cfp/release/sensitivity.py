@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
 import re
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+import numpy as np
 import polars as pl
 
 from cfp.forecast.final_field import FieldError, Setup, field_today
@@ -53,9 +56,15 @@ ROW_KEYS: Final = (
     "cut_margin_cp_80",
     "points_diff_cp_80",
     "qualifies",
+    "qualifies_at_large",
     "in_field_as_published",
 )
 AT_LARGE: Final = ("at_large", "top_four")
+CUT_LINE: Final = (
+    "The cut line is the last at-large team in the field in the same refit; a team's margin is its total "
+    "minus that team's total."
+)
+FIELD_SOURCES: Final = ("forecast/final_field.py", "rules/engine.py")  # and every file in rules/seasons
 METHOD: Final = (
     "Results are held fixed. In each refit every fitted game gets one exponential weight of mean one, which "
     "multiplies that game's squared error in the strength fit; the same weight is used in every team's fold. "
@@ -74,6 +83,46 @@ METHOD: Final = (
 
 class SensitivityRefused(ValueError):
     """The report cannot be built, or a written report does not check out."""
+
+
+def field_code() -> dict[str, Any]:
+    """Hashes of the code and rules files that turn an order into a field.
+
+    The bracket step runs through the forecast package's `field_today` and the rules engine. A change to
+    any of these files after a report is written makes the gate's check of that report fail.
+    """
+    package = Path(__file__).resolve().parents[1]
+    paths = [package / name for name in FIELD_SOURCES]
+    paths += sorted((package / "rules" / "seasons").iterdir())
+    files = {
+        path.relative_to(package).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in paths
+        if path.is_file()
+    }
+    return {"sha256": hashlib.sha256(canonical(files)).hexdigest(), "files": files}
+
+
+def environment() -> dict[str, str]:
+    """Where the refits were run. Refits are claimed to reproduce in this environment, not in every one."""
+    config: Any = np.show_config(mode="dicts")
+    built_with = config.get("Build Dependencies", {})
+
+    def library(key: str) -> str:
+        held = built_with.get(key, {})
+        version = str(held.get("version", "unknown"))
+        if version == "unknown":  # Accelerate comes with the operating system, whose version is recorded
+            version = "(version not reported by numpy)"
+        return f"{held.get('name', 'unknown')} {version}"
+
+    return {
+        "os": platform.platform(),
+        "machine": platform.machine(),
+        "python": f"{platform.python_implementation()} {platform.python_version()}",
+        "numpy": np.__version__,
+        "polars": pl.__version__,
+        "blas": library("blas"),
+        "lapack": library("lapack"),
+    }
 
 
 @dataclass(frozen=True)
@@ -215,10 +264,17 @@ def build_sensitivity(
     refits: int = REFITS,
     workers: int = 1,
     revision: int = 1,
+    tables: Mapping[str, Any] | None = None,
+    time_limit: float | None = None,
 ) -> Built:
-    """The report document for one edition. Reads nothing and writes nothing."""
+    """The report document for one edition. Reads nothing and writes nothing.
+
+    `tables` is recorded as given: what the caller read the bracket inputs from. `time_limit` is in
+    seconds; past it the build is refused and nothing is produced.
+    """
     if refits < 1:
         raise SensitivityRefused("at least one refit")
+    deadline = None if time_limit is None else time.monotonic() + time_limit
     edition_id = str(edition["edition_id"])
     folder_name(edition_id, revision)
     season = int(edition["season"])
@@ -237,8 +293,19 @@ def build_sensitivity(
         rules, champions, stand_ins, fixed = scene.rules, scene.champions, scene.stand_ins, scene.fixed
         now, cut_now = scene.field, scene.cut
         seed = edition_seed(edition_id, sha256)
-        found = run(games, params, t, season, draw, seed=seed, indices=range(refits), workers=workers)
+        found = run(
+            games,
+            params,
+            t,
+            season,
+            draw,
+            seed=seed,
+            indices=range(refits),
+            workers=workers,
+            deadline=deadline,
+        )
         qualifies = dict.fromkeys(order, 0)
+        at_large = dict.fromkeys(order, 0)
         margins: dict[str, list[int]] = {team: [] for team in order}
         for one in found:
             if set(one.totals) != set(order):
@@ -247,13 +314,17 @@ def build_sensitivity(
             cut = one.totals[cut_line(entries, one.order)]
             for entry in entries:
                 qualifies[entry.team_id] += 1
+                at_large[entry.team_id] += entry.route in AT_LARGE
             for team in order:
                 margins[team].append(one.totals[team] - cut)
     except (SensitivityError, StrengthError, FieldError, ValueError) as error:
         if isinstance(error, SensitivityRefused):
             raise
         raise SensitivityRefused(str(error)) from error
+    if deadline is not None and time.monotonic() >= deadline:
+        raise SensitivityRefused("the report passed its time limit; nothing was produced")
     rows = []
+    route_now = {entry.team_id: entry.route for entry in now}
     for team in order:
         moves = middle80([one.ranks[team] - rank[team] for one in found])
         rows.append(
@@ -267,7 +338,9 @@ def build_sensitivity(
                 "cut_margin_cp_80": middle80(margins[team]),
                 "points_diff_cp_80": middle80([one.totals[team] - total[team] for one in found]),
                 "qualifies": qualifies[team],
-                "in_field_as_published": team in {entry.team_id for entry in now},
+                "qualifies_at_large": at_large[team],
+                "in_field_as_published": team in route_now,
+                "route_as_published": route_now.get(team),
             }
         )
     if stand_ins:
@@ -295,6 +368,7 @@ def build_sensitivity(
         "seed": seed,
         "refits": refits,
         "code_hash": code_hash,
+        "environment": environment(),
         "scenario": {
             "provisional": bool(stand_ins),
             "champions": dict(sorted(champions.items())),
@@ -302,7 +376,7 @@ def build_sensitivity(
             "note": note,
         },
         "cut_line": {
-            "definition": "the last at-large team in the field, in the same refit",
+            "definition": CUT_LINE,
             "published": cut_now,
         },
         "field_as_published": [entry.team_id for entry in sorted(now, key=lambda e: e.seed or 0)],
@@ -310,6 +384,8 @@ def build_sensitivity(
             "conference_of": dict(sorted(members.items())),
             "ineligible": sorted(team for team, flag in eligible.items() if not flag),
             "source": "the store's membership and eligibility tables as of the edition's data time",
+            "tables": dict(tables or {}),
+            "field_code": field_code(),
         },
         "teams": rows,
         "refit_digests": [one.digest() for one in found],
@@ -366,11 +442,22 @@ def verify(
                     raise SensitivityRefused(f"{row['team_id']}: {key} is not whole numbers")
             if any(len(row[key]) != 2 for key in ROW_KEYS if key.endswith("_80")):
                 raise SensitivityRefused(f"{row['team_id']}: a range does not have two ends")
-            if not 0 <= row["qualifies"] <= refits:
+            if not 0 <= row["qualifies_at_large"] <= row["qualifies"] <= refits:
                 raise SensitivityRefused(f"{row['team_id']}: in the field in {row['qualifies']} refits")
         if [row["team_id"] for row in rows] != order:
             raise SensitivityRefused("the sensitivity file does not list the edition's teams in its order")
         inputs = report["bracket_inputs"]
+        if inputs["field_code"] != field_code():
+            raise SensitivityRefused("the field code or rules files have changed since the file was written")
+        if not isinstance(inputs["tables"], dict):
+            raise SensitivityRefused(
+                "the sensitivity file does not say what the bracket inputs were read from"
+            )
+        recorded = report["environment"]
+        if not isinstance(recorded, dict) or set(recorded) != set(environment()):
+            raise SensitivityRefused("the sensitivity file does not record the environment it was run in")
+        if report["cut_line"]["definition"] != CUT_LINE:
+            raise SensitivityRefused("the cut line's definition is not the published wording")
         members = {str(team): str(league) for team, league in inputs["conference_of"].items()}
         barred = set(inputs["ineligible"])
         scene = _scenario(
@@ -384,6 +471,7 @@ def verify(
         if report["cut_line"]["published"] != scene.cut:
             raise SensitivityRefused("the cut line is not the published field's last at-large team")
         field = [entry.team_id for entry in sorted(scene.field, key=lambda e: e.seed or 0)]
+        route_now = {entry.team_id: entry.route for entry in scene.field}
         if report["field_as_published"] != field:
             raise SensitivityRefused("the field is not the published order's field")
         for row in rows:
@@ -392,6 +480,8 @@ def verify(
             have = (row["open_rank"], row["total_cp"], row["cut_margin_cp"], row["in_field_as_published"])
             if have != want:
                 raise SensitivityRefused(f"{team}: its published rank, total or margin is not the edition's")
+            if row["route_as_published"] != route_now.get(team):
+                raise SensitivityRefused(f"{team}: its route into the published field is not the rules'")
         if sum(row["qualifies"] for row in rows) != refits * len(field):
             raise SensitivityRefused("the qualify counts do not add up to one full field per refit")
     except SensitivityRefused:
@@ -408,10 +498,11 @@ def verify(
     for one in found:
         if one.digest() != digests[one.index]:
             raise SensitivityRefused(f"refit {one.index} does not reproduce the published digest")
+    where = "in the recorded environment" if recorded == environment() else "in a different environment"
     return (
-        f"{len(sample)} of {refits} refits rerun and matched (sample chosen by the edition's hash); the "
-        "published ranks, totals, field and cut line were worked again. Reported: a failure here does not "
-        "block the edition"
+        f"{len(sample)} of {refits} refits rerun {where} and matched (sample chosen by the edition's "
+        "hash); the published ranks, totals, field and cut line were worked again. Reported: a failure here "
+        "does not block the edition"
     )
 
 

@@ -122,6 +122,12 @@ def build_parser() -> argparse.ArgumentParser:
     sens.add_argument("--edition", required=True, help="edition id")
     sens.add_argument("--revision", type=int, default=1, help="a correction is a new file: 2, 3, ...")
     sens.add_argument("--workers", type=int, help="processes to use; changes the time taken, nothing else")
+    sens.add_argument(
+        "--time-limit",
+        type=float,
+        default=600,
+        help="seconds; past it nothing is written and the edition is published without the section",
+    )
     sens.add_argument("--frozen", default="frozen", help="frozen-parameters directory")
 
     calibrate = commands.add_parser(
@@ -886,7 +892,21 @@ def _open_ranking_sensitivity(args: argparse.Namespace, clock: Callable[[], date
         read_at = datetime.fromisoformat(doc["data_as_of_utc"])
         day = datetime.fromisoformat(doc["cutoff_utc"]).astimezone(ZoneInfo("America/New_York")).date()
         everyone = lake.as_of("membership", read_at, doc["mode"]).frame
-        flags = fbs_field(everyone, lake.as_of("eligibility", read_at, doc["mode"]).frame, doc["season"], day)
+        barred = lake.as_of("eligibility", read_at, doc["mode"]).frame
+        flags = fbs_field(everyone, barred, doc["season"], day)
+
+        def held(table: pl.DataFrame) -> dict[str, object]:
+            columns = sorted(table.columns)
+            text = table.select(columns).sort(columns, nulls_last=True).write_ndjson()
+            return {"rows": table.height, "sha256": hashlib.sha256(text.encode()).hexdigest()}
+
+        tables = {
+            "as_of_utc": read_at.isoformat(),
+            "mode": doc["mode"],
+            "day": day.isoformat(),
+            "membership": held(everyone),
+            "eligibility": held(barred),
+        }
         eligible = {str(team): bool(flag) for team, flag in flags.iter_rows()}
         current = everyone.filter(
             (pl.col("division") == "fbs")  # fbs_field has already refused two FBS rows for one team
@@ -907,6 +927,8 @@ def _open_ranking_sensitivity(args: argparse.Namespace, clock: Callable[[], date
             refits=sens.REQUIRED_REFITS,
             workers=args.workers or min(8, os.cpu_count() or 1),
             revision=args.revision,
+            tables=tables,
+            time_limit=args.time_limit,
         )
     except (SensitivityRefused, FrozenError, ObservationError, OSError, ValueError, KeyError) as error:
         print(f"refused: {error}", file=sys.stderr)
