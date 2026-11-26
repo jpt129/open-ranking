@@ -756,3 +756,10 @@ How the pass rule is applied (my reading, for John to correct): "within N places
 - A conference whose best-placed team is ineligible refuses the whole weekly report (stand-in choice ignores eligibility; shared with the forecast's "field today").
 - Nothing checks how old the Open Ranking edition is; its cutoff is now printed in the report.
 - Scorecards still share one name between live and replay runs.
+
+## 2026-11-26 — Cloud rehearsals on `716f654`, and a stale store checkout in the data repository's workflows
+
+- **Run 45760598818 (05:17 UTC) failed at its last step.** The issue itself finished (replay edition `scw-2026-r04-sun0200-replay-e1`, SHA-256 `30ecdd31…2c3d64`). The store commit then hit a rebase conflict in `lake/fetch_log.jsonl`.
+- **Cause.** The run was triggered nine seconds after the :17 hourly capture and waited for the shared `lake` lock. `actions/checkout` checks out the commit that was the tip when the run was triggered, not the tip when the job starts, so the run began from a store without the capture's commit. Both runs appended to the same log.
+- **Run 45760929973 (05:20 UTC), started clear of a capture, passed every step** with the same edition hash.
+- **Not fixed.** The fix is `ref: ${{ github.ref_name }}` on the store checkout in both `capture.yml` and `issue.yml` in `jpt129/open-ranking-data`. It has not been applied; it needs John's go-ahead. Until then, any run that queues behind another writer can fail to commit. For a live issue that would leave a written edition unpushed.
