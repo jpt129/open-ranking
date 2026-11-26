@@ -275,6 +275,17 @@ def build_field(
                 f"{share:.1%} of paths (limit {OPEN_GROUP_LIMIT:.0%}); it needs a pairing or scenarios"
             )
     conditional = len(runs) > 1 or bool(runs[0]["scenario"])
+    # How often each of the other conferences takes the shared place, in each run on its own.
+    if rules.group_of == "team":
+        for found in runs:
+            counts = dict.fromkeys(sorted(rules.group), 0)
+            for row in found["teams"]:
+                league = conference_of.get(row["team_id"])
+                if league in counts:  # none of these is named, so their only automatic place is this one
+                    counts[league] += row["route_paths"].get("automatic", 0)
+            found["other_conferences_place"] = {
+                league: published_probability(count, paths) for league, count in counts.items()
+            }
 
     def clock(moment: datetime) -> str:
         local = moment.astimezone(ET)
@@ -322,6 +333,7 @@ def build_field(
             + ", ".join(pairings.open)
             + ". Their teams take no title-game result."
         )
+    notes.extend(f"Cross-check: {warning}." for warning in pairings.warnings)
     if conditional:
         notes.append(
             "A pairing was not final at the cutoff: each scenario is run separately. None is weighted, "
@@ -351,6 +363,11 @@ def build_field(
         ],
         "open_pairings": list(pairings.open),
         "ignored_pairing_rows": list(pairings.ignored),
+        "pairing_warnings": list(pairings.warnings),
+        "scenario_basis": {
+            c: {"statement": options[0].listed_by, "source_urls": options[0].source_url.split()}
+            for c, options in sorted(pairings.scenarios.items())
+        },
         "pairings_disclosure": disclosure,
         "conditional_on_pairings": conditional,
         "market_contest": "excluded: the field forecast is conditional on pairings"

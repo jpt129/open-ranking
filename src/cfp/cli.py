@@ -515,7 +515,7 @@ def _forecast_pairings(args: argparse.Namespace) -> int:
         members,
         games=games,
         named=rules.named,
-        group_leagues=rules.group,
+        group_leagues=rules.group if rules.group_of == "team" else (),
     )
     id_name = {team: name for name, team in names.items()}
     print(f"as an issue with cutoff {cutoff.isoformat()} would read the files (schedule: the local store's):")
@@ -1120,7 +1120,10 @@ def _score(args: argparse.Namespace, clock: Callable[[], datetime] | None = None
                 )
                 continue
             if not card["runs"]:
-                print(f"  {card['edition_id']} ({tag}) [conditional on pairings]: {card.get('note')}")
+                print(
+                    f"WARNING: {card['edition_id']} ({tag}) [conditional on pairings]: {card.get('note')}",
+                    file=sys.stderr,
+                )
             for run in card["runs"]:
                 field, bye = run["scores"]["overall"]["field"], run["scores"]["overall"]["bye"]
                 bubble = run["scores"]["by"]["bubble"].get("bubble", {}).get("field")

@@ -107,7 +107,9 @@ def test_only_the_scenario_that_matches_the_actual_pairings_is_scored() -> None:
     nobody = score_field_section(doc, ACTUAL, {"sec": frozenset({"T08", "T09"})})
     assert nobody["runs"] == []
     assert nobody["not_scored"] == ["sec: A v B", "sec: A v C"]
-    assert "no listed scenario" in nobody["note"]
+    assert nobody["note"].startswith("not scored: pairing not listed")
+    assert nobody["miss"] is True  # logged as a miss, not left out; the scorecard lists it under "misses"
+    assert "miss" not in got
     assert nobody["basis"] == "conditional on pairings"
     with pytest.raises(ScoreRefused, match="actual pairings"):
         score_field_section(doc, ACTUAL)

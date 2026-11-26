@@ -451,6 +451,7 @@ def build_issue(
                 {name: team for team, name in names.items()},
                 games.filter(pl.col("season") == season),
                 members,
+                load_rules(season).named,
             )
             estimate = None
             if frozen is not None and lists is not None and feature is not None:

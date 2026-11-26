@@ -2,7 +2,8 @@
 
 A pairing comes, in order, from: a hand-kept row in `data/title_games.csv` with a source and a first-public
 time at or before the cutoff; else the schedule in the store as of the cutoff, when exactly one game on the
-title date has both teams from that conference (labelled `cfbd_schedule`, a secondary source); else, if
+title date has both teams from that conference (labelled `cfbd_schedule`, a secondary source; never for a
+conference the season's rules name); else, if
 `data/title_scenarios.csv` lists the possible pairings, those scenarios, each run separately and never
 weighted; else the pairing is open. Nothing is guessed.
 
@@ -10,6 +11,16 @@ A hand row is final only on the conference's own word (John's ruling, 26 Nov 202
 `conference_release` (the conference announced the pairing) or `conference_scenario+result` (the conference's
 published clinching scenario in `source_url` and the final score that triggers it in `result_url`, with the
 later of the two first-public times). A row on any other basis, such as a media tracker, settles nothing.
+A scenario plus a result settles a pairing only when the conference's scenario turns on game results alone; a
+branch decided by a ranking or any figure the conference computes needs the conference's announcement. That
+is for the person entering the row to judge: the code cannot.
+
+For the conferences the season's rules name, the schedule settles nothing: it is a cross-check that warns
+when it disagrees with the file. A scenario list is a hypothesis, so its test is completeness: its basis is
+`conference_scenarios` (the conference published them) or `two_outlets` (two independent named outlets give
+the same complete set; both URLs recorded). When it is unclear whether a pairing is still possible, list it.
+The code checks only that the two URLs are on different sites: it cannot tell one wire story printed twice
+from two outlets, or whether the list is complete. Those are for the person entering the rows.
 """
 
 from __future__ import annotations
@@ -21,6 +32,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlsplit
 
 import polars as pl
 
@@ -48,6 +60,7 @@ class Pairing:
     source_url: str
     first_public: datetime | None
     scenario: str | None = None
+    listed_by: str | None = None  # for a scenario: on whose word the list of possible pairings rests
 
 
 @dataclass(frozen=True)
@@ -57,6 +70,7 @@ class Pairings:
     open: list[str]  # conferences with a title game and no pairing of any kind
     sha256: str  # of the files' bytes
     ignored: tuple[str, ...] = ()  # rows whose teams were not used, and why
+    warnings: tuple[str, ...] = ()  # the schedule disagrees with the file for a named conference
 
 
 @dataclass(frozen=True)
@@ -94,13 +108,20 @@ def resolve_pairings(
     name_id: Mapping[str, str],
     games: pl.DataFrame,
     conference_of: Mapping[str, str],
+    named: Sequence[str] = (),
 ) -> Pairings:
-    """Each conference's title pairing as known at `cutoff`. `games` is the season's schedule as of then."""
+    """Each conference's title pairing as known at `cutoff`. `games` is the season's schedule as of then.
+
+    `named` are the conferences whose champion always qualifies: for them the schedule settles nothing.
+    """
     body = Path(title_path).read_bytes()
     extra = Path(scenario_path).read_bytes() if scenario_path and Path(scenario_path).exists() else b""
     decided: dict[str, Pairing] = {}
     days: dict[str, date] = {}
     ignored: list[str] = []
+    warnings: list[str] = []
+    checks: dict[str, set[str]] = {}  # named conference -> the one game the schedule shows for its title
+    label = {team_id: name for name, team_id in name_id.items()}
 
     def team(name: str, where: str) -> str:
         if name not in name_id:
@@ -141,7 +162,7 @@ def resolve_pairings(
                 public,
             )
     for conference, day in sorted(days.items()):
-        if conference in decided:
+        if conference in decided and conference not in named:
             continue
         near = games.filter(
             (pl.col("start_utc").dt.date() >= day - timedelta(days=1))
@@ -153,6 +174,10 @@ def resolve_pairings(
             if conference_of.get(row["home_id"]) == conference
             and conference_of.get(row["away_id"]) == conference
         ]
+        if conference in named:
+            if len(found) == 1:
+                checks[conference] = {found[0]["home_id"], found[0]["away_id"]}
+            continue
         if len(found) == 1:
             decided[conference] = Pairing(
                 conference,
@@ -177,6 +202,26 @@ def resolve_pairings(
         pair = {team(row["team_a"], where), team(row["team_b"], where)}
         if any({p.team_a, p.team_b} == pair for p in scenarios.get(conference, [])):
             raise PairingError(f"{where}: the same pairing is listed twice")
+        source, second = row["source_url"], (row.get("source_url_2") or "").strip()
+        basis = (row.get("basis") or "").strip()
+        if basis == "conference_scenarios":
+            listed_by = f"possible pairings per the conference's published scenarios ({source})"
+        elif basis == "two_outlets":
+            hosts = [
+                (urlsplit(url).hostname or "").lower().rstrip(".").removeprefix("www.")
+                for url in (source, second)
+            ]
+            if not second.startswith("https://") or not all(hosts) or hosts[0] == hosts[1]:
+                raise PairingError(f"{where}: a list from the press needs two outlets, each with its URL")
+            listed_by = (
+                f"possible pairings per {hosts[0]} and {hosts[1]}; not published by the "
+                f"{row['conference'].strip()}"
+            )
+            source = f"{source} {second}"
+        else:
+            raise PairingError(f"{where}: basis must be conference_scenarios or two_outlets, not {basis!r}")
+        if any((p.listed_by, p.source_url) != (listed_by, source) for p in scenarios.get(conference, [])):
+            raise PairingError(f"{where}: a conference's scenarios must share one basis and one source")
         scenarios.setdefault(conference, []).append(
             Pairing(
                 conference,
@@ -184,13 +229,36 @@ def resolve_pairings(
                 team(row["team_a"], where),
                 team(row["team_b"], where),
                 "scenario",
-                row["source_url"],
+                source,
                 public,
                 row["scenario"].strip(),
+                listed_by,
             )
         )
     still = sorted(c for c in days if c not in decided and c not in scenarios)
-    return Pairings(decided, scenarios, still, sha256_hex(body + b"\n--\n" + extra), tuple(ignored))
+    # For a named conference the schedule settles nothing; it is only compared with what the file gives.
+    for conference, shown in sorted(checks.items()):
+        a, b = sorted(label.get(team_id, team_id) for team_id in shown)
+        if conference in decided:
+            mine = decided[conference]
+            if shown != {mine.team_a, mine.team_b}:
+                warnings.append(
+                    f"{conference}: the schedule in the store shows {a} v {b}, not the file's pairing; "
+                    "the file stands"
+                )
+        elif conference in scenarios:
+            if all(shown != {p.team_a, p.team_b} for p in scenarios[conference]):
+                warnings.append(
+                    f"{conference}: the schedule in the store shows {a} v {b}, which is not among the "
+                    "listed scenarios; the scenarios stand"
+                )
+        else:
+            warnings.append(
+                f"{conference}: the schedule in the store shows {a} v {b}; the file has no pairing, and "
+                "the schedule settles nothing for this conference"
+            )
+    digest = sha256_hex(body + b"\n--\n" + extra)
+    return Pairings(decided, scenarios, still, digest, tuple(ignored), tuple(warnings))
 
 
 def review_pairings(
@@ -208,7 +276,9 @@ def review_pairings(
     """Read the two files as an issue at `cutoff` would and say what it would do with them. Writes nothing."""
     lost = "the field section would be not delivered"
     try:
-        found = resolve_pairings(title_path, scenario_path, season, cutoff, name_id, games, conference_of)
+        found = resolve_pairings(
+            title_path, scenario_path, season, cutoff, name_id, games, conference_of, named
+        )
     except Exception as error:  # whatever stops the issue's own read is the finding
         return Review([f"{type(error).__name__}: {error}; {lost}"], [], [], 0)
     problems: list[str] = []
@@ -239,6 +309,15 @@ def review_pairings(
                 f"{conference}: open. THIS CHECK CANNOT TELL: if its teams take the other conferences' place "
                 f"in more than {OPEN_GROUP_LIMIT:.0%} of paths, {lost}; enter its pairing or scenarios"
             )
+    warnings.extend(found.warnings)
+    for conference, pair in sorted(found.decided.items()):
+        if " " in pair.source_url and pair.basis == "official":
+            warnings.append(
+                f"{conference}: settled by a scenario plus a result. That holds only if the conference's "
+                "scenario turns on game results alone; a branch decided by a ranking needs its announcement"
+            )
+    for conference, options in sorted(found.scenarios.items()):
+        lines.append(f"{conference}: {options[0].listed_by}")
     for note in found.ignored:
         (problems if note.split(":")[0] in named else warnings).append(note)
     combinations = math.prod(len(options) for options in found.scenarios.values())

@@ -297,3 +297,46 @@ def test_only_the_sunday_issue_names_an_entry_time() -> None:
     line = section(issue="tminus60", noise=Noise(2026, "ab" * 32, doc))["pairings_disclosure"]
     assert "23:45" not in line
     assert "start of the issuing run" in line
+
+
+def test_the_section_states_who_listed_the_scenarios_and_who_takes_the_shared_place() -> None:
+    options = [
+        Pairing(
+            "sec",
+            DAY.date(),
+            "R01",
+            o,
+            "scenario",
+            "https://a.test/x https://b.test/y",
+            CUT,
+            f"{o} in",
+            "possible pairings per a.test and b.test; not published by the conference",
+        )
+        for o in ("R06", "R07")
+    ]
+    found = Pairings(
+        {c: p for c, p in pairings().decided.items() if c != "sec"},
+        {"sec": options},
+        [],
+        "cd" * 32,
+        (),
+        ("sec: the schedule in the store shows R01 v R08, not the file's pairing",),
+    )
+    doc = section(skip_game="sec", pairings=found, estimate=lambda home, away, neutral: 0.6)
+    assert doc["scenario_basis"] == {
+        "sec": {
+            "statement": "possible pairings per a.test and b.test; not published by the conference",
+            "source_urls": ["https://a.test/x", "https://b.test/y"],
+        }
+    }
+    assert doc["pairing_warnings"] == [
+        "sec: the schedule in the store shows R01 v R08, not the file's pairing"
+    ]
+    assert any("R01 v R08" in note for note in doc["notes"])
+    from cfp.forecast.rank_noise import published_probability as shown
+
+    for run in doc["scenarios"]:  # each run on its own: nothing is merged across scenarios
+        place = run["other_conferences_place"]
+        assert place["sun-belt"] == shown(2000, 2000)
+        assert place["mid-american"] == shown(0, 2000)  # every one of the six leagues is listed
+        assert len(place) == 6

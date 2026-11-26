@@ -284,9 +284,11 @@ def score_field_section(
             "Scored: the one scenario whose pairings were played, conditional on pairings and apart from "
             "unconditional issues. Scenarios are never combined, merged or averaged."
             if scored
-            else "Not scored: no listed scenario matches the pairings that were played. Scenarios are never "
-            "combined."
+            else "not scored: pairing not listed. No listed scenario matches the pairings that were played; "
+            "this is logged as a miss."
         )
+        if not scored:
+            out["miss"] = True
     return out
 
 
@@ -427,6 +429,7 @@ def _field_outcome(
         "field": [{"team_id": e.team_id, "seed": e.seed, "bye": e.bye, "route": e.route} for e in ordered],
         "byes": [e.team_id for e in ordered if e.bye],
         "editions": editions,
+        "misses": [card["edition_id"] for card in editions if card.get("miss")],
         "unreadable": unreadable,
     }
 
@@ -518,7 +521,7 @@ def build_scorecard(
                 card["field"]["outcome"] = (
                     "scored: see field_outcome"
                     if done[card["edition_id"]]
-                    else "not scored: no listed scenario matched the pairings played; see field_outcome"
+                    else "not scored: pairing not listed (a miss); see field_outcome"
                 )
     scorecard_id = f"score-{season}-r{number:02d}-e{revision}"
     document = {

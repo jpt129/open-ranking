@@ -12,7 +12,7 @@ from cfp.forecast.pairings import PairingError, conference_id, resolve_pairings,
 
 CUT = datetime(2026, 11, 29, 7, tzinfo=UTC)
 HEAD = "season,conference,game_date,team_a,team_b,site,site_type,basis,source_url,notes,first_public_utc\n"
-SCEN = "season,conference,scenario,team_a,team_b,source_url,first_public_utc,notes\n"
+SCEN = "season,conference,scenario,team_a,team_b,source_url,first_public_utc,notes,basis,source_url_2\n"
 NAMES = {
     "Alpha": "A",
     "Beta": "B",
@@ -68,8 +68,8 @@ TITLES = (
 
 def test_sources_in_order(tmp_path: Path) -> None:
     scenarios = (
-        "2026,ACC,if Echo wins,Echo,Fox,https://example.test/acc-tb,2026-11-28T12:00:00+00:00,\n"
-        "2026,ACC,if Echo loses,Fox,Zeta,https://example.test/acc-tb,2026-11-28T12:00:00+00:00,\n"
+        "2026,ACC,if Echo wins,Echo,Fox,https://example.test/acc-tb,2026-11-28T12:00:00+00:00,,conference_scenarios,\n"
+        "2026,ACC,if Echo loses,Fox,Zeta,https://example.test/acc-tb,2026-11-28T12:00:00+00:00,,conference_scenarios,\n"
     )
     one, two = files(tmp_path, TITLES, scenarios)
     games = schedule(("g-b1g", "G", "D", DEC5), ("g-other", "A", "G", DEC5))
@@ -81,6 +81,9 @@ def test_sources_in_order(tmp_path: Path) -> None:
     )
     assert found.decided["sec"].source_url == "https://example.test/sec"
     assert (found.decided["big-ten"].basis, found.decided["big-ten"].team_a) == ("cfbd_schedule", "G")
+    assert found.scenarios["acc"][0].listed_by == (
+        "possible pairings per the conference's published scenarios (https://example.test/acc-tb)"
+    )
     assert [p.scenario for p in found.scenarios["acc"]] == ["if Echo wins", "if Echo loses"]
     assert found.open == ["big-12"]
     assert len(found.sha256) == 64
@@ -110,7 +113,7 @@ def test_bad_rows_are_refused(tmp_path: Path) -> None:
     twice = TITLES + next(line for line in TITLES.splitlines(keepends=True) if line.startswith("2026,"))
     with pytest.raises(PairingError, match="listed twice"):
         resolve_pairings(*files(tmp_path, twice), 2026, CUT, NAMES, schedule(), LEAGUE)
-    unsourced = "2026,ACC,one,Echo,Fox,,2026-11-28T12:00:00+00:00,\n"
+    unsourced = "2026,ACC,one,Echo,Fox,,2026-11-28T12:00:00+00:00,,conference_scenarios,\n"
     with pytest.raises(PairingError, match="label and a source"):
         resolve_pairings(*files(tmp_path, TITLES, unsourced), 2026, CUT, NAMES, schedule(), LEAGUE)
 
@@ -165,8 +168,8 @@ def test_the_operators_check(tmp_path: Path) -> None:
     assert any("big-12" in p and "not delivered" in p for p in open_named.problems)  # type: ignore[attr-defined]
 
     scen = (
-        "2026,Big 12,Golf in,Golf,Hotel,https://example.test/s,2026-11-28T23:00:00+00:00,\n"
-        "2026,Big 12,Echo in,Golf,Echo,https://example.test/s,2026-11-28T23:00:00+00:00,\n"
+        "2026,Big 12,Golf in,Golf,Hotel,https://example.test/s,2026-11-28T23:00:00+00:00,,conference_scenarios,\n"
+        "2026,Big 12,Echo in,Golf,Echo,https://example.test/s,2026-11-28T23:00:00+00:00,,conference_scenarios,\n"
     )
     b12 = "2026,Big 12,2026-12-04,,,,neutral,tracker,https://example.test/b,,\n"
     wrong = review(tmp_path, full + b12, scen)
@@ -188,3 +191,94 @@ def test_the_operators_check(tmp_path: Path) -> None:
     grouped = review(tmp_path, full + row("Big 12", "Golf", "Hotel") + sun, group_leagues=("sun-belt",))
     assert grouped.problems == []  # type: ignore[attr-defined]
     assert any("sun-belt" in w and "5%" in w for w in grouped.warnings)  # type: ignore[attr-defined]
+
+
+def test_the_schedule_settles_nothing_for_a_named_conference(tmp_path: Path) -> None:
+    """For the four named leagues the schedule is a cross-check only: it warns and changes nothing."""
+    one, two = files(tmp_path, TITLES)
+    games = schedule(("g-b1g", "G", "D", DEC5), ("g-sec", "A", "G", DEC5), ("g-b12", "X", "H", DEC5))
+    found = resolve_pairings(one, two, 2026, CUT, NAMES, games, LEAGUE, named=("sec", "big-ten"))
+    assert "big-ten" not in found.decided  # the schedule's game is not the conference's word
+    assert found.decided["big-12"].basis == "cfbd_schedule"  # still on, secondary, for the others
+    assert len(found.warnings) == 1  # the Big Ten game the schedule shows is reported, not used
+    other = schedule(("g-sec", "A", "B2", DEC5))
+    league = LEAGUE | {"B2": "sec"}
+    found = resolve_pairings(one, two, 2026, CUT, NAMES | {"Beta Two": "B2"}, other, league, named=("sec",))
+    assert (found.decided["sec"].team_a, found.decided["sec"].team_b) == ("A", "B")  # the file stands
+    (warning,) = found.warnings
+    assert all(word in warning for word in ("sec", "schedule", "Alpha v Beta Two", "file stands"))
+    # scenarios on file and the schedule shows a pairing that is not among them
+    b1g = "2026,Big Ten,D in,Gamma,Delta,https://example.test/s,2026-11-28T12:00:00+00:00,,conference_scenarios,\n"
+    one, two = files(tmp_path, TITLES, b1g)
+    odd = schedule(("g-b1g", "G", "D2", DEC5))
+    found = resolve_pairings(
+        one, two, 2026, CUT, NAMES | {"Delta Two": "D2"}, odd, LEAGUE | {"D2": "big-ten"}, named=("big-ten",)
+    )
+    assert any("not among the listed scenarios" in w for w in found.warnings)
+    # nothing on file: the schedule is reported, and settles nothing
+    found = resolve_pairings(*files(tmp_path, TITLES), 2026, CUT, NAMES, games, LEAGUE, named=("big-ten",))
+    assert "big-ten" not in found.decided
+    assert any("big-ten" in w and "settles nothing" in w for w in found.warnings)
+
+
+def test_a_scenario_list_may_rest_on_two_outlets(tmp_path: Path) -> None:
+    """The test for a scenario list is that it is complete: the conference's, or two outlets that agree."""
+    base = "2026,ACC,{label},{a},{b},https://one.example.test/x,2026-11-28T12:00:00+00:00,,{basis},{second}\n"
+    two_rows = base.format(
+        label="E in", a="Echo", b="Fox", basis="two_outlets", second="https://two.example.org/y"
+    )
+    two_rows += base.format(
+        label="Z in", a="Echo", b="Zeta", basis="two_outlets", second="https://two.example.org/y"
+    )
+    found = resolve_pairings(*files(tmp_path, TITLES, two_rows), 2026, CUT, NAMES, schedule(), LEAGUE)
+    assert [p.listed_by for p in found.scenarios["acc"]] == [
+        "possible pairings per one.example.test and two.example.org; not published by the ACC"
+    ] * 2
+    for bad, message in (
+        (two_rows.replace("https://two.example.org/y", ""), "two outlets"),
+        (two_rows.replace("https://two.example.org/y", "https://one.example.test/z"), "two outlets"),
+        (two_rows.replace("https://two.example.org/y", "https://www.ONE.example.test./z"), "two outlets"),
+        (two_rows.replace("two_outlets", "a_guess"), "basis"),
+        (two_rows.replace("two_outlets", "conference_scenarios", 1), "one basis"),
+    ):
+        with pytest.raises(PairingError, match=message):
+            resolve_pairings(*files(tmp_path, TITLES, bad), 2026, CUT, NAMES, schedule(), LEAGUE)
+
+
+def test_the_pairings_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from cfp import cli
+
+    from .test_issue import world
+
+    pairs = {
+        "SEC": ("T01", "T02"),
+        "Big Ten": ("T03", "T04"),
+        "Big 12": ("T05", "T06"),
+        "ACC": ("T07", "T08"),
+    }
+    leagues = {t: conference_id(label) for label, pair in pairs.items() for t in pair}
+    world(tmp_path, leagues=leagues | {"T26": "sun-belt", "T27": "sun-belt"})
+    data = tmp_path / "data"
+    data.mkdir(exist_ok=True)
+    row = (
+        "2026,{league},2026-12-05,School {a},School {b},,neutral,conference_release,https://example.test/x,,"
+        "2026-11-28T12:00:00+00:00\n"
+    )
+    good = HEAD + "".join(row.format(league=label, a=a, b=b) for label, (a, b) in pairs.items())
+    argv = ["--lake", str(tmp_path / "lake"), "--data", str(data), "forecast", "pairings", "--season", "2026"]
+    argv += ["--cutoff", "2026-11-29T07:00:00+00:00"]
+    (data / "title_games.csv").write_text(good)
+    assert cli.main(argv) == 0
+    assert capsys.readouterr().out.rstrip().splitlines()[-1].startswith("OK")
+    (data / "title_games.csv").write_text("\ufeff" + good)
+    assert cli.main(argv) != 0
+    said = capsys.readouterr()
+    assert "PROBLEM" in said.err
+    assert "title_games.csv" in said.err
+    assert said.out.rstrip().splitlines()[-1].startswith("NOT OK")
+    (data / "title_games.csv").write_text(good + "2026,Sun Belt,2026-12-05,School T26,School T27\n")
+    assert cli.main(argv) != 0
+    said = capsys.readouterr()
+    assert "PROBLEM" in said.err
+    assert "title_games.csv" in said.err
+    assert said.out.rstrip().splitlines()[-1].startswith("NOT OK")

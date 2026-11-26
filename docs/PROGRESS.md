@@ -234,3 +234,6 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - 558 tests pass. Spec review run; one high finding fixed (an unreadable title file stopped the whole issue).
 - Live pairings today: Big Ten 8, SEC 3, Big 12 2 (48 combinations; limit 8). Recount after Friday's games.
 - Next: Friday dry run. Time the eight-combination case from ingest to finished issue; rehearse a malformed CSV at checkout, scenarios collapsing to a final pairing at 23:30, late-Saturday entry, and the field section not delivered; time build, sensitivity, gate and publish.
+- Second rulings the same day: schedule fallback off for named conferences (cross-check only); scenario lists from the conference or two outlets; misses logged; shares of the shared place per run; command test; Pac-12 and Conference USA rows re-sourced to the conferences. 562 tests pass.
+- Open for after Issue 1: an unreadable title file still costs open points (needs a change to a formula-hashed file).
+- To do: recount pairings after TCU–Texas Tech (Thu night) and after Friday's games; report shares again in Friday's dry run and at 19:00 ET Saturday.
