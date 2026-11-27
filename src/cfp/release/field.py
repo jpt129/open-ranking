@@ -254,7 +254,10 @@ def build_field(
     ]
     combos = list(itertools.product(*choices)) if choices else [()]
     if len(combos) > MAX_SCENARIOS:
-        raise FieldError(f"{len(combos)} pairing scenarios are too many to publish; limit {MAX_SCENARIOS}")
+        by_league = " x ".join(f"{options[0][0]} {len(options)}" for options in choices)
+        raise FieldError(
+            f"{len(combos)} pairing scenarios are too many to publish; limit {MAX_SCENARIOS} ({by_league})"
+        )
     runs = []
     for combo in combos:
         decided = dict(pairings.decided) | {conference: pair for conference, pair in combo}

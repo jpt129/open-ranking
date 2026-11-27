@@ -43,8 +43,15 @@ Nothing is filled with a substitute. Every gap goes in `docs/DATA_GAPS.md`.
 ## Hash posting
 
 `cfp forecast issue` writes the edition, computes its SHA-256, creates the signed tag, requests the RFC 3161
-token and prints the post text. Record the posting times. Where and when the hash becomes public relative
-to the cutoff is measured in Friday's dry run and recorded here afterwards.
+token and prints the post text. Record the posting times.
+
+Measured in the dry run of Fri 27 Nov 2026 (rehearsal run on Actions): the edition is built only after the
+cutoff, so the hash cannot exist before 02:00:00 ET. The script starts the build five seconds after the
+cutoff; the token and the signed tag `issue/<edition id>` followed within three seconds of the build ending.
+The build took 1 to 5 seconds with settled pairings and 22 seconds with eight scenario combinations on the
+Mac (the Actions runner is slower). Expect the tag on the public code repository (jpt129/open-ranking) between
+02:00:10 and 02:02 ET, about 65 hours before the reveal. The token is stored with the edition in the data
+repository, which is private. The post text is printed in the run log; the public post is made by hand.
 
 ## After each reveal
 

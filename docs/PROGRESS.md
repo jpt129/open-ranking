@@ -244,3 +244,5 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Friday dry-run list, complete: check_hook.sh; timings of build, sensitivity, gate, publish; late-Saturday entry; section not delivered and what a reader sees; eight-combination case timed from ingest to finished issue; malformed CSV at checkout; scenarios collapsing at 23:30; Issue 2 field run on scratch pairings; shares; Mac 00:10 fallback and what the Mac needs; where and when the issue's hash becomes public.
 - Monday 30 Nov 18:00 ET: product and SECTION line for Issue 2 to John.
 - P24 runbook written (docs/PILOT.md). Market preregistration drafted, awaiting John; not hashed.
+- 27 Nov: Big 12 row pushed on John's OK. Friday dry run done and reported; one fix (not-delivered reason names the leagues). Product on file 48. Preregistration questions restated for John; answers due 12:00 ET Saturday.
+- Next: recount after Friday's and Saturday's games; 19:00 ET Saturday go/no-go report; hash the preregistration once John answers; John to rule on the store and ingest step for Monday's Open Ranking build.

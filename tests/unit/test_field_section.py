@@ -277,7 +277,9 @@ def test_more_than_eight_combinations_are_not_delivered() -> None:
         "big-ten": three("big-ten", "R02", ("R09", "R10", "R11")),
     }
     found = Pairings({c: p for c, p in pairings().decided.items() if c not in many}, many, [], "cd" * 32)
-    with pytest.raises(FieldError, match="9 pairing scenarios are too many"):
+    with pytest.raises(
+        FieldError, match=r"9 pairing scenarios are too many to publish; limit 8 \(big-ten 3 x sec 3\)"
+    ):
         section(pairings=found, conference_of=league_of, estimate=lambda home, away, neutral: 0.6)
 
 
