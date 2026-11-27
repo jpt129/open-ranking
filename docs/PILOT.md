@@ -64,8 +64,10 @@ repository, which is private. The post text is printed in the run log; the publi
 
 ## Open Ranking edition (Monday and Selection Day)
 
-One commit, one machine: `/release-open-ranking` (hook check and pairings check, build, sensitivity, gate,
-publish). John pushes `site/`. Rerun the pairings check on Sunday afternoon: the build reads
+One commit, one machine: `/release-open-ranking` (clean tree, hook check, golden test; a fresh copy of the
+data repository; results ingest; pairings check; build, sensitivity, gate, publish). Each step's result and
+the store's commit hash go in `docs/RELEASE_LOG.md`. The local `lake/` is never used. John pushes `site/`.
+The amended steps are rehearsed once on Sunday afternoon, stopping before publish. Rerun the pairings check on Sunday afternoon: the build reads
 `data/title_games.csv`.
 
 ## After 6 Dec
