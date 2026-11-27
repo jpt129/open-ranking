@@ -113,6 +113,10 @@ def test_section_holds_the_whole_forecast() -> None:
     assert len(run["today"]["field"]) == 12
     assert isinstance(run["seeds"]["games"], int)
     assert any("five" in note or "5 places" in note for note in doc["notes"])
+    # the preregistration says game lines are an input and futures prices are not; the notes say the same
+    lines_note = next(note for note in doc["notes"] if "betting lines" in note)
+    assert "playoff futures" in lines_note
+    assert "never read" in lines_note
     assert section() == doc  # the same inputs, the same section
     # a team with two games left is conditioned on the earlier one
     games, lines = frames()

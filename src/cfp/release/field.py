@@ -324,6 +324,10 @@ def build_field(
         "Open points are computed at the cutoff for the starting order and are not recomputed on each path.",
         "A count of no paths or every path is published half a path short of 0 or 1.",
         "The bracket checked on every path: each team once, each seed once, the era's byes and home games.",
+        "Each remaining game's win probability comes from bookmakers' betting lines for that game "
+        "(moneylines with the margin removed, or a spread converted with a curve fitted on earlier "
+        "seasons); a game with no line uses a strength estimate. Each game lists its source. Prices of "
+        "playoff futures and prediction-market contracts are for evaluation only and are never read.",
     ]
     if made.in_progress:
         notes.append(
