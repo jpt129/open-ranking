@@ -246,3 +246,5 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - P24 runbook written (docs/PILOT.md). Market preregistration drafted, awaiting John; not hashed.
 - 27 Nov: Big 12 row pushed on John's OK. Friday dry run done and reported; one fix (not-delivered reason names the leagues). Product on file 48. Preregistration questions restated for John; answers due 12:00 ET Saturday.
 - Next: recount after Friday's and Saturday's games; 19:00 ET Saturday go/no-go report; hash the preregistration once John answers; John to rule on the store and ingest step for Monday's Open Ranking build.
+- 27 Nov (evening): preregistration hashed and tagged (`prereg/2026-market`). Capture fix, release-step changes and the game-lines note pushed. Go/no-go steps written into the issue-sunday skill. Main is frozen until Issue 1.
+- Next: 19:00 ET Saturday go/no-go report; Issue 1 at 02:00 ET Sunday, then copy its token to the public repository and send the post text; Sunday: second capture for Issue 2, rehearse Monday's release steps; then the post-pilot build order (P21 wiring, P25 replay with P10/P11, P18 tiebreak modules, P13 TypeScript, P26, P27).

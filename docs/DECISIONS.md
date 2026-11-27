@@ -1045,3 +1045,10 @@ John's rulings:
 - Hash at 12:30 ET Saturday 28 Nov: signed tag `prereg/2026-market`, RFC 3161 token, post text to John.
 - **Second capture at 4 minutes before the cutoff: yes, from Issue 2.** `scripts/issue.sh` is not changed before Issue 1. Build on Sunday after Issue 1; hard limit 120 seconds; a failure or timeout is a warning and never delays the edition; rehearse on Actions on Monday and show both capture times against the rehearsal cutoff.
 - **Contest report requirement:** per event, the number of rows with one qualifying venue, by venue, and the number with both.
+
+## 2026-11-27 — Market preregistration hashed (MK-02)
+
+- `docs/PREREGISTRATION_2026.md`, SHA-256 `6ff0dafbcde6dd571124b30f195a6858e5a00c2d567851330bcefe83971ae412`, hashed on John's order at 22:00 UTC on 27 Nov 2026, 33 hours before Issue 1's cutoff. Signed tag `prereg/2026-market` on commit `d9d1473`; RFC 3161 token from freetsa.org, time 22:00:34 UTC, at `docs/proofs/PREREGISTRATION_2026.tsr`. Tag, token and file were fetched without signing in and the hashes matched. The public post is John's to make.
+- The file is never edited. A change would be a new file and a new hash, and counts only if posted before 29 Nov 07:00 UTC.
+- The Saturday go/no-go preparation steps are written in `.claude/skills/issue-sunday/SKILL.md` so that a new session can produce the report.
+- John: nothing else changes before Issue 1.
