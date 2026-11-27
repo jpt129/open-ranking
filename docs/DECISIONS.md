@@ -1006,3 +1006,9 @@ John's rulings:
 - Issue 2 pairings: 15:45 ET Tuesday 1 Dec is the hard limit. Target: every row on file by 18:00 ET Monday 30 Nov; at that time John gets the product and the SECTION line.
 - `scripts/check_hook.sh` prints `core.hooksPath` and stops if it is not `scripts/hooks`. It is step 0 of the Open Ranking release steps, a line in the Sunday issue steps, and a line of Friday's dry run.
 - The next report John needs is Friday's dry run.
+
+## 2026-11-26 — Correction: prompt numbers; preregistration is not done (MK-02)
+
+- Claude told John that P24 was the market contest. That was wrong: P21 is the market contest and P24 is the pilot runbook. P24 is now written (`docs/PILOT.md`).
+- Found while checking: the market preregistration that MK-02 requires to be hashed before the first scored issue does not exist. `docs/PREREGISTRATION_2026_DRAFT.md` is a draft for John's rulings; it is not hashed and not in force. Without an approved, hashed text before Sun 29 Nov 07:00 UTC the pilot reports "market contest not run".
+- John wants the full system built out. Order proposed: nothing that the issue path imports changes before Issue 1 (the freeze stands); after Issue 1, P21 (contest code), then P25 replay with P10 and P11 full, P13 (clean-room TypeScript), P18 full (tiebreak modules, which also answers the last-Sunday pairing problem), P26 one candidate at a time under the promotion rule, P27.
