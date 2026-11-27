@@ -8,8 +8,13 @@ before that cutoff.
 The 2026 contest is a pilot. Results are reported with their intervals. No claim that the forecast is better
 than the market is made from this season alone.
 
-Prices are for evaluation only. They never enter a predictor, and nobody on the project trades or advises on
-the covered markets.
+Prices of the contracts in the appendix, and of any playoff futures, are for evaluation only and never
+enter a predictor. Betting lines for individual games are an input to the field simulation, as the method
+note describes. Nobody on the project trades or advises on the contracts in the appendix from the time this
+hash is posted until they settle.
+
+Before this file was hashed, coverage under sections 4 and 5 was checked on archived order books at a trial
+cutoff (counts of contracts that qualify and that fail each filter). No score was computed.
 
 ## 1. Venues
 
@@ -74,14 +79,17 @@ is archived, and published with the contest report.
   mean; with one, that venue's probability.
 - Primary score: paired log loss on matched rows of the primary event, ours minus the benchmark. A negative
   number favours the forecast. For log loss only, every probability (ours and the benchmark's) is clipped to
-  [0.000001, 0.999999]; the number of clipped values is reported. Raw field totals are kept.
+  [0.000001, 0.999999]; the number of clipped values is reported. Clipping happens only inside the log-loss
+  calculation: the probabilities as published, and their totals over teams (12 for the field, 4 for the
+  top-four seeds), are reported unchanged.
 - Horizons: Issue 1; Issue 2; Issues 3 and 4 together. A horizon uses whichever of its issues qualify. A
   horizon with no scored issue is reported as such.
 - Weights: a unit is one team, one event, one horizon. Repeated issues are averaged within the unit. Units
   weigh equally. The headline number for an event is the mean over its units; each horizon is also reported
   on its own. The season is one block.
-- Also reported: each venue separately on the rows where it qualifies, Brier scores, matched and unmatched
-  counts, clip counts, and bubble calibration.
+- Also reported: each venue separately on the rows where it qualifies; Brier scores; matched and unmatched
+  counts; clip counts; the primary score on contested rows, meaning matched rows where the benchmark is
+  between 0.05 and 0.95 inclusive; and bubble calibration.
 - Bubble calibration is reported on the cohort of SPEC VT-12: the teams within five Baseline 2 places of
   the projected last at-large team, frozen at each issue and recorded in the edition. The bubble row is
   descriptive: the cohort is about ten teams, and no conclusion is drawn from it. An issue that cannot
@@ -107,12 +115,18 @@ token, both in the public repository https://github.com/jpt129/open-ranking, and
 
 ## Appendix: contracts and their rules as captured
 
-The rules text for each contract is taken from the venue's public listing as archived by the project. The
-hash of the archived payload is given for each event; the payloads are published with the contest report.
+Each rules text comes from the venue's public listing as archived by the project on 25 Nov 2026. The hash
+of the archived payload is given for each event; the payloads are published with the contest report.
+
+Rules addresses. Polymarket: the event page, formed from the venue's event slug. Kalshi: the contract-terms
+document named in the venue's own series listing (`contract_terms_url`), a general template that the
+per-contract rules text completes; the series listing was read on 27 Nov 2026 and is not part of the 25 Nov
+archive, so its hash is given. One address per table was opened; the result is recorded in each table's
+heading.
 
 ### Kalshi: Team makes the 12-team field (primary)
 
-Event `KXNCAAFPLAYOFF-26`, "College Football Playoff Qualifiers" (2026-27). 61 contracts. Captured 2026-11-25 16:51:29 UTC; archived payload SHA-256 `54909fe5f4b6730924a1f9468e84f48622cedeff191fe73662cade70fea6dccb`. Rules address for every row: https://kalshi.com/markets/kxncaafplayoff (formed from the venue's series ticker; the rules text below is the `rules_primary` field of the venue's own listing). Settlement sources named by the venue: ESPN (https://www.espn.com/); Fox Sports (https://www.foxsports.com/); The Wall Street Journal (https://www.wsj.com/). Second rules field, the same for every contract: "Kalshi is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the NCAA. All trademarks, logos, and brand names are the property of their respective owners."
+Event `KXNCAAFPLAYOFF-26`, "College Football Playoff Qualifiers" (2026-27). 61 contracts. Captured 2026-11-25 16:51:29 UTC; archived payload SHA-256 `54909fe5f4b6730924a1f9468e84f48622cedeff191fe73662cade70fea6dccb`. Rules address for every row: https://assets.kalshi.com/contract_terms/NCAAFMILESTONES.pdf (from the series listing for `KXNCAAFPLAYOFF`, response SHA-256 `870e28ad70be15d9808e458e4ddb8598992bb1379e070dd86a8b861cf9c8e3b1`). Opened 27 Nov 2026 21:51:14 UTC: HTTP 200, a PDF, SHA-256 `3d2feb6037e253109dd2525622d7f345ffa3937fd316fa7b190fd0d9de90fe7a`. The rules text in each row is the `rules_primary` field of the archived listing. Settlement sources named by the venue: ESPN (https://www.espn.com/); Fox Sports (https://www.foxsports.com/); The Wall Street Journal (https://www.wsj.com/). Second rules field, the same for every contract: "Kalshi is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the NCAA. All trademarks, logos, and brand names are the property of their respective owners."
 
 | Contract | Team | Rules text as captured | SHA-256 of the rules text |
 |---|---|---|---|
@@ -180,7 +194,7 @@ Event `KXNCAAFPLAYOFF-26`, "College Football Playoff Qualifiers" (2026-27). 61 c
 
 ### Kalshi: Team is a top-four seed (secondary)
 
-Event `KXNCAAFTOPSEED-27T4`, "College Football Playoff: Top 4 Seeds" (Top 4 (2026-27)). 52 contracts. Captured 2026-11-25 16:54:40 UTC; archived payload SHA-256 `fa7b8a60585a7c1a8dcce3b229fce9392a03259a7ca2ee6f0f51c7780fa71c34`. Rules address for every row: https://kalshi.com/markets/kxncaaftopseed (formed from the venue's series ticker; the rules text below is the `rules_primary` field of the venue's own listing). Settlement sources named by the venue: Kalshi using information originating from the NCAA (https://www.ncaa.com/sports/football/fbs); ESPN (https://www.espn.com). Second rules field, the same for every contract: "Kalshi is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the NCAA. All trademarks, logos, and brand names are the property of their respective owners."
+Event `KXNCAAFTOPSEED-27T4`, "College Football Playoff: Top 4 Seeds" (Top 4 (2026-27)). 52 contracts. Captured 2026-11-25 16:54:40 UTC; archived payload SHA-256 `fa7b8a60585a7c1a8dcce3b229fce9392a03259a7ca2ee6f0f51c7780fa71c34`. Rules address for every row: https://assets.kalshi.com/contract_terms/NCAAFTOPSEEDS.pdf (from the series listing for `KXNCAAFTOPSEED`, response SHA-256 `96515896eff7adadabec8232caf6de1b3b64517e7cca579e60570ac5309f0657`). Opened 27 Nov 2026 21:51:14 UTC: HTTP 200, a PDF, SHA-256 `7b255d93ad6e1c60d9c4db0ca0e4b2487729d8fda62e6e49b6fd707a07b51c83`. The rules text in each row is the `rules_primary` field of the archived listing. Settlement sources named by the venue: Kalshi using information originating from the NCAA (https://www.ncaa.com/sports/football/fbs); ESPN (https://www.espn.com). Second rules field, the same for every contract: "Kalshi is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the NCAA. All trademarks, logos, and brand names are the property of their respective owners."
 
 | Contract | Team | Rules text as captured | SHA-256 of the rules text |
 |---|---|---|---|
@@ -239,7 +253,7 @@ Event `KXNCAAFTOPSEED-27T4`, "College Football Playoff: Top 4 Seeds" (Top 4 (202
 
 ### Polymarket: Team makes the 12-team field (primary)
 
-Event `948140`, "NCAA Football: Team to make College Football Playoffs". 50 contracts. Captured 2026-11-25 16:54:50 UTC; archived payload SHA-256 `ee26364641b51fdcf268ab487a0a667ae5157b338dc103fe81cc9bbf19ca2034`. Rules address for every row: https://polymarket.com/event/ncaa-football-team-to-make-college-football-playoffs-20260803190433067 (formed from the venue's event slug; the rules text is the `description` field of the venue's own listing). Resolution source field of the listing: https://collegefootballplayoff.com. The rules text is identical for every contract in this event; its SHA-256 is `0f3a954e9bf3b5ba52c6c7e5bd9aac526d5c995b5e26977301c50c88009c7ece`. As captured:
+Event `948140`, "NCAA Football: Team to make College Football Playoffs". 50 contracts. Captured 2026-11-25 16:54:50 UTC; archived payload SHA-256 `ee26364641b51fdcf268ab487a0a667ae5157b338dc103fe81cc9bbf19ca2034`. Rules address for every row: https://polymarket.com/event/ncaa-football-team-to-make-college-football-playoffs-20260803190433067 (formed from the venue's event slug; the rules text is the `description` field of the archived listing). Opened 27 Nov 2026 21:50:50 UTC: HTTP 200, the event's page, which shows the same rules text. Resolution source field of the listing: https://collegefootballplayoff.com. The rules text is identical for every contract in this event; its SHA-256 is `0f3a954e9bf3b5ba52c6c7e5bd9aac526d5c995b5e26977301c50c88009c7ece`. As captured:
 
 > This market will resolve "Yes" if the listed team is selected to participate in the 2026 College Football Playoff. Otherwise, this market will resolve "No".
 >
@@ -304,7 +318,7 @@ Event `948140`, "NCAA Football: Team to make College Football Playoffs". 50 cont
 
 ### Polymarket: Team is a top-four seed (secondary)
 
-Event `801843`, "NCAA Football: CFB Playoff Top 4 Seeds". 50 contracts. Captured 2026-11-25 16:55:01 UTC; archived payload SHA-256 `4fd911b7d33d03c34c1d589732cde2100c1bbaccfa6e5e54b7338e34568ab2c7`. Rules address for every row: https://polymarket.com/event/ncaa-football-cfb-playoff-top-4-seeds-20260803203916647 (formed from the venue's event slug; the rules text is the `description` field of the venue's own listing). Resolution source field of the listing: empty (the rules text names the source). The rules text is identical for every contract in this event; its SHA-256 is `39f0d90befbb8d54066ba4c15880ab5c81c43157aca645b51ee3243b5a58b940`. As captured:
+Event `801843`, "NCAA Football: CFB Playoff Top 4 Seeds". 50 contracts. Captured 2026-11-25 16:55:01 UTC; archived payload SHA-256 `4fd911b7d33d03c34c1d589732cde2100c1bbaccfa6e5e54b7338e34568ab2c7`. Rules address for every row: https://polymarket.com/event/ncaa-football-cfb-playoff-top-4-seeds-20260803203916647 (formed from the venue's event slug; the rules text is the `description` field of the archived listing). Opened 27 Nov 2026 21:50:52 UTC: HTTP 200, the event's page, which shows the same rules text. Resolution source field of the listing: empty (the rules text names the source). The rules text is identical for every contract in this event; its SHA-256 is `39f0d90befbb8d54066ba4c15880ab5c81c43157aca645b51ee3243b5a58b940`. As captured:
 
 > This market will resolve to "Yes" if the above team is seeded No. 1, No. 2, No. 3, or No. 4 in the 2026-27 College Football Playoff bracket, and "No" otherwise.
 >
