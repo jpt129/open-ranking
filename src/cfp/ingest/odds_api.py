@@ -76,7 +76,20 @@ class OddsReport:
     rows: int = 0
     games: int = 0
     in_play: int = 0  # events already kicked off at capture; their prices are not pregame lines
-    unmatched: list[str] = field(default_factory=list)  # events we could not tie to a game in the store
+    unmatched: list[str] = field(default_factory=list)  # events we could not read: a fault
+    # events between two known teams that the store has no game for yet (a title game the bookmakers list
+    # before the schedule does): a warning, not a fault; the quotes stay in the archived raw payload
+    not_in_store: list[str] = field(default_factory=list)
+
+
+def outcome(report: OddsReport, raw_hash: str) -> tuple[list[str], int]:
+    """What a capture prints after its counts, and its exit status. Only an unreadable event fails it."""
+    lines = [
+        f"WARNING: not in the store, no line row written (quotes kept in raw payload {raw_hash}): {entry}"
+        for entry in report.not_in_store
+    ]
+    lines += [f"  not matched: {entry}" for entry in report.unmatched]
+    return lines, 1 if report.unmatched else 0
 
 
 def _point(market: Mapping[str, Any], name: str) -> float | None:
@@ -128,6 +141,9 @@ def line_rows(
             & (pl.col("start_utc") >= kickoff - KICKOFF_SLACK)
             & (pl.col("start_utc") <= kickoff + KICKOFF_SLACK)
         )
+        if match.height == 0:
+            report.not_in_store.append(label)
+            continue
         if match.height != 1:
             report.unmatched.append(f"{label}: {match.height} games in the store")
             continue

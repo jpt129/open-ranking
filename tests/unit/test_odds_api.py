@@ -12,7 +12,7 @@ import pytest
 
 from cfp.ingest.errors import BudgetExceeded
 from cfp.ingest.http import Budget, Fetched, Fetcher, Response, TokenBucket
-from cfp.ingest.odds_api import MONTHLY_CREDITS, OddsApi, credit_cost, line_rows
+from cfp.ingest.odds_api import MONTHLY_CREDITS, OddsApi, OddsReport, credit_cost, line_rows, outcome
 from cfp.store.lake import Lake
 
 from .store_helpers import Clock, frame, game
@@ -165,9 +165,19 @@ def test_events_that_cannot_be_tied_to_a_game_are_reported_not_guessed(tmp_path:
     ]
     rows, report = line_rows(fetched(lake, payload), IDS, games)
     assert rows.height == 1  # the third event names the same two teams with home and away swapped
-    assert len(report.unmatched) == 3
+    # a game the bookmakers list before the store has it (a title game just announced) is a warning: its
+    # quotes stay in the archived payload and the capture passes; a name we cannot read is still a failure
+    assert len(report.unmatched) == 1
     assert "unknown team name" in report.unmatched[0]
-    assert "0 games in the store" in report.unmatched[1]
+    assert len(report.not_in_store) == 2
+    assert "Rice Owls at Texas Longhorns" in report.not_in_store[0]
+    lines, status = outcome(report, "ab" * 32)
+    assert status == 1
+    only_new = OddsReport(games=1, not_in_store=report.not_in_store)
+    lines, status = outcome(only_new, "ab" * 32)
+    assert status == 0
+    assert lines[0].startswith("WARNING: not in the store")
+    assert "abab" in lines[0]
     swapped = rows.row(0, named=True)
     # the stored home team is Texas, so its moneyline and spread are reported, whatever the API calls home
     values = (swapped["game_id"], swapped["ml_home"], swapped["ml_away"], swapped["spread"])
@@ -199,7 +209,7 @@ def test_recorded_payload(tmp_path: Path) -> None:
     )
     ids = {"San Jose State Spartans": "T-SJSU", "North Dakota State Bison": "T-NDSU"}
     lines, report = line_rows(fetched(lake, payload), ids, lake.scan("games").collect())
-    assert (report.games, lines.height, len(report.unmatched)) == (1, 2, 1)
+    assert (report.games, lines.height, len(report.unmatched) + len(report.not_in_store)) == (1, 2, 1)
     fanduel = lines.filter(pl.col("provider") == "oddsapi:fanduel").row(0, named=True)
     # North Dakota State is the road favourite: the home side gets the points
     assert (fanduel["ml_home"], fanduel["ml_away"], fanduel["spread"], fanduel["total"]) == (

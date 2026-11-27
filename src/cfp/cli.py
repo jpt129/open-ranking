@@ -240,7 +240,7 @@ def _ingest_odds(args: argparse.Namespace) -> int:
 
     from cfp.common.env import load_env
     from cfp.ingest.cfp_releases import load_aliases
-    from cfp.ingest.odds_api import MONTHLY_CREDITS, OddsApi, line_rows
+    from cfp.ingest.odds_api import MONTHLY_CREDITS, OddsApi, line_rows, outcome
     from cfp.ingest.upsert import upsert
     from cfp.store.lake import Lake
 
@@ -257,9 +257,10 @@ def _ingest_odds(args: argparse.Namespace) -> int:
     print(f"lines: new={result.new} from {report.games} games; credits {api.used()}/{MONTHLY_CREDITS}")
     if report.in_play:
         print(f"  skipped {report.in_play} games already under way")
-    for line in report.unmatched:
-        print(f"  not matched: {line}")
-    return 1 if report.unmatched else 0
+    lines, status = outcome(report, got.raw_hash)
+    for line in lines:
+        print(line)
+    return status
 
 
 def _ingest_ap_others(args: argparse.Namespace) -> int:
