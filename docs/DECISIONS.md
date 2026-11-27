@@ -1052,3 +1052,10 @@ John's rulings:
 - The file is never edited. A change would be a new file and a new hash, and counts only if posted before 29 Nov 07:00 UTC.
 - The Saturday go/no-go preparation steps are written in `.claude/skills/issue-sunday/SKILL.md` so that a new session can produce the report.
 - John: nothing else changes before Issue 1.
+
+## 2026-11-27 — Build in parallel tracks (John)
+
+- Nothing waits for 6 Dec. Track A (issue track, the main checkout): Issue 1, Monday's edition, Issue 2, weekly scoring, the Committee Gap, the second capture; dated items first. Track B: P25 with P10 and P11, then P26. Track C: P13 clean-room implementation and the Selection Day rehearsals on 2024 and 2025. Track D: finish P21. Then P12, P14, P20, P22, P27 as tracks free up. P18 tiebreak modules last, pending the 2027 title-game plans.
+- Main is frozen until Issue 1 is out. Tracks merge after that, one at a time, each with its review and a green CI run. No track touches the main checkout, the data repository's main branch or the release steps.
+- **Going live is decided by the promotion rule, not the date.** A candidate model can drive Issues 3 and 4 only if, before Issue 3's cutoff: the replay passes the leakage audit with the auditor's report sent to John; the candidate beats the baseline on held-out seasons under the promotion rule as written (VT-14); the change is announced with its model version before Issue 3. Otherwise the baseline stays. No model change between Issues 3 and 4. The title-week drop follows the same three steps and can go first.
+- Set up by Claude: worktrees under `~/Desktop/CFBTracks/` (`replay` on `track-b-replay`, `cleanroom` on `track-c-cleanroom`, `contest` on `p21-contest`), two private copies of the data repository there with pushing disabled, and a brief on each branch under `docs/tracks/`. Claude's proposal, for John to accept or change: the clean-room session cannot read `src/`, so the Selection Day rehearsals run in Track D's session after P21.
