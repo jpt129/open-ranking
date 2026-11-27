@@ -1,0 +1,13 @@
+#!/bin/sh
+# A commit that touches a title pairing file runs the pairings check and is refused when a file is NOT VALID.
+# The check's exit code reflects the file only; whether the field section would be delivered is information.
+# Turn on once per clone:  git config core.hooksPath scripts/hooks
+# The check reads the files in the working tree, so commit them as they stand on disk.
+if git diff --cached --name-only | grep -qE '^data/title_(games|scenarios)\.csv$'; then
+    check=${PAIRINGS_CHECK:-"uv run cfp forecast pairings --season $(date +%Y)"}
+    if ! $check; then
+        echo "commit refused: a title pairing file is NOT VALID (see above)" >&2
+        exit 1
+    fi
+fi
+exit 0

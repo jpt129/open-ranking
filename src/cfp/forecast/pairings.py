@@ -28,7 +28,7 @@ from __future__ import annotations
 import csv
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Final
@@ -77,10 +77,11 @@ class Pairings:
 class Review:
     """What the files would give an issue at a cutoff, for the person entering them."""
 
-    problems: list[str]  # each would cost the issue its field section, or a row its effect
+    problems: list[str]  # why the field section would be not delivered; information only
     warnings: list[str]
     lines: list[str]
     combinations: int
+    faults: list[str] = field(default_factory=list)  # what makes a file not valid; these stop a push
 
 
 def conference_id(label: str) -> str:
@@ -288,12 +289,28 @@ def review_pairings(
 ) -> Review:
     """Read the two files as an issue at `cutoff` would and say what it would do with them. Writes nothing."""
     lost = "the field section would be not delivered"
+    files = [("title games", title_path)]
+    if scenario_path and Path(scenario_path).exists():
+        files.append(("title scenarios", scenario_path))
+    faults: list[str] = []
+    for label, path in files:  # the shape of each file, before anything reads it
+        raw = Path(path).read_bytes()
+        if raw.startswith(b"\xef\xbb\xbf"):
+            faults.append(f"{label}: {Path(path).name} starts with a byte-order mark")
+        table = list(csv.reader(raw.decode("utf-8-sig").splitlines()))
+        for number, cells in enumerate(table[1:], start=2):
+            if len(cells) != len(table[0]):
+                faults.append(
+                    f"{label}: {Path(path).name} line {number} has {len(cells)} fields; "
+                    f"the header has {len(table[0])}"
+                )
     try:
         found = resolve_pairings(
             title_path, scenario_path, season, cutoff, name_id, games, conference_of, named
         )
     except Exception as error:  # whatever stops the issue's own read is the finding
-        return Review([f"{type(error).__name__}: {error}; {lost}"], [], [], 0)
+        text = f"{type(error).__name__}: {error}"
+        return Review([f"the files cannot be read as written; {lost}"], [], [], 0, [*faults, text])
     problems: list[str] = []
     warnings: list[str] = []
     lines: list[str] = []
@@ -302,7 +319,7 @@ def review_pairings(
     def placed(pair: Pairing, what: str) -> None:
         for team in (pair.team_a, pair.team_b):
             if conference_of.get(team) != pair.conference:
-                problems.append(f"{what}: {name.get(team, team)} is not a {pair.conference} team; {lost}")
+                faults.append(f"{what}: {name.get(team, team)} is not a {pair.conference} team")
 
     for conference, pair in sorted(found.decided.items()):
         placed(pair, f"{conference} pairing")
@@ -336,9 +353,6 @@ def review_pairings(
     combinations = math.prod(len(options) for options in found.scenarios.values())
     if combinations > MAX_SCENARIOS:
         problems.append(f"{combinations} scenario combinations; the limit is {MAX_SCENARIOS}; {lost}")
-    files = [("title games", title_path)]
-    if scenario_path and Path(scenario_path).exists():
-        files.append(("title scenarios", scenario_path))
     for label, path in files:
         for row in csv.DictReader(Path(path).read_text().splitlines()):
             if int(row["season"]) != season or not (row["team_a"] and row["team_b"]):
@@ -346,7 +360,9 @@ def review_pairings(
             where = f"{label}: {row['conference']} {row.get('scenario') or ''}".strip()
             public = _time(row.get("first_public_utc") or "", where)
             if public is None:
-                problems.append(f"{where}: teams are named with no first-public time; the row is ignored")
+                faults.append(f"{where}: teams are named with no first-public time; the row is ignored")
             elif public > cutoff:
                 problems.append(f"{where}: first public {public.isoformat()} is after the cutoff; ignored")
-    return Review(problems, warnings, lines, combinations)
+    if faults:
+        problems.append(f"a file is not valid; {lost}")
+    return Review(problems, warnings, lines, combinations, faults)

@@ -525,21 +525,27 @@ def _forecast_pairings(args: argparse.Namespace) -> int:
             if line.endswith(f" v {team}"):
                 line = line[: -len(team)] + name
         print(f"  {line}")
-    print(f"scenario combinations: {found.combinations} (limit 8)")
     for warning in found.warnings:
         print(f"WARNING: {warning}")
     if unreadable:
-        found.problems.append(
-            f"title_games.csv cannot be read for open points ({unreadable}): the issue would go out with no "
-            "open points and no field section"
-        )
+        found.faults.append(f"title_games.csv cannot be read for open points ({unreadable})")
+        found.problems.append("the issue would go out with no open points and no field section")
+    for fault in found.faults:
+        print(f"NOT VALID: {fault}", file=sys.stderr)
     for problem in found.problems:
-        print(f"PROBLEM: {problem}", file=sys.stderr)
-    if found.problems:
-        print("NOT OK: with these files the issue would go out with the field section not delivered")
+        print(f"SECTION: {problem}", file=sys.stderr)
+    product = f"product of scenario combinations {found.combinations} (limit 8)"
+    # Two verdicts. The first alone decides whether a push is allowed, and sets the exit code.
+    if found.faults:
+        print(f"FILE: NOT VALID ({len(found.faults)} fault(s) above). Do not push.")
     else:
-        print("OK: the files read cleanly and every named conference has a pairing or scenarios")
-    return 1 if found.problems else 0
+        print("FILE: VALID")
+    if found.problems:
+        lost = "; the field section would be not delivered"
+        print(f"SECTION: not delivered: {'; '.join(p.replace(lost, '') for p in found.problems)}; {product}")
+    else:
+        print(f"SECTION: would be delivered, as far as this check can tell; {product}")
+    return 1 if found.faults else 0
 
 
 def _forecast_due(args: argparse.Namespace) -> int:

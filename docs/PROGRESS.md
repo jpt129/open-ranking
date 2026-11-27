@@ -240,3 +240,4 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Third rulings the same day: annotation lists accepted into the allow-list wording (SPEC DS-04, page note, test); Big Ten (8) and SEC (3) scenarios entered; `outlets` column. 564 tests pass.
 - Reminders: recount after TCU–Texas Tech and after Friday's games; rerun `cfp forecast pairings` on Sunday afternoon before Monday's Open Ranking build; 19:00 ET Saturday report.
 - Fourth rulings the same day: CLAUDE.md boundary line; live title-case test. 565 tests.
+- Fifth rulings: check split into FILE and SECTION verdicts; commit hook; `scripts/pairing_rows.py`; SEC rows re-based; Sun Belt entered. Product on file 48, Big 12 open.

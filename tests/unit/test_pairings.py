@@ -170,24 +170,28 @@ def test_the_operators_check(tmp_path: Path) -> None:
     assert any("big-12" in p and "not delivered" in p for p in open_named.problems)  # type: ignore[attr-defined]
 
     scen = (
-        "2026,Big 12,Golf in,Golf,Hotel,https://example.test/s,2026-11-28T23:00:00+00:00,,conference_scenarios,\n"
-        "2026,Big 12,Echo in,Golf,Echo,https://example.test/s,2026-11-28T23:00:00+00:00,,conference_scenarios,\n"
+        "2026,Big 12,Golf in,Golf,Hotel,https://example.test/s,2026-11-28T23:00:00+00:00,,conference_scenarios,,\n"
+        "2026,Big 12,Echo in,Golf,Echo,https://example.test/s,2026-11-28T23:00:00+00:00,,conference_scenarios,,\n"
     )
     b12 = "2026,Big 12,2026-12-04,,,,neutral,tracker,https://example.test/b,,\n"
     wrong = review(tmp_path, full + b12, scen)
-    assert any("Echo" in p and "big-12" in p for p in wrong.problems)  # type: ignore[attr-defined]
+    assert any("Echo" in p and "big-12" in p for p in wrong.faults)  # type: ignore[attr-defined]
     twice = review(tmp_path, full + b12, scen.replace("Golf,Echo", "Hotel,Golf").replace("Echo in", "swap"))
-    assert any("listed twice" in p for p in twice.problems)  # type: ignore[attr-defined]
+    assert any("listed twice" in p for p in twice.faults)  # type: ignore[attr-defined]
     fine = review(tmp_path, full + b12, scen.splitlines(keepends=True)[0])
+    assert fine.faults == []  # type: ignore[attr-defined]
     assert fine.problems == []  # type: ignore[attr-defined]
+    assert fine.faults == []  # type: ignore[attr-defined]
+    assert open_named.faults == []  # type: ignore[attr-defined]  # a valid file; the section is another matter
     assert fine.combinations == 1  # type: ignore[attr-defined]
 
     late = review(tmp_path, full + row("Big 12", "Golf", "Hotel", "2026-11-29T08:00:00+00:00"))
     assert any("after the cutoff" in p for p in late.problems)  # type: ignore[attr-defined]
+    assert late.faults == []  # type: ignore[attr-defined]
     blank = review(tmp_path, full + row("Big 12", "Golf", "Hotel", ""))
-    assert any("no first-public time" in p for p in blank.problems)  # type: ignore[attr-defined]
+    assert any("no first-public time" in p for p in blank.faults)  # type: ignore[attr-defined]
     broken = review(tmp_path, "this is not, a title file\n")
-    assert broken.problems  # type: ignore[attr-defined]
+    assert broken.faults  # type: ignore[attr-defined]
     assert any("not delivered" in p for p in broken.problems)  # type: ignore[attr-defined]
     sun = "2026,Sun Belt,2026-12-04,,,,neutral,tracker,https://example.test/sb,,\n"
     grouped = review(tmp_path, full + row("Big 12", "Golf", "Hotel") + sun, group_leagues=("sun-belt",))
@@ -271,19 +275,29 @@ def test_the_pairings_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     argv += ["--cutoff", "2026-11-29T07:00:00+00:00"]
     (data / "title_games.csv").write_text(good)
     assert cli.main(argv) == 0
-    assert capsys.readouterr().out.rstrip().splitlines()[-1].startswith("OK")
+    last = capsys.readouterr().out.rstrip().splitlines()[-2:]
+    assert last[0] == "FILE: VALID"
+    assert last[1].startswith("SECTION: would be delivered")
+    # a valid file whose section would not be delivered: exit 0, because only the file decides a push
+    (data / "title_games.csv").write_text(good.replace("School T05,School T06", ","))
+    assert cli.main(argv) == 0
+    last = capsys.readouterr().out.rstrip().splitlines()[-2:]
+    assert last[0] == "FILE: VALID"
+    assert last[1].startswith("SECTION: not delivered")
+    assert "big-12" in last[1]
+    assert "product of scenario combinations 1" in last[1]
     (data / "title_games.csv").write_text("\ufeff" + good)
     assert cli.main(argv) != 0
     said = capsys.readouterr()
-    assert "PROBLEM" in said.err
+    assert "NOT VALID" in said.err
     assert "title_games.csv" in said.err
-    assert said.out.rstrip().splitlines()[-1].startswith("NOT OK")
+    assert said.out.rstrip().splitlines()[-2].startswith("FILE: NOT VALID")
     (data / "title_games.csv").write_text(good + "2026,Sun Belt,2026-12-05,School T26,School T27\n")
     assert cli.main(argv) != 0
     said = capsys.readouterr()
-    assert "PROBLEM" in said.err
-    assert "title_games.csv" in said.err
-    assert said.out.rstrip().splitlines()[-1].startswith("NOT OK")
+    assert "NOT VALID" in said.err
+    assert "title_games.csv line 6 has 5 fields" in said.err
+    assert said.out.rstrip().splitlines()[-2].startswith("FILE: NOT VALID")
 
 
 def test_outlets_are_named_when_the_url_is_a_carrier(tmp_path: Path) -> None:
@@ -331,3 +345,54 @@ def test_the_real_hand_files_are_well_formed() -> None:
             rows = list(csv.reader(handle))
         assert {len(row) for row in rows} == {len(rows[0])}, name
     assert load_title_games(data / "title_games.csv")
+
+
+def test_rows_are_written_with_a_csv_writer(tmp_path: Path) -> None:
+    """scripts/pairing_rows.py quotes what needs quoting and leaves other lines byte for byte."""
+    import csv
+    import importlib.util
+
+    root = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location("pairing_rows", root / "scripts" / "pairing_rows.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    path = tmp_path / "title_scenarios.csv"
+    other = '2026,ACC,x,Echo,Fox,https://example.test/a,2026-11-28T12:00:00+00:00,"kept, as is",b,,\n'
+    path.write_text(SCEN + other + "2026,SEC,old,Alpha,Beta,https://example.test/s,,,b,,\n")
+    note = 'Alabama, Tennessee or Texas; "quoted"'
+    module.replace_rows(path, 2026, "SEC", [{"scenario": "new", "team_a": "Alpha", "notes": note}])
+    text = path.read_text()
+    assert other in text
+    rows = list(csv.reader(text.splitlines()))
+    assert {len(row) for row in rows} == {len(rows[0])}
+    assert rows[-1][:4] == ["2026", "SEC", "new", "Alpha"]
+    assert note in rows[-1]
+    with pytest.raises(SystemExit, match="no column"):
+        module.replace_rows(path, 2026, "SEC", [{"nope": "x"}])
+
+
+def test_the_commit_hook_refuses_a_file_that_is_not_valid(tmp_path: Path) -> None:
+    """A commit touching a pairing file runs the check; its exit code decides. Other commits pass."""
+    import os
+    import shutil
+    import subprocess
+
+    hook = Path(__file__).resolve().parents[2] / "scripts" / "hooks" / "pre-commit"
+    git = shutil.which("git")
+    assert git is not None
+
+    def run(*argv: str, check: str | None = None) -> int:
+        env = os.environ | ({"PAIRINGS_CHECK": check} if check else {})
+        return subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, check=False).returncode
+
+    assert run(git, "init", "-q") == 0
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "title_games.csv").write_text("x\n")
+    (tmp_path / "other.txt").write_text("x\n")
+    assert run(git, "add", "other.txt") == 0
+    assert run(str(hook), check="false") == 0  # no pairing file staged: the check is not run
+    assert run(git, "add", "data/title_games.csv") == 0
+    assert run(str(hook), check="false") != 0
+    assert run(str(hook), check="true") == 0
