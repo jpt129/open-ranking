@@ -241,3 +241,5 @@ Not confirmed: that the hourly cloud capture fires on schedule (only hand-trigge
 - Reminders: recount after TCU–Texas Tech and after Friday's games; rerun `cfp forecast pairings` on Sunday afternoon before Monday's Open Ranking build; 19:00 ET Saturday report.
 - Fourth rulings the same day: CLAUDE.md boundary line; live title-case test. 565 tests.
 - Fifth rulings: check split into FILE and SECTION verdicts; commit hook; `scripts/pairing_rows.py`; SEC rows re-based; Sun Belt entered. Product on file 48, Big 12 open.
+- Friday dry-run list, complete: check_hook.sh; timings of build, sensitivity, gate, publish; late-Saturday entry; section not delivered and what a reader sees; eight-combination case timed from ingest to finished issue; malformed CSV at checkout; scenarios collapsing at 23:30; Issue 2 field run on scratch pairings; shares; Mac 00:10 fallback and what the Mac needs; where and when the issue's hash becomes public.
+- Monday 30 Nov 18:00 ET: product and SECTION line for Issue 2 to John.

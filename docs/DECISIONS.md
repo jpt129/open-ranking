@@ -1000,3 +1000,9 @@ John's rulings:
 **Entry procedure, as it now stands.** John sends (or Claude proposes) the conference, teams and URLs. Claude writes the rows with `scripts/pairing_rows.py`, runs `cfp forecast pairings --season 2026 --cutoff <the issue's cutoff>`, and shows John the diff and the output. FILE must read VALID. The SECTION line and the product are reported. Push on John's OK; the commit hook reruns the check.
 
 **Lists held back (26 Nov, from the conferences' pages).** Mountain West: ten pairings cannot be ruled out among New Mexico, North Dakota State, UNLV, Wyoming and Air Force; only North Dakota State at New Mexico is decided by results (UNLV loses to Nevada, Sat 9:00 pm ET); otherwise a composite of computer ratings "Sunday morning". American: UTSA against Memphis, North Texas or East Carolina on results; eight more pairings by Claude's derivation depend on computer ratings. Under the ranking-branch rule those branches need the conference's announcement.
+
+## 2026-11-26 — `6c5b1f8` accepted (FF-04)
+
+- Issue 2 pairings: 15:45 ET Tuesday 1 Dec is the hard limit. Target: every row on file by 18:00 ET Monday 30 Nov; at that time John gets the product and the SECTION line.
+- `scripts/check_hook.sh` prints `core.hooksPath` and stops if it is not `scripts/hooks`. It is step 0 of the Open Ranking release steps, a line in the Sunday issue steps, and a line of Friday's dry run.
+- The next report John needs is Friday's dry run.

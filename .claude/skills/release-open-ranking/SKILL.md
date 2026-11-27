@@ -4,6 +4,9 @@ description: Build, gate and publish an Open Ranking edition.
 ---
 Args: season, cutoff_utc. Run, in this order:
 
+0. `scripts/check_hook.sh` (prints core.hooksPath; stop if it is not scripts/hooks), then
+   `uv run cfp forecast pairings --season <season>`: FILE must read VALID, because the build reads
+   data/title_games.csv
 1. `uv run cfp open-ranking build`
 2. `uv run cfp open-ranking sensitivity --edition <id>` (VT-08; about half a minute on eight cores; it stops
    itself after ten minutes and writes nothing)
